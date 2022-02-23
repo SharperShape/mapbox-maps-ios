@@ -15,15 +15,10 @@ internal class CustomLocationProviderExample: UIViewController, ExampleProtocol 
 
         view.addSubview(mapView)
 
-        mapView.mapboxMap.onNext(.mapLoaded) { _ in
-            // initialize the custom location provoder with the location of your choice
-            let customLocationProvider = CustomLocationProvider(currentLocation: CLLocation(latitude: 40.7131854, longitude: -74.0165265))
-            self.mapView.location.overrideLocationProvider(with: customLocationProvider)
-            var puck = LocationIndicatorLayer(id: "thing")
-            puck.accuracyRadius = .constant(0.0)
-            self.mapView.location.options.puckBearingSource = .course
-            self.mapView.location.options.puckType = .puck2D()
-        }
+        // initialize the custom location provoder with the location of your choice
+        let customLocationProvider = CustomLocationProvider(currentLocation: CLLocation(latitude: 40.7131854, longitude: -74.0165265))
+        mapView.location.overrideLocationProvider(with: customLocationProvider)
+        mapView.location.options.puckType = .puck2D()
     }
 }
 
@@ -43,40 +38,41 @@ class CustomLocationProvider: LocationProvider {
     func setDelegate(_ delegate: LocationProviderDelegate) {
         self.delegate = delegate
         delegate.locationProvider(self, didUpdateLocations: [currentLocation])
+        delegate.locationProviderDidChangeAuthorization(self)
     }
 
     func requestAlwaysAuthorization() {
-        //
+        // not required for this example
     }
 
     func requestWhenInUseAuthorization() {
-        //
+        // not required for this example
     }
 
     func requestTemporaryFullAccuracyAuthorization(withPurposeKey purposeKey: String) {
-        //
+        // not required for this example
     }
 
     func startUpdatingLocation() {
-        //
+        // not required for this example
     }
 
     func stopUpdatingLocation() {
-        //
+        // not required for this example
     }
 
     var headingOrientation: CLDeviceOrientation
 
     func startUpdatingHeading() {
-        //
+        // not required for this example
     }
 
     func stopUpdatingHeading() {
-        //
+        // not required for this example
     }
 
     func dismissHeadingCalibrationDisplay() {
-        //
+        // not required for this example
     }
 
     init(currentLocation: CLLocation) {
@@ -88,4 +84,3 @@ class CustomLocationProvider: LocationProvider {
         self.currentLocation = currentLocation
     }
 }
-
