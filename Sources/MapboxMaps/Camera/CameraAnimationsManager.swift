@@ -19,13 +19,18 @@ internal protocol CameraAnimationsManagerProtocol: AnyObject {
                       animationOwner: AnimationOwner,
                       animations: @escaping (inout CameraTransition) -> Void) -> BasicCameraAnimator
 
+    func makeSimpleCameraAnimator(from: CameraOptions,
+                                  to: CameraOptions,
+                                  duration: TimeInterval,
+                                  curve: TimingCurve) -> SimpleCameraAnimatorProtocol
+
     func cancelAnimations()
 
     var animationsEnabled: Bool { get set }
 }
 
 /// An object that manages a camera's view lifecycle.
-public class CameraAnimationsManager: CameraAnimationsManagerProtocol {
+public final class CameraAnimationsManager: CameraAnimationsManagerProtocol {
 
     /// List of animators currently alive
     public var cameraAnimators: [CameraAnimator] {
@@ -33,7 +38,7 @@ public class CameraAnimationsManager: CameraAnimationsManagerProtocol {
     }
 
     /// Pointer HashTable for holding camera animators
-    private let cameraAnimatorsSet = WeakSet<CameraAnimatorInterface>()
+    private let cameraAnimatorsSet = WeakSet<CameraAnimatorProtocol>()
 
     private var runningCameraAnimators = [CameraAnimator]()
 
@@ -330,6 +335,46 @@ public class CameraAnimationsManager: CameraAnimationsManagerProtocol {
         cameraAnimatorsSet.add(decelerateAnimator)
         decelerateAnimator.startAnimation()
         internalAnimator = decelerateAnimator
+    }
+
+    /// Creates an instance of ``SimpleCameraAnimator``.
+    /// - Parameters:
+    ///   - from: The initial camera.
+    ///   - to: The target camera.
+    ///   - duration: How long the animation should last.
+    ///   - curve: A timing curve that allows applying easing effects to the animation.
+    /// - Returns: A new ``SimpleCameraAnimator``.
+    internal func makeSimpleCameraAnimator(from: CameraOptions,
+                                           to: CameraOptions,
+                                           duration: TimeInterval,
+                                           curve: TimingCurve) -> SimpleCameraAnimatorProtocol {
+        let doubleInterpolator = DoubleInterpolator()
+        let wrappingInterpolator = WrappingInterpolator()
+        let longitudeInterpolator = LongitudeInterpolator(
+            wrappingInterpolator: wrappingInterpolator)
+        let coordinateInterpolator = CoordinateInterpolator(
+            doubleInterpolator: doubleInterpolator,
+            longitudeInterpolator: longitudeInterpolator)
+        let uiEdgeInsetsInterpolator = UIEdgeInsetsInterpolator(
+            doubleInterpolator: doubleInterpolator)
+        let directionInterpolator = DirectionInterpolator(
+            wrappingInterpolator: wrappingInterpolator)
+        let cameraOptionsInterpolator = CameraOptionsInterpolator(
+            coordinateInterpolator: coordinateInterpolator,
+            uiEdgeInsetsInterpolator: uiEdgeInsetsInterpolator,
+            doubleInterpolator: doubleInterpolator,
+            directionInterpolator: directionInterpolator)
+        let animator = SimpleCameraAnimator(
+            from: from,
+            to: to,
+            duration: duration,
+            curve: curve,
+            mapboxMap: mapboxMap,
+            cameraOptionsInterpolator: cameraOptionsInterpolator,
+            dateProvider: DefaultDateProvider(),
+            delegate: self)
+        cameraAnimatorsSet.add(animator)
+        return animator
     }
 }
 

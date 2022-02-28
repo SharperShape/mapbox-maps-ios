@@ -1,6 +1,6 @@
 import UIKit
 
-internal final class GestureDecelerationCameraAnimator: NSObject, CameraAnimatorInterface {
+internal final class GestureDecelerationCameraAnimator: NSObject, CameraAnimatorProtocol {
 
     private let location: CGPoint
     private var velocity: CGPoint

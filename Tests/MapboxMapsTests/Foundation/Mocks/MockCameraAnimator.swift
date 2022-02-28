@@ -1,7 +1,7 @@
 import Foundation
 @testable import MapboxMaps
 
-final class MockCameraAnimator: NSObject, CameraAnimatorInterface {
+final class MockCameraAnimator: NSObject, CameraAnimatorProtocol {
     func cancel() {
     }
 

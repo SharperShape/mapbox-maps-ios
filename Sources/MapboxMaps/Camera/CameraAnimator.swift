@@ -10,7 +10,7 @@ public protocol CameraAnimator: Cancelable {
 }
 
 /// Internal-facing protocol to represent camera animators
-internal protocol CameraAnimatorInterface: CameraAnimator {
+internal protocol CameraAnimatorProtocol: CameraAnimator {
     func update()
 }
 

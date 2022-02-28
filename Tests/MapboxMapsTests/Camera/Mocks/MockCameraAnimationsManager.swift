@@ -76,4 +76,22 @@ final class MockCameraAnimationsManager: CameraAnimationsManagerProtocol {
             animationOwner: animationOwner,
             animations: animations))
     }
+
+    struct MakeSimpleCameraAnimatorParams {
+        var from: CameraOptions
+        var to: CameraOptions
+        var duration: TimeInterval
+        var curve: TimingCurve
+    }
+    let makeSimpleCameraAnimatorStub = Stub<MakeSimpleCameraAnimatorParams, SimpleCameraAnimatorProtocol>(defaultReturnValue: MockSimpleCameraAnimator())
+    func makeSimpleCameraAnimator(from: CameraOptions,
+                                  to: CameraOptions,
+                                  duration: TimeInterval,
+                                  curve: TimingCurve) -> SimpleCameraAnimatorProtocol {
+        makeSimpleCameraAnimatorStub.call(with: .init(
+            from: from,
+            to: to,
+            duration: duration,
+            curve: curve))
+    }
 }

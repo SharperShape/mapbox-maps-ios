@@ -2,7 +2,7 @@ import UIKit
 import CoreLocation
 
 // MARK: CameraAnimator Class
-public class BasicCameraAnimator: NSObject, CameraAnimator, CameraAnimatorInterface {
+public class BasicCameraAnimator: NSObject, CameraAnimator, CameraAnimatorProtocol {
     private enum InternalState: Equatable {
         case initial
         case running(CameraTransition)

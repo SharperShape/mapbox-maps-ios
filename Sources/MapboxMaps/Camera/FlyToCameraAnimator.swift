@@ -1,6 +1,6 @@
 import UIKit
 
-public class FlyToCameraAnimator: NSObject, CameraAnimator, CameraAnimatorInterface {
+public class FlyToCameraAnimator: NSObject, CameraAnimator, CameraAnimatorProtocol {
 
     private let mapboxMap: MapboxMapProtocol
 
