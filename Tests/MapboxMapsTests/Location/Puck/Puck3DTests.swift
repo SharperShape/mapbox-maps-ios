@@ -1,5 +1,5 @@
 import XCTest
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 final class Puck3DTests: XCTestCase {
 
@@ -103,18 +103,18 @@ final class Puck3DTests: XCTestCase {
         expectedModel.position = [coordinate.longitude, coordinate.latitude]
         expectedModel.orientation = [0, 0, 0]
         XCTAssertEqual(style.addSourceStub.invocations.count, 1)
-        let actualSource = try XCTUnwrap(style.addSourceStub.parameters.first?.source as? ModelSource)
+        let actualSource = try XCTUnwrap(style.addSourceStub.invocations.first?.parameters.source as? ModelSource)
         XCTAssertEqual(actualSource.type, .model)
         XCTAssertEqual(actualSource.models, ["puck-model": expectedModel])
-        XCTAssertEqual(style.addSourceStub.parameters.first?.id, "puck-model-source")
+        XCTAssertEqual(style.addSourceStub.invocations.first?.parameters.id, "puck-model-source")
 
         XCTAssertEqual(style.addPersistentLayerWithPropertiesStub.invocations.count, 0)
         XCTAssertEqual(style.addPersistentLayerStub.invocations.count, 1)
-        let actualLayer = try XCTUnwrap(style.addPersistentLayerStub.parameters.first?.layer as? ModelLayer)
+        let actualLayer = try XCTUnwrap(style.addPersistentLayerStub.invocations.first?.parameters.layer as? ModelLayer)
         XCTAssertEqual(actualLayer.id, "puck-model-layer")
-        XCTAssertEqual(actualLayer.paint?.modelLayerType, .constant(.locationIndicator))
+        XCTAssertEqual(actualLayer.modelType, .constant(.locationIndicator))
         XCTAssertEqual(actualLayer.source, "puck-model-source")
-        XCTAssertEqual(style.addPersistentLayerStub.parameters.first?.layerPosition, nil)
+        XCTAssertEqual(style.addPersistentLayerStub.invocations.first?.parameters.layerPosition, nil)
     }
 
     func testModelOrientationBasedOnHeading() throws {
@@ -134,7 +134,7 @@ final class Puck3DTests: XCTestCase {
 
         var expectedOrientation = configuration.model.orientation!
         expectedOrientation[2] += heading
-        let actualSource = try XCTUnwrap(style.addSourceStub.parameters.first?.source as? ModelSource)
+        let actualSource = try XCTUnwrap(style.addSourceStub.invocations.first?.parameters.source as? ModelSource)
         XCTAssertEqual(actualSource.models?["puck-model"]?.orientation, expectedOrientation)
     }
 
@@ -154,7 +154,7 @@ final class Puck3DTests: XCTestCase {
 
         var expectedOrientation = configuration.model.orientation!
         expectedOrientation[2] += location.course!
-        let actualSource = try XCTUnwrap(style.addSourceStub.parameters.first?.source as? ModelSource)
+        let actualSource = try XCTUnwrap(style.addSourceStub.invocations.first?.parameters.source as? ModelSource)
         XCTAssertEqual(actualSource.models?["puck-model"]?.orientation, expectedOrientation)
     }
 
@@ -174,7 +174,7 @@ final class Puck3DTests: XCTestCase {
         puck3D.isActive = true
 
         let expectedOrientation = configuration.model.orientation!
-        let actualSource = try XCTUnwrap(style.addSourceStub.parameters.first?.source as? ModelSource)
+        let actualSource = try XCTUnwrap(style.addSourceStub.invocations.first?.parameters.source as? ModelSource)
         XCTAssertEqual(actualSource.models?["puck-model"]?.orientation, expectedOrientation)
     }
 
@@ -193,12 +193,11 @@ final class Puck3DTests: XCTestCase {
         puck3D.isActive = true
 
         let expectedOrientation = configuration.model.orientation!
-        let actualSource = try XCTUnwrap(style.addSourceStub.parameters.first?.source as? ModelSource)
+        let actualSource = try XCTUnwrap(style.addSourceStub.invocations.first?.parameters.source as? ModelSource)
         XCTAssertEqual(actualSource.models?["puck-model"]?.orientation, expectedOrientation)
     }
 
-    func testModelScaleAndRotation() throws {
-        configuration.modelScale = .constant(.random(withLength: 3, generator: { .random(in: 1..<10) }))
+    func testModelRotation() throws {
         configuration.modelRotation = .constant(.random(withLength: 3, generator: { .random(in: 0..<360) }))
         recreatePuck()
         interpolatedLocationProducer.location = .random()
@@ -206,9 +205,32 @@ final class Puck3DTests: XCTestCase {
 
         puck3D.isActive = true
 
-        let actualLayer = try XCTUnwrap(style.addPersistentLayerStub.parameters.first?.layer as? ModelLayer)
-        XCTAssertEqual(actualLayer.paint?.modelScale, configuration.modelScale)
-        XCTAssertEqual(actualLayer.paint?.modelRotation, configuration.modelRotation)
+        let actualLayer = try XCTUnwrap(style.addPersistentLayerStub.invocations.first?.parameters.layer as? ModelLayer)
+        XCTAssertEqual(actualLayer.modelRotation, configuration.modelRotation)
+    }
+
+    func testDefaultModelScale() throws {
+        let stubbedModelScale = 1.0
+        configuration.modelScale = .constant([stubbedModelScale, stubbedModelScale, stubbedModelScale])
+
+        recreatePuck()
+
+        interpolatedLocationProducer.location = InterpolatedLocation(
+            location: Location(with: CLLocation(latitude: 0, longitude: 0))
+        )
+        style.layerExistsStub.defaultReturnValue = false
+        puck3D.isActive = true
+
+        let modelLayer = try XCTUnwrap(style.addPersistentLayerStub.invocations.first?.parameters.layer as? ModelLayer)
+        let modelScaleString = try XCTUnwrap(try modelLayer.modelScale?.jsonString())
+
+        let modelScalePattern =
+            #"^\["interpolate","# +
+            #"\["exponential",0.5\],"# +
+            #"\["zoom"\],"# +
+            #"0.5,\["literal",\[(?:[0-9]+(?:\.[0-9]+)*,?){3}\]\],"# +
+            #"22,\["literal",\[(?:[0-9]+(?:\.[0-9]+)*,?){3}\]\]\]$"#
+        XCTAssertNotNil(modelScaleString.range(of: modelScalePattern, options: .regularExpression))
     }
 
     func testUpdateExistingSource() throws {
@@ -229,10 +251,10 @@ final class Puck3DTests: XCTestCase {
         expectedSource.models = ["puck-model": expectedModel]
         XCTAssertEqual(style.addSourceStub.invocations.count, 0)
         XCTAssertEqual(style.setSourcePropertiesStub.invocations.count, 1)
-        let actualProperties = try XCTUnwrap(style.setSourcePropertiesStub.parameters.first?.properties)
+        let actualProperties = try XCTUnwrap(style.setSourcePropertiesStub.invocations.first?.parameters.properties)
         let expectedProperties = try expectedSource.jsonObject()
         XCTAssertEqual(actualProperties as NSDictionary, expectedProperties as NSDictionary)
-        XCTAssertEqual(style.setSourcePropertiesStub.parameters.first?.sourceId, "puck-model-source")
+        XCTAssertEqual(style.setSourcePropertiesStub.invocations.first?.parameters.sourceId, "puck-model-source")
 
         XCTAssertEqual(style.addPersistentLayerWithPropertiesStub.invocations.count, 0)
         XCTAssertEqual(style.addPersistentLayerStub.invocations.count, 0)

@@ -1,14 +1,13 @@
+import UIKit
 internal protocol AttributionDataSource: AnyObject {
     func attributions() -> [Attribution]
 }
 
-@available(iOSApplicationExtension, unavailable)
 internal protocol AttributionDialogManagerDelegate: AnyObject {
     func viewControllerForPresenting(_ attributionDialogManager: AttributionDialogManager) -> UIViewController
     func attributionDialogManager(_ attributionDialogManager: AttributionDialogManager, didTriggerActionFor attribution: Attribution)
 }
 
-@available(iOSApplicationExtension, unavailable)
 internal class AttributionDialogManager {
 
     private weak var dataSource: AttributionDataSource?
@@ -91,7 +90,7 @@ internal class AttributionDialogManager {
                                           comment: "Telemetry prompt button")
         let moreAction = UIAlertAction(title: moreTitle, style: .default) { _ in
             guard let url = URL(string: Ornaments.telemetryURL) else { return }
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            self.delegate?.attributionDialogManager(self, didTriggerActionFor: Attribution(title: "", url: url))
         }
         alert.addAction(moreAction)
 
@@ -108,7 +107,6 @@ internal class AttributionDialogManager {
 }
 
 // MARK: InfoButtonOrnamentDelegate Implementation
-@available(iOSApplicationExtension, unavailable)
 extension AttributionDialogManager: InfoButtonOrnamentDelegate {
     func didTap(_ infoButtonOrnament: InfoButtonOrnament) {
         guard let viewController = delegate?.viewControllerForPresenting(self) else {
@@ -117,7 +115,7 @@ extension AttributionDialogManager: InfoButtonOrnamentDelegate {
 
         let title = NSLocalizedString("SDK_NAME",
                                       tableName: nil,
-                                      value: "Mapbox Maps SDK for iOS",
+                                      value: "Powered by Mapbox Maps",
                                       comment: "Action sheet title")
 
         let alert: UIAlertController
@@ -131,11 +129,18 @@ extension AttributionDialogManager: InfoButtonOrnamentDelegate {
         let bundle = Bundle.mapboxMaps
 
         if let attributions = dataSource?.attributions() {
-            for attribution in attributions {
-                let action = UIAlertAction(title: attribution.title, style: .default) { _ in
-                    self.delegate?.attributionDialogManager(self, didTriggerActionFor: attribution)
+
+            // Non actionable single item gets displayed as alert's message
+            if attributions.count == 1, let attribution = attributions.first, attribution.kind == .nonActionable {
+                alert.message = attribution.title
+            } else {
+                for attribution in attributions {
+                    let action = UIAlertAction(title: attribution.title, style: .default) { _ in
+                        self.delegate?.attributionDialogManager(self, didTriggerActionFor: attribution)
+                    }
+                    action.isEnabled = attribution.kind != .nonActionable
+                    alert.addAction(action)
                 }
-                alert.addAction(action)
             }
         }
 

@@ -4,15 +4,18 @@ import XCTest
 final class LocationManagerTests: XCTestCase {
 
     var locationProducer: MockLocationProducer!
+    var interpolatedLocationProducer: MockInterpolatedLocationProducer!
     var puckManager: MockPuckManager!
     var locationManager: LocationManager!
 
     override func setUp() {
         super.setUp()
         locationProducer = MockLocationProducer()
+        interpolatedLocationProducer = MockInterpolatedLocationProducer()
         puckManager = MockPuckManager()
         locationManager = LocationManager(
             locationProducer: locationProducer,
+            interpolatedLocationProducer: interpolatedLocationProducer,
             puckManager: puckManager)
     }
 
@@ -106,7 +109,7 @@ final class LocationManagerTests: XCTestCase {
         locationManager.addLocationConsumer(newConsumer: consumer)
 
         XCTAssertEqual(locationProducer.addStub.invocations.count, 1)
-        XCTAssertTrue(locationProducer.addStub.parameters.first === consumer)
+        XCTAssertTrue(locationProducer.addStub.invocations.first?.parameters === consumer)
     }
 
     func testRemoveLocationConsumer() {
@@ -115,7 +118,7 @@ final class LocationManagerTests: XCTestCase {
         locationManager.removeLocationConsumer(consumer: consumer)
 
         XCTAssertEqual(locationProducer.removeStub.invocations.count, 1)
-        XCTAssertTrue(locationProducer.removeStub.parameters.first === consumer)
+        XCTAssertTrue(locationProducer.removeStub.invocations.first?.parameters === consumer)
     }
 
     @available(iOS 14.0, *)
@@ -125,7 +128,7 @@ final class LocationManagerTests: XCTestCase {
         locationManager.requestTemporaryFullAccuracyPermissions(withPurposeKey: purposeKey)
 
         let locationProvider = try XCTUnwrap(locationProducer.locationProvider as? MockLocationProvider)
-        XCTAssertEqual(locationProvider.requestTemporaryFullAccuracyAuthorizationStub.parameters, [purposeKey])
+        XCTAssertEqual(locationProvider.requestTemporaryFullAccuracyAuthorizationStub.invocations.map(\.parameters), [purposeKey])
     }
 
     func testLocationProducerDidFailWithError() {
@@ -136,8 +139,8 @@ final class LocationManagerTests: XCTestCase {
         locationManager.locationProducer(locationProducer, didFailWithError: error)
 
         XCTAssertEqual(delegate.didFailToLocateUserWithErrorStub.invocations.count, 1)
-        XCTAssertTrue(delegate.didFailToLocateUserWithErrorStub.parameters.first?.locationManager === locationManager)
-        XCTAssertTrue(delegate.didFailToLocateUserWithErrorStub.parameters.first?.error as? MockError === error)
+        XCTAssertTrue(delegate.didFailToLocateUserWithErrorStub.invocations.first?.parameters.locationManager === locationManager)
+        XCTAssertTrue(delegate.didFailToLocateUserWithErrorStub.invocations.first?.parameters.error as? MockError === error)
     }
 
     func testLocationProducerDidChangeAccuracyAuthorization() {
@@ -148,7 +151,19 @@ final class LocationManagerTests: XCTestCase {
         locationManager.locationProducer(locationProducer, didChangeAccuracyAuthorization: accuracyAuthorization)
 
         XCTAssertEqual(delegate.didChangeAccuracyAuthorizationStub.invocations.count, 1)
-        XCTAssertTrue(delegate.didChangeAccuracyAuthorizationStub.parameters.first?.locationManager === locationManager)
-        XCTAssertEqual(delegate.didChangeAccuracyAuthorizationStub.parameters.first?.accuracyAuthorization, accuracyAuthorization)
+        XCTAssertTrue(delegate.didChangeAccuracyAuthorizationStub.invocations.first?.parameters.locationManager === locationManager)
+        XCTAssertEqual(delegate.didChangeAccuracyAuthorizationStub.invocations.first?.parameters.accuracyAuthorization, accuracyAuthorization)
+    }
+
+    func testAddPuckLocationConsumer() {
+        let consumer = MockPuckLocationConsumer()
+        locationManager.addPuckLocationConsumer(consumer)
+        XCTAssertIdentical(interpolatedLocationProducer.addPuckLocationConsumerStub.invocations.first?.parameters, consumer)
+    }
+
+    func testRemovePuckLocationConsumer() {
+        let consumer = MockPuckLocationConsumer()
+        locationManager.removePuckLocationConsumer(consumer)
+        XCTAssertIdentical(interpolatedLocationProducer.removePuckLocationConsumerStub.invocations.first?.parameters, consumer)
     }
 }

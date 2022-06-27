@@ -5,7 +5,7 @@ import Turf
 ///
 /// Use ``Viewport/makeOverviewViewportState(options:)`` to create instances of this
 /// class.
-@_spi(Experimental) public final class OverviewViewportState {
+public final class OverviewViewportState {
 
     /// Configuration options.
     ///
@@ -58,7 +58,7 @@ import Turf
 
     private func animate(to cameraOptions: CameraOptions) {
         cameraAnimationCancelable?.cancel()
-        cameraAnimationCancelable = cameraAnimationsManager.internalEase(
+        cameraAnimationCancelable = cameraAnimationsManager.ease(
             to: cameraOptions,
             duration: max(0, options.animationDuration),
             curve: .linear,

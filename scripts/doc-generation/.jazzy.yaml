@@ -21,6 +21,8 @@ custom_categories:
       - ResourceOptionsManager
       - MapOptions
       - GlyphsRasterizationOptions
+      - InterfaceOrientationProvider
+      - AttributionURLOpener
 
   - name: Snapshotter
     children:
@@ -38,6 +40,7 @@ custom_categories:
       - CameraBoundsOptions
       - CoordinateBounds
       - Event
+      - TypedEvent
       - MapEvents
       - RenderedQueryOptions
       - QueriedFeature
@@ -95,6 +98,7 @@ custom_categories:
       - RasterLayer
       - SkyLayer
       - SymbolLayer
+      - ModelLayer
 
   - name: Layer Property Values
     children:
@@ -118,6 +122,7 @@ custom_categories:
       - ResolvedImage
       - ResolvedImageData
       - SkyType
+      - ModelType
       - StyleColor
       - StyleTransition
       - SymbolPlacement
@@ -229,6 +234,7 @@ custom_categories:
     children:
       - OfflineManager
       - OfflineRegion
+      - OfflineRegionManager
       - OfflineRegionGeometryDefinition
       - OfflineSwitch
       - StylePackError

@@ -6,38 +6,46 @@ final class GestureDecelerationCameraAnimatorTests: XCTestCase {
     var location: CGPoint!
     var velocity: CGPoint!
     var decelerationFactor: CGFloat!
+    var owner: AnimationOwner!
     var locationChangeHandler: MockLocationChangeHandler!
+    var mainQueue: MockMainQueue!
     var dateProvider: MockDateProvider!
+    var animator: GestureDecelerationCameraAnimator!
     // swiftlint:disable:next weak_delegate
     var delegate: MockCameraAnimatorDelegate!
-    var animator: GestureDecelerationCameraAnimator!
-    var completion: Stub<Void, Void>!
+    var completion: Stub<UIViewAnimatingPosition, Void>!
 
     override func setUp() {
         super.setUp()
         location = .zero
-        velocity = CGPoint(x: 1000, y: -1000)
+        velocity = CGPoint(x: 2000, y: -2000)
         decelerationFactor = 0.7
+        owner = .random()
         locationChangeHandler = MockLocationChangeHandler()
+        mainQueue = MockMainQueue()
         dateProvider = MockDateProvider()
-        delegate = MockCameraAnimatorDelegate()
         animator = GestureDecelerationCameraAnimator(
             location: location,
             velocity: velocity,
             decelerationFactor: decelerationFactor,
+            owner: owner,
             locationChangeHandler: locationChangeHandler.call(withFromLocation:toLocation:),
-            dateProvider: dateProvider,
-            delegate: delegate)
+            mainQueue: mainQueue,
+            dateProvider: dateProvider)
+        delegate = MockCameraAnimatorDelegate()
+        animator.delegate = delegate
         completion = Stub()
-        animator.completion = completion.call
+        animator.addCompletion(completion.call(with:))
     }
 
     override func tearDown() {
         completion = nil
-        animator = nil
         delegate = nil
+        animator = nil
         dateProvider = nil
+        mainQueue = nil
         locationChangeHandler = nil
+        owner = nil
         decelerationFactor = nil
         velocity = nil
         location = nil
@@ -53,7 +61,24 @@ final class GestureDecelerationCameraAnimatorTests: XCTestCase {
 
         XCTAssertEqual(animator.state, .active)
         XCTAssertEqual(delegate.cameraAnimatorDidStartRunningStub.invocations.count, 1)
-        XCTAssertTrue(delegate.cameraAnimatorDidStartRunningStub.parameters.first === animator)
+        XCTAssertTrue(delegate.cameraAnimatorDidStartRunningStub.invocations.first?.parameters === animator)
+    }
+
+    func testStartAnimationWhenAlreadyRunning() {
+        animator.startAnimation()
+        delegate.cameraAnimatorDidStartRunningStub.reset()
+
+        animator.startAnimation()
+
+        XCTAssertEqual(delegate.cameraAnimatorDidStartRunningStub.invocations.count, 0)
+    }
+
+    func testStartAnimationWhenAlreadyComplete() {
+        animator.stopAnimation()
+
+        animator.startAnimation()
+
+        XCTAssertEqual(delegate.cameraAnimatorDidStartRunningStub.invocations.count, 0)
     }
 
     func testStopAnimation() {
@@ -62,9 +87,28 @@ final class GestureDecelerationCameraAnimatorTests: XCTestCase {
         animator.stopAnimation()
 
         XCTAssertEqual(animator.state, .inactive)
-        XCTAssertEqual(completion.invocations.count, 1)
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.current])
         XCTAssertEqual(delegate.cameraAnimatorDidStopRunningStub.invocations.count, 1)
-        XCTAssertTrue(delegate.cameraAnimatorDidStopRunningStub.parameters.first === animator)
+        XCTAssertTrue(delegate.cameraAnimatorDidStopRunningStub.invocations.first?.parameters === animator)
+    }
+
+    func testStopAnimationWithoutStarting() {
+        animator.stopAnimation()
+
+        XCTAssertEqual(animator.state, .inactive)
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.current])
+        XCTAssertEqual(delegate.cameraAnimatorDidStopRunningStub.invocations.count, 0)
+    }
+
+    func testStopAnimationWhenAlreadyComplete() {
+        animator.stopAnimation()
+        completion.reset()
+
+        animator.stopAnimation()
+
+        XCTAssertEqual(animator.state, .inactive)
+        XCTAssertEqual(completion.invocations.count, 0)
+        XCTAssertEqual(delegate.cameraAnimatorDidStopRunningStub.invocations.count, 0)
     }
 
     func testUpdate() {
@@ -75,7 +119,7 @@ final class GestureDecelerationCameraAnimatorTests: XCTestCase {
         animator.update()
 
         // Expected value is duration * velocity;
-        XCTAssertEqual(locationChangeHandler.parameters, [.init(fromLocation: location, toLocation: CGPoint(x: 10, y: -10))])
+        XCTAssertEqual(locationChangeHandler.invocations.map(\.parameters), [.init(fromLocation: location, toLocation: CGPoint(x: 20, y: -20))])
         // The previous update() should also have reduced the velocity
         // by multiplying it by the decelerationFactor once for each elapsed
         // millisecond. In this simulateion, 10 ms have elapsed.
@@ -102,10 +146,52 @@ final class GestureDecelerationCameraAnimatorTests: XCTestCase {
                        accuracy: 0.0000000001)
         locationChangeHandler.reset()
         // After the previous update() call, the velocity should have also been reduced
-        // to be sufficiently low (< 20 in both x and y) to end the animation.
+        // to be sufficiently low (< 35 in both x and y) to end the animation.
         XCTAssertEqual(animator.state, .inactive)
-        XCTAssertEqual(completion.invocations.count, 1)
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.end])
         XCTAssertEqual(delegate.cameraAnimatorDidStopRunningStub.invocations.count, 1)
-        XCTAssertTrue(delegate.cameraAnimatorDidStopRunningStub.parameters.first === animator)
+        XCTAssertTrue(delegate.cameraAnimatorDidStopRunningStub.invocations.first?.parameters === animator)
+    }
+
+    func testAddCompletionToRunningAnimator() {
+        animator.startAnimation()
+
+        let completion = Stub<UIViewAnimatingPosition, Void>()
+        animator.addCompletion(completion.call(with:))
+
+        animator.stopAnimation()
+
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.current])
+    }
+
+    func testAddCompletionToCanceledAnimator() throws {
+        animator.startAnimation()
+        animator.stopAnimation()
+
+        let completion = Stub<UIViewAnimatingPosition, Void>()
+        animator.addCompletion(completion.call(with:))
+
+        XCTAssertEqual(mainQueue.asyncStub.invocations.count, 1)
+        let closure = try XCTUnwrap(mainQueue.asyncStub.invocations.first?.parameters)
+
+        closure()
+
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.current])
+    }
+
+    func testAddCompletionToCompletedAnimator() throws {
+        animator.startAnimation()
+        dateProvider.nowStub.defaultReturnValue += 1
+        animator.update()
+
+        let completion = Stub<UIViewAnimatingPosition, Void>()
+        animator.addCompletion(completion.call(with:))
+
+        XCTAssertEqual(mainQueue.asyncStub.invocations.count, 1)
+        let closure = try XCTUnwrap(mainQueue.asyncStub.invocations.first?.parameters)
+
+        closure()
+
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.end])
     }
 }

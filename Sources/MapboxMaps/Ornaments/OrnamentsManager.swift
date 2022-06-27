@@ -19,7 +19,6 @@ internal struct Ornaments {
     static let telemetryURL = "https://www.mapbox.com/telemetry/"
 }
 
-@available(iOSApplicationExtension, unavailable)
 public class OrnamentsManager: NSObject {
 
     /// The `OrnamentOptions` object that is used to set up and update the required ornaments on the map.
@@ -93,7 +92,7 @@ public class OrnamentsManager: NSObject {
         compassView.translatesAutoresizingMaskIntoConstraints = false
         compassView.tapAction = {
             cameraAnimationsManager.cancelAnimations()
-            cameraAnimationsManager.internalEase(
+            cameraAnimationsManager.ease(
                 to: CameraOptions(bearing: 0),
                 duration: 0.3,
                 curve: .easeOut,
@@ -117,7 +116,7 @@ public class OrnamentsManager: NSObject {
         // MapboxMap should not be allowed to own a strong ref to compassView
         // since compassView owns a tapAction that captures a strong ref to
         // cameraAnimationsManager which has a strong ref to mapboxMap.
-        mapboxMap.onEvery(.cameraChanged) { [weak mapboxMap, weak scaleBarView, weak compassView] _ in
+        mapboxMap.onEvery(event: .cameraChanged) { [weak mapboxMap, weak scaleBarView, weak compassView] _ in
             guard let mapboxMap = mapboxMap,
                   let scaleBarView = scaleBarView,
                   let compassView = compassView else {

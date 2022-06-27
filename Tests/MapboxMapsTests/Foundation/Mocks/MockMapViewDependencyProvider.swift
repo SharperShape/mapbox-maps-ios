@@ -2,20 +2,13 @@ import Foundation
 @testable import MapboxMaps
 
 final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
-    let makeNotificationCenterStub = Stub<Void, NotificationCenterProtocol>(defaultReturnValue: MockNotificationCenter())
-    func makeNotificationCenter() -> NotificationCenterProtocol {
-        makeNotificationCenterStub.call()
-    }
+    @Stubbed var notificationCenter: NotificationCenterProtocol = MockNotificationCenter()
 
-    let makeBundleStub = Stub<Void, BundleProtocol>(defaultReturnValue: MockBundle())
-    func makeBundle() -> BundleProtocol {
-        makeBundleStub.call()
-    }
+    @Stubbed var bundle: BundleProtocol = MockBundle()
 
-    let makeMapboxObservableProviderStub = Stub<Void, (ObservableProtocol) -> MapboxObservableProtocol>(defaultReturnValue: { _ in MockMapboxObservable() })
-    func makeMapboxObservableProvider() -> (ObservableProtocol) -> MapboxObservableProtocol {
-        makeMapboxObservableProviderStub.call()
-    }
+    @Stubbed var mapboxObservableProvider: (ObservableProtocol) -> MapboxObservableProtocol = { _ in MockMapboxObservable() }
+
+    @Stubbed var cameraAnimatorsRunnerEnablable: MutableEnablableProtocol = Enablable()
 
     struct MakeMetalViewParams {
         var frame: CGRect
@@ -44,6 +37,18 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
                 selector: selector))
     }
 
+    let makeCameraAnimatorsRunnerStub = Stub<MapboxMapProtocol, CameraAnimatorsRunnerProtocol>(
+        defaultReturnValue: MockCameraAnimatorsRunner())
+    func makeCameraAnimatorsRunner(mapboxMap: MapboxMapProtocol) -> CameraAnimatorsRunnerProtocol {
+        makeCameraAnimatorsRunnerStub.call(with: mapboxMap)
+    }
+
+    func makeCameraAnimationsManagerImpl(cameraViewContainerView: UIView,
+                                         mapboxMap: MapboxMapProtocol,
+                                         cameraAnimatorsRunner: CameraAnimatorsRunnerProtocol) -> CameraAnimationsManagerProtocol {
+        MockCameraAnimationsManager()
+    }
+
     func makeGestureManager(
         view: UIView,
         mapboxMap: MapboxMapProtocol,
@@ -67,8 +72,9 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
         return GestureHandler(gestureRecognizer: UIGestureRecognizer())
     }
 
+    let makeLocationProducerStub = Stub<Bool, MockLocationProducer>(defaultReturnValue: MockLocationProducer())
     func makeLocationProducer(mayRequestWhenInUseAuthorization: Bool) -> LocationProducerProtocol {
-        return MockLocationProducer()
+        return makeLocationProducerStub.call(with: mayRequestWhenInUseAuthorization)
     }
 
     func makeInterpolatedLocationProducer(locationProducer: LocationProducerProtocol,
@@ -79,7 +85,10 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
     func makeLocationManager(locationProducer: LocationProducerProtocol,
                              interpolatedLocationProducer: InterpolatedLocationProducerProtocol,
                              style: StyleProtocol) -> LocationManager {
-        return LocationManager(locationProducer: locationProducer, puckManager: MockPuckManager())
+        return LocationManager(
+            locationProducer: locationProducer,
+            interpolatedLocationProducer: interpolatedLocationProducer,
+            puckManager: MockPuckManager())
     }
 
     struct MakeViewportImplParams {
