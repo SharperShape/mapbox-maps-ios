@@ -1,6 +1,7 @@
 // swiftlint:disable file_length
 @_implementationOnly import MapboxCommon_Private
 @_implementationOnly import MapboxCoreMaps_Private
+import UIKit
 
 internal protocol StyleProtocol: AnyObject {
     func addPersistentLayer(_ layer: Layer, layerPosition: LayerPosition?) throws
@@ -8,6 +9,7 @@ internal protocol StyleProtocol: AnyObject {
     func removeLayer(withId id: String) throws
     func layerExists(withId id: String) -> Bool
     func setLayerProperties(for layerId: String, properties: [String: Any]) throws
+    func setLayerProperty(for layerId: String, property: String, value: Any) throws
 
     func addSource(_ source: Source, id: String) throws
     func removeSource(withId id: String) throws
@@ -33,10 +35,13 @@ internal protocol StyleProtocol: AnyObject {
 /// Note: Style should only be used from the main thread.
 public final class Style: StyleProtocol {
 
-    public private(set) weak var styleManager: StyleManager!
+    private let _styleManager: StyleManagerProtocol
+    public weak var styleManager: StyleManager! {
+        _styleManager.asStyleManager()
+    }
 
-    internal init(with styleManager: StyleManager) {
-        self.styleManager = styleManager
+    internal init(with styleManager: StyleManagerProtocol) {
+        self._styleManager = styleManager
 
         if let uri = StyleURI(rawValue: styleManager.getStyleURI()) {
             self.uri = uri
@@ -80,14 +85,8 @@ public final class Style: StyleProtocol {
      - Throws: `StyleError` on failure, or `NSError` with a _domain of "com.mapbox.bindgen"
      */
     public func moveLayer(withId id: String, to position: LayerPosition) throws {
-        let properties = try layerProperties(for: id)
-        let isPersistent = try isPersistentLayer(id: id)
-        try removeLayer(withId: id)
-
-        if isPersistent {
-            try addPersistentLayer(with: properties, layerPosition: position)
-        } else {
-            try addLayer(with: properties, layerPosition: position)
+        try handleExpected {
+            _styleManager.moveStyleLayer(forLayerId: id, layerPosition: position.corePosition)
         }
     }
 
@@ -158,8 +157,13 @@ public final class Style: StyleProtocol {
      - Throws: StyleError or type conversion errors
      */
     public func addSource(_ source: Source, id: String) throws {
-        let sourceDictionary = try source.jsonObject()
+        let sourceDictionary = try source.jsonObject(userInfo: [.nonVolatilePropertiesOnly: true])
         try addSource(withId: id, properties: sourceDictionary)
+
+        // volatile properties have to be set after the source has been added to the style
+        let volatileProperties = try source.jsonObject(userInfo: [.volatilePropertiesOnly: true])
+
+        try setSourceProperties(for: id, properties: volatileProperties)
     }
 
     /**
@@ -185,7 +189,7 @@ public final class Style: StyleProtocol {
      - Returns: The fully formed `source` object.
      - Throws: Type conversion errors.
      */
-    public func source(withId id: String) throws  -> Source {
+    public func source(withId id: String) throws -> Source {
         // Get the source properties for a given identifier
         let sourceProps = try sourceProperties(for: id)
 
@@ -219,7 +223,7 @@ public final class Style: StyleProtocol {
     /// `true` if and only if the style JSON contents, the style specified sprite
     /// and sources are all loaded, otherwise returns `false`.
     public var isLoaded: Bool {
-        return styleManager.isStyleLoaded()
+        return _styleManager.isStyleLoaded()
     }
 
     /// Get or set the style URI
@@ -232,7 +236,7 @@ public final class Style: StyleProtocol {
     ///     object is initialized.
     public var uri: StyleURI? {
         get {
-            let uriString = styleManager.getStyleURI()
+            let uriString = _styleManager.getStyleURI()
 
             // A "nil" style is returned as an empty string
             if uriString.isEmpty {
@@ -246,7 +250,7 @@ public final class Style: StyleProtocol {
         }
         set {
             if let uriString = newValue?.rawValue {
-                styleManager.setStyleURIForUri(uriString)
+                _styleManager.setStyleURIForUri(uriString)
             }
         }
     }
@@ -258,10 +262,10 @@ public final class Style: StyleProtocol {
     ///     object is initialized.
     public var JSON: String {
         get {
-            styleManager.getStyleJSON()
+            _styleManager.getStyleJSON()
         }
         set {
-            styleManager.setStyleJSONForJson(newValue)
+            _styleManager.setStyleJSONForJson(newValue)
         }
     }
 
@@ -275,25 +279,27 @@ public final class Style: StyleProtocol {
     ///
     /// The style default camera is re-evaluated when a new style is loaded.
     public var defaultCamera: CameraOptions {
-        return CameraOptions(styleManager.getStyleDefaultCamera())
+        return CameraOptions(_styleManager.getStyleDefaultCamera())
     }
 
     /// Get or set the map style's transition options.
     ///
     /// By default, the style parser will attempt to read the style default
-    /// transition options, if any, falling back to an immediate transition
-    /// otherwise.
+    /// transition, if any, falling back to a 0.3 s transition otherwise.
     ///
-    /// The style transition is re-evaluated when a new style is loaded.
-    ///
-    /// - Attention:
-    ///     Overridden transition options are reset once a new style has been loaded.
+    /// Overridden transitions are reset once a new style has been loaded.
+    /// To customize the transition used when switching styles, set this
+    /// property after `MapEvents.EventKind.styleDataLoaded` where
+    /// `Event.type == "style"` and before
+    /// `MapEvents.EventKind.styleDataLoaded` where `Event.type == "sprite"`
+    /// and where `Event.type == "sources"`.
+    /// - SeeAlso: ``MapboxMap/onNext(_:handler:)``
     public var transition: TransitionOptions {
         get {
-            styleManager.getStyleTransition()
+            _styleManager.getStyleTransition()
         }
         set {
-            styleManager.setStyleTransitionFor(newValue)
+            _styleManager.setStyleTransitionFor(newValue)
         }
     }
 
@@ -314,8 +320,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func addLayer(with properties: [String: Any], layerPosition: LayerPosition?) throws {
-        return try handleExpected {
-            return styleManager.addStyleLayer(forProperties: properties, layerPosition: layerPosition?.corePosition)
+        try handleExpected {
+            return _styleManager.addStyleLayer(forProperties: properties, layerPosition: layerPosition?.corePosition)
         }
     }
 
@@ -331,8 +337,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful
     public func addPersistentLayer(with properties: [String: Any], layerPosition: LayerPosition?) throws {
-        return try handleExpected {
-            return styleManager.addPersistentStyleLayer(forProperties: properties, layerPosition: layerPosition?.corePosition)
+        try handleExpected {
+            return _styleManager.addPersistentStyleLayer(forProperties: properties, layerPosition: layerPosition?.corePosition)
         }
     }
 
@@ -340,7 +346,7 @@ public final class Style: StyleProtocol {
     /// - Parameter id: The layer identifier to test
     public func isPersistentLayer(id: String) throws -> Bool {
         return try handleExpected {
-            return styleManager.isStyleLayerPersistent(forLayerId: id)
+            return _styleManager.isStyleLayerPersistent(forLayerId: id)
         }
     }
 
@@ -359,8 +365,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func addPersistentCustomLayer(withId id: String, layerHost: CustomLayerHost, layerPosition: LayerPosition?) throws {
-        return try handleExpected {
-            return styleManager.addPersistentStyleCustomLayer(forLayerId: id, layerHost: layerHost, layerPosition: layerPosition?.corePosition)
+        try handleExpected {
+            return _styleManager.addPersistentStyleCustomLayer(forLayerId: id, layerHost: layerHost, layerPosition: layerPosition?.corePosition)
         }
     }
 
@@ -380,8 +386,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func addCustomLayer(withId id: String, layerHost: CustomLayerHost, layerPosition: LayerPosition?) throws {
-        return try handleExpected {
-            return styleManager.addStyleCustomLayer(forLayerId: id, layerHost: layerHost, layerPosition: layerPosition?.corePosition)
+        try handleExpected {
+            return _styleManager.addStyleCustomLayer(forLayerId: id, layerHost: layerHost, layerPosition: layerPosition?.corePosition)
         }
     }
 
@@ -395,8 +401,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func removeLayer(withId id: String) throws {
-        return try handleExpected {
-            return styleManager.removeStyleLayer(forLayerId: id)
+        try handleExpected {
+            return _styleManager.removeStyleLayer(forLayerId: id)
         }
     }
 
@@ -409,12 +415,12 @@ public final class Style: StyleProtocol {
     ///
     /// - Returns: `true` if the given style layer exists, `false` otherwise.
     public func layerExists(withId id: String) -> Bool {
-        return styleManager.styleLayerExists(forLayerId: id)
+        return _styleManager.styleLayerExists(forLayerId: id)
     }
 
     /// The ordered list of the current style layers' identifiers and types
     public var allLayerIdentifiers: [LayerInfo] {
-        return styleManager.getStyleLayers().compactMap { info in
+        return _styleManager.getStyleLayers().compactMap { info in
             guard let layerType = LayerType(rawValue: info.type) else {
                 assertionFailure("Failed to create LayerType from \(info.type)")
                 return nil
@@ -446,7 +452,7 @@ public final class Style: StyleProtocol {
     /// - Returns:
     ///     The value of the property in the layer with layerId.
     public func layerProperty(for layerId: String, property: String) -> StylePropertyValue {
-        return styleManager.getStyleLayerProperty(forLayerId: layerId, property: property)
+        return _styleManager.getStyleLayerProperty(forLayerId: layerId, property: property)
     }
 
     /// Sets a JSON value to a style layer property.
@@ -459,8 +465,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func setLayerProperty(for layerId: String, property: String, value: Any) throws {
-        return try handleExpected {
-            return styleManager.setStyleLayerPropertyForLayerId(layerId, property: property, value: value)
+        try handleExpected {
+            return _styleManager.setStyleLayerPropertyForLayerId(layerId, property: property, value: value)
         }
     }
 
@@ -487,7 +493,7 @@ public final class Style: StyleProtocol {
     ///     An error describing why the operation was unsuccessful.
     public func layerProperties(for layerId: String) throws -> [String: Any] {
         return try handleExpected {
-            return styleManager.getStyleLayerProperties(forLayerId: layerId)
+            return _styleManager.getStyleLayerProperties(forLayerId: layerId)
         }
     }
 
@@ -508,8 +514,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func setLayerProperties(for layerId: String, properties: [String: Any]) throws {
-        return try handleExpected {
-            return styleManager.setStyleLayerPropertiesForLayerId(layerId, properties: properties)
+        try handleExpected {
+            return _styleManager.setStyleLayerPropertiesForLayerId(layerId, properties: properties)
         }
     }
 
@@ -526,8 +532,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func addSource(withId id: String, properties: [String: Any]) throws {
-        return try handleExpected {
-            return styleManager.addStyleSource(forSourceId: id, properties: properties)
+        try handleExpected {
+            return _styleManager.addStyleSource(forSourceId: id, properties: properties)
         }
     }
 
@@ -538,8 +544,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func removeSource(withId id: String) throws {
-        return try handleExpected {
-            return styleManager.removeStyleSource(forSourceId: id)
+        try handleExpected {
+            return _styleManager.removeStyleSource(forSourceId: id)
         }
     }
 
@@ -549,13 +555,13 @@ public final class Style: StyleProtocol {
     ///
     /// - Returns: `true` if the given source exists, `false` otherwise.
     public func sourceExists(withId id: String) -> Bool {
-        return styleManager.styleSourceExists(forSourceId: id)
+        return _styleManager.styleSourceExists(forSourceId: id)
     }
 
     /// The ordered list of the current style sources' identifiers and types. Identifiers for custom vector
     /// sources will not be included
     public var allSourceIdentifiers: [SourceInfo] {
-        return styleManager.getStyleSources().compactMap { info in
+        return _styleManager.getStyleSources().compactMap { info in
             guard let sourceType = SourceType(rawValue: info.type) else {
                 Log.error(forMessage: "Failed to create SourceType from \(info.type)", category: "Example")
                 return nil
@@ -574,7 +580,7 @@ public final class Style: StyleProtocol {
     ///
     /// - Returns: The value of the property in the source with sourceId.
     public func sourceProperty(for sourceId: String, property: String) -> StylePropertyValue {
-        return styleManager.getStyleSourceProperty(forSourceId: sourceId, property: property)
+        return _styleManager.getStyleSourceProperty(forSourceId: sourceId, property: property)
     }
 
     /// Sets a value to a style source property.
@@ -587,8 +593,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func setSourceProperty(for sourceId: String, property: String, value: Any) throws {
-        return try handleExpected {
-            return styleManager.setStyleSourcePropertyForSourceId(sourceId, property: property, value: value)
+        try handleExpected {
+            return _styleManager.setStyleSourcePropertyForSourceId(sourceId, property: property, value: value)
         }
     }
 
@@ -603,7 +609,7 @@ public final class Style: StyleProtocol {
     ///     An error describing why the operation was unsuccessful.
     public func sourceProperties(for sourceId: String) throws -> [String: Any] {
         return try handleExpected {
-            return styleManager.getStyleSourceProperties(forSourceId: sourceId)
+            return _styleManager.getStyleSourceProperties(forSourceId: sourceId)
         }
     }
 
@@ -622,8 +628,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func setSourceProperties(for sourceId: String, properties: [String: Any]) throws {
-        return try handleExpected {
-            return styleManager.setStyleSourcePropertiesForSourceId(sourceId, properties: properties)
+        try handleExpected {
+            return _styleManager.setStyleSourcePropertiesForSourceId(sourceId, properties: properties)
         }
     }
 
@@ -656,7 +662,7 @@ public final class Style: StyleProtocol {
             throw TypeConversionError.unexpectedType
         }
 
-        return try handleExpected {
+        try handleExpected {
             return styleManager.updateStyleImageSourceImage(forSourceId: id, image: mbmImage)
         }
     }
@@ -673,6 +679,9 @@ public final class Style: StyleProtocol {
     /// [`icon-image`](https://www.mapbox.com/mapbox-gl-js/style-spec/#layout-symbol-icon-image),
     /// [`fill-pattern`](https://www.mapbox.com/mapbox-gl-js/style-spec/#paint-fill-fill-pattern), and
     /// [`line-pattern`](https://www.mapbox.com/mapbox-gl-js/style-spec/#paint-line-line-pattern).
+    ///
+    /// For more information on how `stretchX` and `stretchY` parameters affect image stretching
+    /// see [this Mapbox GL-JS example](https://docs.mapbox.com/mapbox-gl-js/example/add-image-stretchable).
     ///
     /// - Parameters:
     ///   - image: Image to add.
@@ -703,7 +712,7 @@ public final class Style: StyleProtocol {
             throw TypeConversionError.unexpectedType
         }
 
-        return try handleExpected {
+        try handleExpected {
             return styleManager.addStyleImage(forImageId: id,
                                               scale: Float(image.scale),
                                               image: mbmImage,
@@ -714,6 +723,46 @@ public final class Style: StyleProtocol {
         }
     }
 
+    /// Adds an image to be used in the style.
+    ///
+    /// If the image has non-zero `UIImage.capInsets` it will be stretched accordingly,
+    /// regardless of the value in `UIImage.resizingMode`.
+    ///
+    /// - Parameters:
+    ///   - image: Image to add.
+    ///   - id: ID of the image.
+    ///   - sdf: Option to treat whether image is SDF(signed distance field) or not.
+    ///         Setting this to `true` allows template images to be recolored. The
+    ///         default value is `false`.
+    ///   - contentInsets: The distances the edges of content are inset from the image rectangle.
+    ///         If present, and if the icon uses icon-text-fit, the
+    ///         symbol's text will be fit inside the content box.
+    ///
+    /// - Throws:
+    ///     An error describing why the operation was unsuccessful.
+    public func addImage(_ image: UIImage, id: String, sdf: Bool = false, contentInsets: UIEdgeInsets = .zero) throws {
+        let scale = Float(image.scale)
+        let stretchXFirst = Float(image.capInsets.left) * scale
+        let stretchXSecond = Float(image.size.width - image.capInsets.right) * scale
+        let stretchYFirst = Float(image.capInsets.top) * scale
+        let stretchYSecond = Float(image.size.height - image.capInsets.bottom) * scale
+
+        let contentBoxLeft = Float(contentInsets.left) * scale
+        let contentBoxRight = Float(image.size.width - contentInsets.right) * scale
+        let contentBoxTop = Float(contentInsets.top) * scale
+        let contentBoxBottom = Float(image.size.height - contentInsets.bottom) * scale
+
+        let contentBox = ImageContent(left: contentBoxLeft,
+                                      top: contentBoxTop,
+                                      right: contentBoxRight,
+                                      bottom: contentBoxBottom)
+        try addImage(image,
+                     id: id,
+                     stretchX: [ImageStretches(first: stretchXFirst, second: stretchXSecond)],
+                     stretchY: [ImageStretches(first: stretchYFirst, second: stretchYSecond)],
+                     content: contentBox)
+    }
+
     /// Removes an image from the style.
     ///
     /// - Parameter id: ID of the image to remove.
@@ -721,9 +770,18 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func removeImage(withId id: String) throws {
-        return try handleExpected {
+        try handleExpected {
             return styleManager.removeStyleImage(forImageId: id)
         }
+    }
+
+    /// Checks whether an image exists.
+    ///
+    /// - Parameter id: The identifier of the image.
+    ///
+    /// - Returns: `true` if the given image exists, `false` otherwise.
+    public func imageExists(withId id: String) -> Bool {
+        return styleManager.hasStyleImage(forImageId: id)
     }
 
     /// Get an image from the style.
@@ -742,6 +800,19 @@ public final class Style: StyleProtocol {
 
     // MARK: - Light
 
+    /// Sets a light on the style.
+    ///
+    /// - Parameter light: The `Light` that should be applied.
+    ///
+    /// - Throws: An error describing why the operation was unsuccessful.
+    public func setLight(_ light: Light) throws {
+        guard let lightDictionary = try light.toJSON() as? [String: Any] else {
+            throw TypeConversionError.unexpectedType
+        }
+
+        try setLight(properties: lightDictionary)
+    }
+
     /// Sets the style global light source properties.
     ///
     /// - See Also: https://docs.mapbox.com/mapbox-gl-js/style-spec/#light
@@ -753,7 +824,7 @@ public final class Style: StyleProtocol {
     ///     An error describing why the operation was unsuccessful.
     public func setLight(properties: [String: Any]) throws {
         try handleExpected {
-            styleManager.setStyleLightForProperties(properties)
+            _styleManager.setStyleLightForProperties(properties)
         }
     }
 
@@ -767,7 +838,7 @@ public final class Style: StyleProtocol {
     ///     An error describing why the operation was unsuccessful.
     public func setLightProperty(_ property: String, value: Any) throws {
         try handleExpected {
-            styleManager.setStyleLightPropertyForProperty(property, value: value)
+            _styleManager.setStyleLightPropertyForProperty(property, value: value)
         }
     }
 
@@ -786,7 +857,7 @@ public final class Style: StyleProtocol {
     ///
     /// - Returns: Style light property value.
     public func lightProperty(_ property: String) -> StylePropertyValue {
-        return styleManager.getStyleLightProperty(forProperty: property)
+        return _styleManager.getStyleLightProperty(forProperty: property)
     }
 
     // MARK: - Terrain
@@ -807,7 +878,7 @@ public final class Style: StyleProtocol {
 
     /// Removes terrain from style if it was set.
     public func removeTerrain() {
-        styleManager.setStyleTerrainForProperties(NSNull())
+        _styleManager.setStyleTerrainForProperties(NSNull())
     }
 
     /// Sets the style global terrain source properties.
@@ -821,7 +892,7 @@ public final class Style: StyleProtocol {
     ///     An error describing why the operation was unsuccessful.
     public func setTerrain(properties: [String: Any]) throws {
         try handleExpected {
-            styleManager.setStyleTerrainForProperties(properties)
+            _styleManager.setStyleTerrainForProperties(properties)
         }
     }
 
@@ -835,7 +906,7 @@ public final class Style: StyleProtocol {
     ///     An error describing why the operation was unsuccessful.
     public func setTerrainProperty(_ property: String, value: Any) throws {
         try handleExpected {
-            styleManager.setStyleTerrainPropertyForProperty(property, value: value)
+            _styleManager.setStyleTerrainPropertyForProperty(property, value: value)
         }
     }
 
@@ -854,7 +925,102 @@ public final class Style: StyleProtocol {
     ///
     /// - Returns: Style terrain property value.
     public func terrainProperty(_ property: String) -> StylePropertyValue {
-        return styleManager.getStyleTerrainProperty(forProperty: property)
+        return _styleManager.getStyleTerrainProperty(forProperty: property)
+    }
+
+    // MARK: - Atmosphere
+
+    /// Set the atmosphere of the style
+    /// - Parameter atmosphere: ``Atmosphere`` object describing the fog, space and stars.
+    public func setAtmosphere(_ atmosphere: Atmosphere) throws {
+        guard let atmosphereDictionary = try atmosphere.toJSON() as? [String: Any] else {
+            throw TypeConversionError.unexpectedType
+        }
+
+        try setAtmosphere(properties: atmosphereDictionary)
+    }
+
+    /// Remove the atmosphere of the style. No fog, space or stars would be rendered.
+    public func removeAtmosphere() throws {
+        try handleExpected {
+            styleManager.setStyleAtmosphereForProperties(NSNull())
+        }
+    }
+
+    /// Set an explicit atmosphere properties
+    ///
+    /// - See Also [style-spec/fog](https://docs.mapbox.com/mapbox-gl-js/style-spec/fog/)
+    ///
+    /// - Parameter properties: A dictionary of style fog (aka atmosphere) properties values,
+    ///     with their names as key.
+    ///
+    /// - Throws:
+    ///     An error describing why the operation was unsuccessful.
+    public func setAtmosphere(properties: [String: Any]) throws {
+        try handleExpected {
+            styleManager.setStyleAtmosphereForProperties(properties)
+        }
+    }
+
+    /// Sets the value of a style atmosphere property.
+    ///
+    /// - See Also [style-spec/fog](https://docs.mapbox.com/mapbox-gl-js/style-spec/fog/)
+    ///
+    /// - Parameter property: Style atmosphere property name.
+    ///
+    /// - Throws:
+    ///     An error describing why the operation was unsuccessful.
+    public func setAtmosphereProperty(_ property: String, value: Any) throws {
+        try handleExpected {
+            styleManager.setStyleAtmospherePropertyForProperty(property, value: value)
+        }
+    }
+
+    /// Gets the value of a style atmosphere property.
+    ///
+    /// - See Also: https://docs.mapbox.com/mapbox-gl-js/style-spec/fog/
+    ///
+    /// - Parameter property: Style atmosphere property name.
+    ///
+    /// - Returns: Style atmosphere property value.
+    public func atmosphereProperty(_ property: String) -> StylePropertyValue {
+        return styleManager.getStyleAtmosphereProperty(forProperty: property)
+    }
+
+    // MARK: - Models
+
+    /// Adds a `model` to the map
+    ///
+    /// - Parameters:
+    ///   - model: The model to add to the map.
+    ///   - Parameter identifier: A unique source identifier.
+    ///
+    /// - Throws: StyleError or type conversion errors
+    @_spi(Experimental) public func addModel(withId id: String, modelURI: String) throws {
+        try handleExpected {
+            styleManager.addStyleModel(forModelId: id, modelUri: modelURI)
+        }
+    }
+
+    /// Removes an existing style model.
+    ///
+    /// - Parameter id: Identifier of the style model to remove.
+    ///
+    /// - Throws:
+    ///     An error describing why the operation was unsuccessful.
+    @_spi(Experimental) public func removeModel(withId id: String) throws {
+        try handleExpected {
+            styleManager.removeStyleModel(forModelId: id)
+        }
+    }
+
+    /// Checks whether a given style model exists.
+    ///
+    /// - Parameter id: Style model identifier.
+    ///
+    /// - Returns: `true` if the given model exists, `false` otherwise.
+    @_spi(Experimental) public func modelExists(withId id: String) -> Bool {
+        styleManager.hasStyleModel(forModelId: id)
     }
 
     // MARK: - Custom geometry
@@ -871,8 +1037,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func addCustomGeometrySource(withId id: String, options: CustomGeometrySourceOptions) throws {
-        return try handleExpected {
-            return styleManager.addStyleCustomGeometrySource(forSourceId: id, options: options)
+        try handleExpected {
+            return _styleManager.addStyleCustomGeometrySource(forSourceId: id, options: options)
         }
     }
 
@@ -887,8 +1053,8 @@ public final class Style: StyleProtocol {
     ///     An error describing why the operation was unsuccessful.
     public func setCustomGeometrySourceTileData(forSourceId sourceId: String, tileId: CanonicalTileID, features: [Feature]) throws {
         let mbxFeatures = features.compactMap { MapboxCommon.Feature($0) }
-        return try handleExpected {
-            return styleManager.setStyleCustomGeometrySourceTileDataForSourceId(sourceId, tileId: tileId, featureCollection: mbxFeatures)
+        try handleExpected {
+            return _styleManager.setStyleCustomGeometrySourceTileDataForSourceId(sourceId, tileId: tileId, featureCollection: mbxFeatures)
         }
     }
 
@@ -901,8 +1067,8 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func invalidateCustomGeometrySourceTile(forSourceId sourceId: String, tileId: CanonicalTileID) throws {
-        return try handleExpected {
-            return styleManager.invalidateStyleCustomGeometrySourceTile(forSourceId: sourceId, tileId: tileId)
+        try handleExpected {
+            return _styleManager.invalidateStyleCustomGeometrySourceTile(forSourceId: sourceId, tileId: tileId)
         }
     }
 
@@ -915,14 +1081,14 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func invalidateCustomGeometrySourceRegion(forSourceId sourceId: String, bounds: CoordinateBounds) throws {
-        return try handleExpected {
-            return styleManager.invalidateStyleCustomGeometrySourceRegion(forSourceId: sourceId, bounds: bounds)
+        try handleExpected {
+            return _styleManager.invalidateStyleCustomGeometrySourceRegion(forSourceId: sourceId, bounds: bounds)
         }
     }
 
     // MARK: - Conversion helpers
 
-    private func handleExpected(closure: () -> (Expected<AnyObject, AnyObject>)) throws {
+    private func handleExpected<Value, Error>(closure: () -> (Expected<Value, Error>)) throws {
         let expected = closure()
 
         if expected.isError() {
@@ -932,7 +1098,7 @@ public final class Style: StyleProtocol {
         }
     }
 
-    private func handleExpected<T>(closure: () -> (Expected<AnyObject, AnyObject>)) throws -> T {
+    private func handleExpected<Value, Error, ReturnType>(closure: () -> (Expected<Value, Error>)) throws -> ReturnType {
         let expected = closure()
 
         if expected.isError() {
@@ -941,8 +1107,8 @@ public final class Style: StyleProtocol {
             // swiftlint:enable force_cast
         }
 
-        guard let result = expected.value as? T else {
-            assertionFailure("Unexpected type mismatch. Type: \(String(describing: expected.value)) expect \(T.self)")
+        guard let result = expected.value as? ReturnType else {
+            assertionFailure("Unexpected type mismatch. Type: \(String(describing: expected.value)) expect \(ReturnType.self)")
             throw TypeConversionError.unexpectedType
         }
 
@@ -958,6 +1124,35 @@ extension Style {
     internal func sourceAttributions() -> [String] {
         return allSourceIdentifiers.compactMap {
             sourceProperty(for: $0.id, property: "attribution").value as? String
+        }
+    }
+}
+
+// MARK: - StyleProjection
+
+extension Style {
+    /// Sets the projection.
+    ///
+    /// - Parameter projection: The ``StyleProjection`` to apply to the style.
+    /// - Throws: ``StyleError`` if the projection could not be applied.
+    public func setProjection(_ projection: StyleProjection) throws {
+        let expected = styleManager.setStyleProjectionPropertyForProperty(
+            StyleProjection.CodingKeys.name.rawValue,
+            value: projection.name.rawValue)
+        if expected.isError() {
+            throw StyleError(message: expected.error as String)
+        }
+    }
+
+    /// The current projection.
+    public var projection: StyleProjection {
+        let projectionName = styleManager.getStyleProjectionProperty(
+            forProperty: StyleProjection.CodingKeys.name.rawValue)
+        if projectionName.kind == .undefined {
+            return StyleProjection(name: .mercator)
+        } else {
+            // swiftlint:disable:next force_cast
+            return StyleProjection(name: StyleProjectionName(rawValue: projectionName.value as! String)!)
         }
     }
 }

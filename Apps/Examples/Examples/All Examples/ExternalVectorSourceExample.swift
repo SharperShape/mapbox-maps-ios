@@ -17,26 +17,28 @@ public class ExternalVectorSourceExample: UIViewController, ExampleProtocol {
         view.addSubview(mapView)
 
         // Allow the view controller to receive information about map events.
-        mapView.mapboxMap.onNext(.mapLoaded) { _ in
+        mapView.mapboxMap.onNext(event: .mapLoaded) { _ in
             self.drawLineLayer()
+            // The following line is just for testing purposes.
+            self.finish()
         }
     }
 
     public func drawLineLayer() {
 
-        let sourceIdentifier = "data-source"
+        let sourceIdentifier = "mapillary"
 
         var vectorSource = VectorSource()
 
         // For sources using the {z}/{x}/{y} URL scheme, use the `tiles`
         // property on `VectorSource` to set the URL.
-        vectorSource.tiles = ["https://d25uarhxywzl1j.cloudfront.net/v0.1/{z}/{x}/{y}.mvt"]
+        vectorSource.tiles = ["https://tiles.mapillary.com/maps/vtp/mly1_public/2/{z}/{x}/{y}?access_token=MLY%7C4142433049200173%7C72206abe5035850d6743b23a49c41333"]
         vectorSource.minzoom = 6
         vectorSource.maxzoom = 14
 
         var lineLayer = LineLayer(id: "line-layer")
         lineLayer.source = sourceIdentifier
-        lineLayer.sourceLayer = "mapillary-sequences"
+        lineLayer.sourceLayer = "sequence"
         let lineColor = StyleColor(UIColor(red: 0.21, green: 0.69, blue: 0.43, alpha: 1.00))
         lineLayer.lineColor = .constant(lineColor)
         lineLayer.lineOpacity = .constant(0.6)
@@ -46,7 +48,7 @@ public class ExternalVectorSourceExample: UIViewController, ExampleProtocol {
         do {
             try mapView.mapboxMap.style.addSource(vectorSource, id: sourceIdentifier)
         } catch {
-            displayAlert(message: error.localizedDescription)
+            showAlert(with: error.localizedDescription)
         }
 
         // Define the layer's positioning within the layer stack so
@@ -54,16 +56,7 @@ public class ExternalVectorSourceExample: UIViewController, ExampleProtocol {
         do {
             try mapView.mapboxMap.style.addLayer(lineLayer, layerPosition: .below("waterway-label"))
         } catch let layerError {
-            displayAlert(message: layerError.localizedDescription)
+            showAlert(with: layerError.localizedDescription)
         }
-    }
-
-    public func displayAlert(message: String) {
-        let alertController = UIAlertController(title: "An error occurred",
-                                                message: message,
-                                                preferredStyle: .alert)
-        let dismissAction = UIAlertAction(title: "Ok", style: .cancel, handler: nil)
-        alertController.addAction(dismissAction)
-        present(alertController, animated: true, completion: nil)
     }
 }

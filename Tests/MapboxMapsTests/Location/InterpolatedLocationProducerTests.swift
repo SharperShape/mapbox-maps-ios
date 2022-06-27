@@ -36,10 +36,26 @@ final class InterpolatedLocationProducerTests: XCTestCase {
     }
 
     func testInitialization() {
+        XCTAssertEqual(locationProducer.addStub.invocations.count, 0)
+        XCTAssertEqual(displayLinkCoordinator.addStub.invocations.count, 0)
+    }
+
+    func testOnFirstSubscribe() {
+        observableInterpolatedLocation.onFirstSubscribe?()
+
         XCTAssertEqual(locationProducer.addStub.invocations.count, 1)
         XCTAssertIdentical(locationProducer.addStub.invocations.first?.parameters, interpolatedLocationProducer)
         XCTAssertEqual(displayLinkCoordinator.addStub.invocations.count, 1)
         XCTAssertIdentical(displayLinkCoordinator.addStub.invocations.first?.parameters, interpolatedLocationProducer)
+    }
+
+    func testOnLastUnsubscribe() {
+        observableInterpolatedLocation.onLastUnsubscribe?()
+
+        XCTAssertEqual(locationProducer.removeStub.invocations.count, 1)
+        XCTAssertIdentical(locationProducer.removeStub.invocations.first?.parameters, interpolatedLocationProducer)
+        XCTAssertEqual(displayLinkCoordinator.removeStub.invocations.count, 1)
+        XCTAssertIdentical(displayLinkCoordinator.removeStub.invocations.first?.parameters, interpolatedLocationProducer)
     }
 
     func testLocation() {
@@ -66,6 +82,33 @@ final class InterpolatedLocationProducerTests: XCTestCase {
         cancelable.cancel()
 
         XCTAssertEqual(returnedCancelable.cancelStub.invocations.count, 1)
+    }
+
+    func testStartMulticastingPuckLocationIfEnabled() {
+        interpolatedLocationProducer.isEnabled = false
+        interpolatedLocationProducer.addPuckLocationConsumer(MockPuckLocationConsumer())
+        XCTAssertEqual(observableInterpolatedLocation.observeStub.invocations.count, 0)
+
+        interpolatedLocationProducer.isEnabled = true
+        let invocationCount = observableInterpolatedLocation.observeStub.invocations.count
+        XCTAssertEqual(invocationCount, 1)
+
+        interpolatedLocationProducer.addPuckLocationConsumer(MockPuckLocationConsumer())
+        XCTAssertEqual(observableInterpolatedLocation.observeStub.invocations.count, invocationCount)
+    }
+
+    func testPuckLocationConsumerGetNotified() {
+        let consumer = MockPuckLocationConsumer()
+        let location = InterpolatedLocation.random()
+
+        observableInterpolatedLocation.observeStub.defaultSideEffect = {
+            _ = $0.parameters(location)
+        }
+        interpolatedLocationProducer.addPuckLocationConsumer(consumer)
+
+        let receivedLocation = consumer.locationUpdateStub.invocations.first?.parameters
+        XCTAssertEqual(receivedLocation?.coordinate, location.coordinate)
+        XCTAssertEqual(receivedLocation?.accuracyAuthorization, location.accuracyAuthorization)
     }
 
     func testParticipateBeforeInitialLocationDelivery() {

@@ -56,6 +56,16 @@ final class ObservableValueTests: XCTestCase {
         XCTAssertEqual(handlerStub.invocations.map(\.parameters), [value])
     }
 
+    func testValueUpdatedBeforeNotifyingObservers() {
+        let handlerStub = Stub<Int, Bool>(defaultReturnValue: true)
+        handlerStub.defaultSideEffect = { invocation in
+            XCTAssertEqual(self.observableValue.value, invocation.parameters)
+        }
+        _ = observableValue.observe(with: handlerStub.call(with:))
+
+        update()
+    }
+
     func testHandlerReturnsTrueToContinueAndFalseToUnsubscribe() {
         let handlerStub = Stub<Int, Bool>(defaultReturnValue: false)
         handlerStub.returnValueQueue = [true, true]
@@ -112,5 +122,35 @@ final class ObservableValueTests: XCTestCase {
         let value2 = update()
 
         XCTAssertEqual(handlerStub.invocations.map(\.parameters), [value, value2])
+    }
+
+    func testOnFirstSubscribe() {
+        let onFirstSubscribeStub = Stub<Void, Void>()
+        observableValue.onFirstSubscribe = onFirstSubscribeStub.call
+
+        for _ in 0...Int.random(in: 1...10) {
+            _ = observableValue.observe(with: { _ in true })
+        }
+
+        XCTAssertEqual(onFirstSubscribeStub.invocations.count, 1)
+    }
+
+    func testOnLastUnsubscribe() {
+        let onLastUnsubscribeStub = Stub<Void, Void>()
+        observableValue.onLastUnsubscribe = onLastUnsubscribeStub.call
+
+        let cancelables = (0...Int.random(in: 1...10)).map { i in
+            observableValue.observe(with: { _ in i.isMultiple(of: 2) })
+        }
+
+        cancelables.enumerated().forEach { (i, cancelable) in
+            if i.isMultiple(of: 2) {
+                cancelable.cancel()
+            }
+        }
+
+        observableValue.notify(with: 0)
+
+        XCTAssertEqual(onLastUnsubscribeStub.invocations.count, 1)
     }
 }

@@ -55,10 +55,23 @@ class MapboxMapsFoundationTests: XCTestCase {
 
     func testCoordinateToPoint() {
         let centerCoordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
-        let convertedPoint = mapView.mapboxMap.point(for: centerCoordinate)
+        var convertedPoint = mapView.mapboxMap.point(for: centerCoordinate)
 
         XCTAssertEqual(convertedPoint.x, mapView.bounds.midX, accuracy: 0.01)
         XCTAssertEqual(convertedPoint.y, mapView.bounds.midY, accuracy: 0.01)
+
+        let maxPoint = CGPoint(x: mapView.bounds.maxX, y: mapView.bounds.maxY)
+        let boundaryCoordinate = mapView.mapboxMap.coordinate(for: maxPoint)
+        convertedPoint = mapView.mapboxMap.point(for: boundaryCoordinate)
+
+        XCTAssertEqual(convertedPoint.x, maxPoint.x, accuracy: 0.01)
+        XCTAssertEqual(convertedPoint.y, maxPoint.y, accuracy: 0.01)
+
+        let outOfBoundsCoordinate = CLLocationCoordinate2D(latitude: boundaryCoordinate.latitude + 1,
+                                                           longitude: boundaryCoordinate.longitude + 1)
+        convertedPoint = mapView.mapboxMap.point(for: outOfBoundsCoordinate)
+        XCTAssertEqual(convertedPoint.x, -1.0)
+        XCTAssertEqual(convertedPoint.y, -1.0)
     }
 
     func testPointToCoordinateInSubviewWithEqualCenter() {
@@ -181,6 +194,22 @@ class MapboxMapsFoundationTests: XCTestCase {
         XCTAssertEqual(nePoint.y, neRect.y, accuracy: 0.1)
     }
 
+    func testRectToCoordinateBounds() {
+        let southwest = CLLocationCoordinate2D(latitude: 60.673178565817715, longitude: 24.06005859375)
+        let northeast = CLLocationCoordinate2D(latitude: 61.66381021180711, longitude: 25.90576171875)
+
+        let bounds = CoordinateBounds(southwest: southwest, northeast: northeast)
+        try! mapView.mapboxMap.setCameraBounds(with: CameraBoundsOptions(bounds: bounds))
+
+        let convertedBounds = mapView.mapboxMap.coordinateBounds(for: mapView.bounds)
+
+        XCTAssertEqual(bounds.southwest.latitude, convertedBounds.southwest.latitude, accuracy: 0.1)
+        XCTAssertEqual(bounds.southwest.longitude, convertedBounds.southwest.longitude, accuracy: 0.1)
+
+        XCTAssertEqual(bounds.northeast.latitude, convertedBounds.northeast.latitude, accuracy: 0.1)
+        XCTAssertEqual(bounds.northeast.longitude, convertedBounds.northeast.longitude, accuracy: 0.1)
+    }
+
     func testImageConversion() {
         guard let original = UIImage(named: "green-star", in: .mapboxMapsTests, compatibleWith: nil) else {
             XCTFail("Could not load test image from bundle")
@@ -198,9 +227,6 @@ class MapboxMapsFoundationTests: XCTestCase {
         }
 
          XCTAssertEqual(original.size, roundtripped.size)
-         // TODO: Fix roundtrip image inconsistency - there's a small
-         // amount of byte difference that can't be accounted for.
-         // XCTAssertEqual(original.pngData(), roundtripped.pngData())
     }
 
 // MARK: Debug options

@@ -4,8 +4,101 @@ Mapbox welcomes participation and contributions from everyone.
 
 ## main
 
+* Remove experimental annotation from Viewport API. ([#1392](https://github.com/mapbox/mapbox-maps-ios/pull/1392))
+* Remove deprecated `animationDuration` parameter in `FollowPuckViewportStateOptions` initializer.([#1390](https://github.com/mapbox/mapbox-maps-ios/pull/1390))
+* Deprecate existing QueryRenderedFeatures methods and add cancellable counterparts. ([#1378](https://github.com/mapbox/mapbox-maps-ios/pull/1378))
+* Add well-formed(type-safe) map event types. ([#1362](https://github.com/mapbox/mapbox-maps-ios/pull/1362))
+* Use MapboxCoreMaps API to move a Layer instead of manually removing the layer then adding it back. ([#1367](https://github.com/mapbox/mapbox-maps-ios/pull/1367))
+* Expose API to get puck's location updates. ([#1365](https://github.com/mapbox/mapbox-maps-ios/pull/1365))
+* Add example for simulating a route with vanishing effects. ([#1328](https://github.com/mapbox/mapbox-maps-ios/pull/1328))
+
+## 10.6.0-rc.1 - June 2, 2022
+
+* Update to MapboxCoreMaps 10.6.0-rc.1 and MapboxCommon 22.0.0-rc.2. ([#1368](https://github.com/mapbox/mapbox-maps-ios/pull/1368))
+* Add mercator scale factor to 3D puck, so that the 3D puck size won't increase as latitude increases. ([#1347](https://github.com/mapbox/mapbox-maps-ios/pull/1347))
+
+## 10.6.0-beta.2 - May 25, 2022
+
+* Introduce ModelLayer experimental API to render 3D models on the map. ([#1348](https://github.com/mapbox/mapbox-maps-ios/pull/1348))
+
+## 10.6.0-beta.1 - May 20, 2022
+
+* Expose API to check whether an image exists in `Style`. ([#1297](https://github.com/mapbox/mapbox-maps-ios/pull/1297))
+* Call `MapboxMap.reduceMemoryUse` when application goes to background. ([#1301](https://github.com/mapbox/mapbox-maps-ios/pull/1301))
+* Update to MapboxMobileEvents v1.0.8. ([#1324](https://github.com/mapbox/mapbox-maps-ios/pull/1324))
+* Enable explicit drawing behavior for metal view(call `draw()` explicitly instead of `setNeedsDisplay` when view's content need to be redrawn) again.([#1331](https://github.com/mapbox/mapbox-maps-ios/pull/1331))
+* Update to MapboxCoreMaps 10.6.0-beta.3 and MapboxCommon 22.0.0-beta.1. ([#1335](https://github.com/mapbox/mapbox-maps-ios/pull/1335), [#1342](https://github.com/mapbox/mapbox-maps-ios/pull/1342))
+* Add Atmosphere API ([#1329](https://github.com/mapbox/mapbox-maps-ios/pull/1329))
+* Update SDK name in attribution action sheet. ([#1338](https://github.com/mapbox/mapbox-maps-ios/pull/1338))
+* Revert tap target to original value. ([#1339](https://github.com/mapbox/mapbox-maps-ios/pull/1339))
+
+## 10.5.0 - May 5, 2022
+
+* Update to MapboxCoreMaps 10.5.1 and MapboxCommon 21.3.0. ([#1310](https://github.com/mapbox/mapbox-maps-ios/pull/1310), [#1313](https://github.com/mapbox/mapbox-maps-ios/pull/1313))
+* Invoke animator completion handlers added after completion or cancellation. ([#1305](https://github.com/mapbox/mapbox-maps-ios/pull/1305))
+
+## 10.5.0-rc.1 - April 20, 2022
+
+* Add support for runtime source properties. ([#1267](https://github.com/mapbox/mapbox-maps-ios/pull/1267))
+* Start location services lazily. ([#1262](https://github.com/mapbox/mapbox-maps-ios/pull/1262))
+* Fix localization crash on iOS 11 and 12. ([#1278](https://github.com/mapbox/mapbox-maps-ios/pull/1278))
+* Increase tap target to conform to Apple Human Interface guidelines. ([#1283](https://github.com/mapbox/mapbox-maps-ios/pull/1283))
+* Update to MapboxCoreMaps 10.5.0-rc.1 and MapboxCommon 21.3.0-rc.2. ([#1281](https://github.com/mapbox/mapbox-maps-ios/pull/1281))
+* Expose API to set memory budget for `MapboxMap`. ([#1288](https://github.com/mapbox/mapbox-maps-ios/pull/1288))
+
+## 10.5.0-beta.1 - April 7, 2022
+
+* Mitigate `OfflineRegionManager.mergeOfflineDatabase(for:completion)` throwing `TypeConversionError.unexpectedType` on a successfull merge. Introduce `OfflineRegionManager.mergeOfflineDatabase(forPath:completion)` as the correct way to merge offline database. ([#1192](https://github.com/mapbox/mapbox-maps-ios/pull/1192))
+* Limit MapboxMap.point(for: CLLocationCoordinate2D) to the bounds of map view ([#1195](https://github.com/mapbox/mapbox-maps-ios/pull/1195))
+* Add support for app extensions. ([#1183](https://github.com/mapbox/mapbox-maps-ios/pull/1183))
+* `BasicCameraAnimator.cancel()` and `.stopAnimation()` now invoke the completion blocks with `UIViewAnimatingPosition.current` instead of crashing with a `fatalError` when invoked prior to `.startAnimation()` or `.startAnimation(afterDelay:)`. ([#1197](https://github.com/mapbox/mapbox-maps-ios/pull/1197))
+* `CameraAnimationsManager.stopAnimations()` will now cancel all animators regardless of their state. Previously, only animators with `state == .active` were canceled. ([#1197](https://github.com/mapbox/mapbox-maps-ios/pull/1197))
+* Fix animator-related leaks. ([#1200](https://github.com/mapbox/mapbox-maps-ios/pull/1200))
+* Improve AnyTouchGestureRecognizer's interaction with other gesture recognizers. ([#1210](https://github.com/mapbox/mapbox-maps-ios/pull/1210))
+* Expose convenience properties and methods to transform `CoordinateBounds`. ([1226](https://github.com/mapbox/mapbox-maps-ios/pull/1226))
+* Update annotation examples. ([#1215](https://github.com/mapbox/mapbox-maps-ios/pull/1215))
+* Add `Style.setLight(_:)` to set light onto a style. Update `BuildingExtrusionsExample` with an example to set a light source on the style. ([#1234](https://github.com/mapbox/mapbox-maps-ios/pull/1234))
+* Remove `FollowPuckViewportStateOptions.animationDuration`, a workaround for the moving target problem. ([#1228](https://github.com/mapbox/mapbox-maps-ios/pull/1228))
+* Deprecate `FollowPuckViewportStateOptions.animationDuration`, a workaround for the moving target problem. ([#1228](https://github.com/mapbox/mapbox-maps-ios/pull/1228))
+* Add map view example with `debugOptions`. ([#1225](https://github.com/mapbox/mapbox-maps-ios/pull/1225))
+* Introduce `line-trim-offset` property for LineLayer. ([#1231](https://github.com/mapbox/mapbox-maps-ios/pull/1231))
+* Add `MapboxMap.coordinateBoundsUnwrapped`. ([#1241](https://github.com/mapbox/mapbox-maps-ios/pull/1241))
+* Update `DefaultViewportTransition` to solve the moving target problem. ([#1245](https://github.com/mapbox/mapbox-maps-ios/pull/1245))
+* Increase deceleration cutoff threshold from 20 to 35 to prevent camera changes
+ after animation stops. ([#1244](https://github.com/mapbox/mapbox-maps-ios/pull/1244))
+* Update to MapboxCoreMaps 10.5.0-beta.1 and MapboxCommon 21.3.0-beta.2. ([#1235](https://github.com/mapbox/mapbox-maps-ios/pull/1235))
+* API for using globe projection has been moved to `Style.setProjection(_:)` and `Style.projection` and is no longer experimental. ([#1235](https://github.com/mapbox/mapbox-maps-ios/pull/1235))
+* Add `OfflineRegion.getStatus(completion:)`. ([#1239](https://github.com/mapbox/mapbox-maps-ios/pull/1239))
+* Add a prefix `maps-ios` to all Log message's category. ([#1250](https://github.com/mapbox/mapbox-maps-ios/pull/1250)))
+
+## 10.4.3 - April 13, 2022
+
+* Update to MapboxCommon 21.2.1. ([#1271](https://github.com/mapbox/mapbox-maps-ios/pull/1271))
+* Start location services lazily. ([#1262](https://github.com/mapbox/mapbox-maps-ios/pull/1262))
+
+## 10.4.2 - April 7, 2022
+
+* Update to MapboxCoreMaps 10.4.2 ([#1256](https://github.com/mapbox/mapbox-maps-ios/pull/1256))
+* Add `OfflineRegion.getStatus(completion:)`. ([#1239](https://github.com/mapbox/mapbox-maps-ios/pull/1239))
+
+## 10.4.1 - March 28, 2022
+
+* Revert to using metal view draw notifications (`setNeedsDisplay()` instead of `draw()`). ([#1216](https://github.com/mapbox/mapbox-maps-ios/pull/1216))
+
+## 10.4.0 - March 23, 2022
+
+* Update to MapboxCoreMaps 10.4.1 and MapboxCommon 21.2.0. ([#1190](https://github.com/mapbox/mapbox-maps-ios/pull/1190))
+
+## 10.4.0-rc.1 - March 9, 2022
+
 * Update to MapboxCoreMaps 10.4.0-rc.1 and MapboxCommon 21.2.0-rc.1. ([#1158](https://github.com/mapbox/mapbox-maps-ios/pull/1158))
 * Enable explicit drawing behavior for metal view(call `draw()` explicitly instead of `setNeedsDisplay` when view's content need to be redrawn).([#1157](https://github.com/mapbox/mapbox-maps-ios/pull/1157))
+* Restore cancellation of animations on single tap. ([#1166](https://github.com/mapbox/mapbox-maps-ios/pull/1166))
+* Fix issue where invalid locations could be emitted when setting a custom location provider. ([#1172](https://github.com/mapbox/mapbox-maps-ios/pull/1172))
+* Fix crash in Puck2D when location accuracy authorization is reduced. ([#1173](https://github.com/mapbox/mapbox-maps-ios/pull/1173))
+* Fix an issue where plain text source attribution was not populated in attribution dialog.([1163](https://github.com/mapbox/mapbox-maps-ios/pull/1163))
+* `BasicCameraAnimator.owner` is now public. ([#1181](https://github.com/mapbox/mapbox-maps-ios/pull/1181))
+* The animation owner for ease-to and fly-to animations is now `"com.mapbox.maps.cameraAnimationsManager"`. ([#1181](https://github.com/mapbox/mapbox-maps-ios/pull/1181))
 
 ## 10.4.0-beta.1 - February 23, 2022
 

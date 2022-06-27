@@ -7,8 +7,8 @@ import MapboxMaps
 // you added in Examples/All Examples. See the README.md for more details.
 
 // swiftlint:disable:next type_body_length
-public struct Examples {
-    public static let all = [
+struct Examples {
+    static let all = [
         [
             "title": "Getting started",
             "examples": gettingStartedExamples
@@ -24,6 +24,10 @@ public struct Examples {
         [
             "title": "Camera",
             "examples": cameraExamples
+        ],
+        [
+            "title": "Lab",
+            "examples": labExamples
         ],
         [
             "title": "Location",
@@ -46,13 +50,17 @@ public struct Examples {
             "examples": userInteractionExamples
         ],
         [
+            "title": "Accessibility",
+            "examples": accessibilityExamples
+        ],
+        [
             "title": "Experimental",
             "examples": experimentalExamples
         ]
     ]
 
     // Examples that show how to get started with Mapbox, such as creating a basic map view or setting a style once.
-    public static let gettingStartedExamples = [
+    static let gettingStartedExamples = [
         Example(title: "Display a map view",
                 description: """
                 Create and display a map that uses the default Mapbox streets style. This example also shows how to update the starting camera for a map.
@@ -64,10 +72,13 @@ public struct Examples {
         Example(title: "Display a map view using storyboard",
                 description: "Create and display a map using a storyboard.",
                 type: StoryboardMapViewExample.self),
+        Example(title: "Debug Map",
+                description: "This example shows how the map looks with different debug options",
+                type: DebugMapExample.self),
     ]
 
     // Examples that show how to use 3D terrain or fill extrusions.
-    public static let threeDExamples = [
+    static let threeDExamples = [
         Example(title: "Show 3D terrain",
                 description: "Show realistic elevation by enabling terrain.",
                 type: TerrainExample.self),
@@ -79,42 +90,60 @@ public struct Examples {
                 type: BuildingExtrusionsExample.self),
         Example(title: "Add a sky layer",
                 description: "Add a customizable sky layer to simulate natural lighting with a Terrain layer.",
-                type: SkyLayerExample.self)
+                type: SkyLayerExample.self),
+        Example(title: "Display a 3D model in a model layer",
+                description: "Showcase the usage of a 3D model layer.",
+                type: ModelLayerExample.self)
     ]
 
     // Examples that focus on annotations.
-    public static let annotationExamples = [
-        Example(title: "Add a point annotation using an image",
-                description: "Add a point annotation using a custom image on a map.",
-                type: CustomPointAnnotationExample.self),
-        Example(title: "Update the position of a point annotation",
-                description: "Update the position of a point annotation tapping the map.",
-                type: UpdatePointAnnotationPositionExample.self),
-        Example(title: "Add a line annotation",
-                description: "Add a line annotation on a map.",
-                type: LineAnnotationExample.self),
+    static let annotationExamples = [
         Example(title: "Add a polygon annotation",
                 description: "Add a polygon annotation to the map.",
                 type: PolygonAnnotationExample.self),
-        Example(title: "Select an annotation",
-                description: "Select an annotation with a tap gesture.",
-                type: SelectAnnotationExample.self),
+        Example(title: "Add a marker symbol",
+                description: "Add a blue teardrop-shaped marker image to a style and display it on the map using a SymbolLayer.",
+                type: AddOneMarkerSymbolExample.self),
+        Example(title: "Add Circle Annotations",
+                description: "Show circle annotations on a map",
+                type: CircleAnnotationExample.self),
+        Example(title: "Add Cluster Symbol Annotations",
+                description: "Show fire hydrants in Washington DC area in a cluster.",
+                type: SymbolClusteringExample.self),
+        Example(title: "Add markers to a map",
+                description: "Add markers that use different icons.",
+                type: AddMarkersSymbolExample.self),
+        Example(title: "Add Point Annotations",
+                description: "Show point annotations on a map",
+                type: CustomPointAnnotationExample.self),
+        Example(title: "Add Polylines Annotations",
+                description: "Show polyline annotations on a map.",
+                type: LineAnnotationExample.self),
+        Example(title: "Animate Marker Position",
+                description: "Animate updates to a marker/annotation's position.",
+                type: AnimatedMarkerExample.self),
+        Example(title: "Change icon size",
+                description: "Change icon size with Symbol layer.",
+                type: IconSizeChangeExample.self),
+        Example(title: "Draw multiple geometries",
+                description: "Draw multiple shapes on a map.",
+                type: MultipleGeometriesExample.self),
         Example(title: "Use a map & annotations with SwiftUI",
                 description: "Use the UIViewRepresentable protocol to wrap a MapView in a SwiftUI view.",
                 type: SwiftUIExample.self),
-        Example(title: "Add multiple annotations to a map",
-                description: "Add default and custom annotations to a map.",
-                type: MultiplePointAnnotationsExample.self),
-        Example(title: "Add view annotations",
-                description: "Add view annotation on a map click.",
+        Example(title: "View annotation with point annotation",
+                description: "Add view annotation to a point annotation",
+                type: ViewAnnotationWithPointAnnotationExample.self),
+        Example(title: "View annotations: basic example",
+                description: "Add view annotation on a map with a click.",
                 type: ViewAnnotationBasicExample.self),
-        Example(title: "Add view annotations connected to features",
-                description: "Add view annotation anchored to a symbol layer feature.",
+        Example(title: "View annotations: advanced example",
+                description: "Add view annotations anchored to a symbol layer feature.",
                 type: ViewAnnotationMarkerExample.self)
     ]
 
     // Examples that focus on setting, animating, or otherwise changing the map's camera.
-    public static let cameraExamples = [
+    static let cameraExamples = [
         Example(title: "Fly-to camera animation",
                 description: """
                     Smoothly interpolate between locations with the fly-to animation.
@@ -131,6 +160,13 @@ public struct Examples {
 
     ]
 
+    // Miscellaneous examples
+    public static let labExamples = [
+        Example(title: "Resizable image",
+                description: "Add a resizable image with cap insets to a style.",
+                type: ResizableImageExample.self)
+    ]
+
     // Examples focused on displaying the user's location.
     public static let locationExamples = [
         Example(title: "Display the user's location",
@@ -142,27 +178,36 @@ public struct Examples {
         Example(title: "Use a 3D model to show the user's location",
                 description: "A 3D model is used to represent the user's location.",
                 type: Custom3DPuckExample.self),
+        Example(title: "Add a custom location provider",
+                description: "Display the location puck at a custom location.",
+                type: CustomLocationProviderExample.self),
+        Example(title: "Simulate navigation",
+                description: "Simulate a driving trip from LA to San Francisco along a pre-defined route",
+                type: NavigationSimulatorExample.self),
     ]
 
     // Examples that highlight using the Offline APIs.
-    public static let offlineExamples = [
+    static let offlineExamples = [
         Example(title: "Use OfflineManager and TileStore to download a region",
                 description: """
                     Shows how to use OfflineManager and TileStore to download regions
                     for offline use.
 
-                    By default, users may download up to 250MB of data for offline
-                    use without incurring additional charges. This limit is subject
-                    to change.
+                    By default, users may download up to 750 tile packs for offline
+                    use across all regions. If the limit is hit, any loadRegion call
+                    will fail until excess regions are deleted. This limit is subject
+                    to change. Please contact Mapbox if you require a higher limit.
+                    Additional charges may apply.
                 """,
                 type: OfflineManagerExample.self),
         Example(title: "Use OfflineRegionManager to download a region",
                 description: "Use the deprecated OfflineRegionManager to download regions for offline use.",
+                testTimeout: 120,
                 type: OfflineRegionManagerExample.self),
     ]
 
     // Examples that show how to use the map's snapshotter.
-    public static let snapshotExamples = [
+    static let snapshotExamples = [
         Example(title: "Create a static map snapshot",
                 description: """
                     Create a static, non-interactive image of a map style with specified camera position. The resulting snapshot is provided as a `UIImage`.
@@ -178,7 +223,7 @@ public struct Examples {
     ]
 
     // Examples that highlight how to set or modify the map's style and its contents.
-    public static let styleExamples = [
+    static let styleExamples = [
         Example(title: "Display multiple icon images in a symbol layer",
                 description: """
             Add point data and several images to a style and use the switchCase and get expressions to choose which image to display at each point in a SymbolLayer based on a data property.
@@ -193,9 +238,6 @@ public struct Examples {
         Example(title: "Animate a line layer",
                 description: "Animate updates to a line layer from a geoJSON source.",
                 type: AnimateGeoJSONLineExample.self),
-        Example(title: "Draw multiple geometries",
-                description: "Render multiple geometries from GeoJSON data on the map.",
-                type: MultipleGeometriesExample.self),
         Example(title: "Animate a style layer",
                 description: "Animate the position of a style layer by updating its source data.",
                 type: AnimateLayerExample.self),
@@ -238,7 +280,7 @@ public struct Examples {
     ]
 
     // Examples that show use cases related to user interaction with the map.
-    public static let userInteractionExamples = [
+    static let userInteractionExamples = [
         Example(title: "Find features at a point",
                 description: "Query the map for rendered features belonging to a specific layer.",
                 type: FeaturesAtPointExample.self),
@@ -253,8 +295,14 @@ public struct Examples {
                 type: SymbolClusteringExample.self),
     ]
 
+    static let accessibilityExamples = [
+        Example(title: "Access map features using VoiceOver",
+                description: "Use VoiceOver to highlight annotations and hear their associated features.",
+                type: VoiceOverAccessibilityExample.self),
+    ]
+
     // Examples that uses experimental APIs
-    public static let experimentalExamples = [
+    static let experimentalExamples = [
         Example(title: "Globe View",
                 description: "Display map on a globe.",
                 type: GlobeViewExample.self),

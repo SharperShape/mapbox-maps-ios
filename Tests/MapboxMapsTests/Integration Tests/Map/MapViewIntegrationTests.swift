@@ -9,6 +9,7 @@ final class MapViewIntegrationTests: IntegrationTestCase {
 
     override func setUpWithError() throws {
         try super.setUpWithError()
+        try guardForMetalDevice()
 
         guard let root = rootViewController?.view else {
             throw XCTSkip("No valid UIWindow or root view controller")
@@ -44,8 +45,6 @@ final class MapViewIntegrationTests: IntegrationTestCase {
     }
 
     func testMapViewIsReleasedAfterCameraTransition() throws {
-        try guardForMetalDevice()
-
         weak var weakMapView: MapView?
         try autoreleasepool {
 
@@ -63,7 +62,7 @@ final class MapViewIntegrationTests: IntegrationTestCase {
 
             rootView.addSubview(mapView)
 
-            mapView.mapboxMap.onNext(.mapLoaded) { [weak mapView] _ in
+            mapView.mapboxMap.onNext(event: .mapLoaded) { [weak mapView] _ in
                 let dest = CameraOptions(center: CLLocationCoordinate2D(latitude: 10, longitude: 10), zoom: 10)
                 mapView?.camera.ease(to: dest, duration: 5) { (_) in
                     expectation.fulfill()
@@ -75,5 +74,17 @@ final class MapViewIntegrationTests: IntegrationTestCase {
             XCTAssertNotNil(weakMapView)
         }
         XCTAssertNil(weakMapView)
+    }
+
+    func testMapViewDoesNotStartLocationServicesAutomatically() {
+        let locationProvider = MockLocationProvider()
+
+        mapView.location.overrideLocationProvider(with: locationProvider)
+
+        XCTAssertTrue(locationProvider.startUpdatingLocationStub.invocations.isEmpty)
+        XCTAssertTrue(locationProvider.startUpdatingHeadingStub.invocations.isEmpty)
+        XCTAssertTrue(locationProvider.requestAlwaysAuthorizationStub.invocations.isEmpty)
+        XCTAssertTrue(locationProvider.requestWhenInUseAuthorizationStub.invocations.isEmpty)
+        XCTAssertTrue(locationProvider.requestTemporaryFullAccuracyAuthorizationStub.invocations.isEmpty)
     }
 }

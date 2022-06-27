@@ -3,6 +3,7 @@ import MapboxCoreMaps
 import UIKit
 @_implementationOnly import MapboxCommon_Private
 @_implementationOnly import MapboxCoreMaps_Private
+import Turf
 
 internal protocol MapboxMapProtocol: AnyObject {
     var size: CGSize { get }
@@ -18,7 +19,7 @@ internal protocol MapboxMapProtocol: AnyObject {
     func beginGesture()
     func endGesture()
     @discardableResult
-    func onEvery(_ eventType: MapEvents.EventKind, handler: @escaping (Event) -> Void) -> Cancelable
+    func onEvery<Payload>(event eventType: MapEvents.Event<Payload>, handler: @escaping (MapEvent<Payload>) -> Void) -> Cancelable
     // View annotation management
     func setViewAnnotationPositionsUpdateListener(_ listener: ViewAnnotationPositionsUpdateListener?)
     func addViewAnnotation(withId id: String, options: ViewAnnotationOptions) throws
@@ -78,21 +79,15 @@ public final class MapboxMap: MapboxMapProtocol {
     // MARK: - Style loading
 
     private func observeStyleLoad(_ completion: @escaping (Result<Style, Error>) -> Void) {
-        onNext(eventTypes: [.styleLoaded, .mapLoadingError]) { event in
-            switch event.type {
-            case MapEvents.styleLoaded:
-                if !self.style.isLoaded {
-                    Log.warning(forMessage: "style.isLoaded == false, was this an empty style?", category: "Style")
-                }
-                completion(.success(self.style))
-
-            case MapEvents.mapLoadingError:
-                let error = MapLoadingError(data: event.data)
-                completion(.failure(error))
-
-            default:
-                fatalError("Unexpected event type")
+        onNext(event: .styleLoaded) { _ in
+            if !self.style.isLoaded {
+                Log.warning(forMessage: "style.isLoaded == false, was this an empty style?", category: "Style")
             }
+            completion(.success(self.style))
+        }
+
+        onNext(event: .mapLoadingError) { event in
+            completion(.failure(event.payload.error))
         }
     }
 
@@ -148,6 +143,21 @@ public final class MapboxMap: MapboxMapProtocol {
     /// sent to background.
     internal func reduceMemoryUse() {
         __map.reduceMemoryUse()
+    }
+
+    /// The memory budget hint to be used by the map. The budget can be given in
+    /// tile units or in megabytes. A Map will do its best to keep the memory
+    /// allocations for non-essential resources within the budget.
+    ///
+    /// The memory budget distribution and resource
+    /// eviction logic is subject to change. Current implementation sets a memory budget
+    /// hint per data source.
+    ///
+    /// If nil is set, the memory budget in tile units will be dynamically calculated based on
+    /// the current viewport size.
+    /// - Parameter memoryBudget: The memory budget hint to be used by the Map.
+    @_spi(Experimental) public func setMemoryBudget(_ memoryBudget: MapMemoryBudget?) {
+        __map.__setMemoryBudgetFor(memoryBudget)
     }
 
     /// Gets the resource options for the map.
@@ -402,6 +412,16 @@ public final class MapboxMap: MapboxMapProtocol {
             forCamera: MapboxCoreMaps.CameraOptions(camera))
     }
 
+    /// Returns the unwrapped coordinate bounds to a given ``CameraOptions``.
+    ///
+    /// This function is particularly useful, if the camera shows the antimeridian.
+    ///
+    /// - Parameter camera: The camera for which the coordinate bounds will be returned.
+    /// - Returns: `CoordinateBounds` for the given ``CameraOptions``.
+    public func coordinateBoundsUnwrapped(for camera: CameraOptions) -> CoordinateBounds {
+        return __map.coordinateBoundsForCameraUnwrapped(forCamera: MapboxCoreMaps.CameraOptions(camera))
+    }
+
     /// Returns the coordinate bounds and zoom for a given `CameraOptions`.
     ///
     /// - Parameter camera: The camera for which the `CoordinateBoundsZoom` will be returned.
@@ -436,9 +456,11 @@ public final class MapboxMap: MapboxMapProtocol {
 
     /// Converts a map coordinate to a `CGPoint`, relative to the `MapView`.
     /// - Parameter coordinate: The coordinate to convert.
-    /// - Returns: A `CGPoint` relative to the `UIView`.
+    /// - Returns: A `CGPoint` relative to the `UIView`. If the point is outside of the bounds
+    ///     of `MapView` the returned point contains `-1.0` for both coordinates.
     public func point(for coordinate: CLLocationCoordinate2D) -> CGPoint {
-        return __map.pixelForCoordinate(for: coordinate).point
+        let point = __map.pixelForCoordinate(for: coordinate).point
+        return CGRect(origin: .zero, size: size).contains(point) ? point : CGPoint(x: -1.0, y: -1.0)
     }
 
     /// Converts map coordinates to an array of `CGPoint`, relative to the `MapView`.
@@ -524,9 +546,7 @@ public final class MapboxMap: MapboxMapProtocol {
         let expected = __map.setBoundsFor(MapboxCoreMaps.CameraBoundsOptions(options))
 
         if expected.isError() {
-            // swiftlint:disable force_cast
-            throw MapError(coreError: expected.error as! NSString)
-            // swiftlint:enable force_cast
+            throw MapError(coreError: expected.error)
         }
     }
 
@@ -564,7 +584,7 @@ public final class MapboxMap: MapboxMapProtocol {
     }
 
     internal func pointIsAboveHorizon(_ point: CGPoint) -> Bool {
-        guard case .mercator = try? mapProjection() else {
+        guard style.projection.name == .mercator else {
             return false
         }
         let topMargin = 0.04 * size.height
@@ -626,6 +646,7 @@ public final class MapboxMap: MapboxMapProtocol {
 // MARK: - MapFeatureQueryable
 
 extension MapboxMap: MapFeatureQueryable {
+
     /// Queries the map for rendered features.
     ///
     /// - Parameters:
@@ -633,6 +654,7 @@ extension MapboxMap: MapFeatureQueryable {
     ///         for rendered features.
     ///   - options: Options for querying rendered features.
     ///   - completion: Callback called when the query completes
+    @available(*, deprecated, renamed: "queryRenderedFeatures(with:options:completion:)")
     public func queryRenderedFeatures(for shape: [CGPoint], options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) {
         __map.queryRenderedFeatures(forShape: shape.map { $0.screenCoordinate },
                                     options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
@@ -641,12 +663,22 @@ extension MapboxMap: MapFeatureQueryable {
                                                                     concreteErrorType: MapError.self))
     }
 
+    @discardableResult
+    public func queryRenderedFeatures(with shape: [CGPoint], options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) -> Cancelable {
+        return __map.__queryRenderedFeatures(for: .fromNSArray(shape.map {$0.screenCoordinate}),
+                                       options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
+                                       callback: coreAPIClosureAdapter(for: completion,
+                                                                       type: NSArray.self,
+                                                                       concreteErrorType: MapError.self)).asCancelable()
+    }
+
     /// Queries the map for rendered features.
     ///
     /// - Parameters:
     ///   - rect: Screen rect to query for rendered features.
     ///   - options: Options for querying rendered features.
     ///   - completion: Callback called when the query completes
+    @available(*, deprecated, renamed: "queryRenderedFeatures(with:options:completion:)")
     public func queryRenderedFeatures(in rect: CGRect, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) {
         __map.queryRenderedFeatures(for: ScreenBox(rect),
                                     options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
@@ -655,18 +687,37 @@ extension MapboxMap: MapFeatureQueryable {
                                                                     concreteErrorType: MapError.self))
     }
 
+    @discardableResult
+    public func queryRenderedFeatures(with rect: CGRect, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) -> Cancelable {
+        return __map.__queryRenderedFeatures(for: .fromScreenBox(.init(rect)),
+                                       options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
+                                       callback: coreAPIClosureAdapter(for: completion,
+                                                                       type: NSArray.self,
+                                                                       concreteErrorType: MapError.self)).asCancelable()
+    }
+
     /// Queries the map for rendered features.
     ///
     /// - Parameters:
     ///   - point: Screen point at which to query for rendered features.
     ///   - options: Options for querying rendered features.
     ///   - completion: Callback called when the query completes
+    @available(*, deprecated, renamed: "queryRenderedFeatures(with:options:completion:)")
     public func queryRenderedFeatures(at point: CGPoint, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) {
         __map.queryRenderedFeatures(forPixel: point.screenCoordinate,
                                     options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
                                     callback: coreAPIClosureAdapter(for: completion,
                                                                     type: NSArray.self,
                                                                     concreteErrorType: MapError.self))
+    }
+
+    @discardableResult
+    public func queryRenderedFeatures(with point: CGPoint, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) -> Cancelable {
+        return __map.__queryRenderedFeatures(for: .fromScreenCoordinate(point.screenCoordinate),
+                                             options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
+                                             callback: coreAPIClosureAdapter(for: completion,
+                                                                             type: NSArray.self,
+                                                                             concreteErrorType: MapError.self)).asCancelable()
     }
 
     /// Queries the map for source features.
@@ -835,9 +886,25 @@ extension MapboxMap {
 
 extension MapboxMap: MapEventsObservable {
 
+    /// Listen to a single occurrence of a Map event.
+    ///
+    /// This will observe the next (and only the next) event of the specified
+    /// type. After observation, the underlying subscriber will unsubscribe from
+    /// the map or snapshotter.
+    ///
+    /// If you need to unsubscribe before the event fires, call `cancel()` on
+    /// the returned `Cancelable` object.
+    ///
+    /// - Parameters:
+    ///   - eventType: The event type to listen to.
+    ///   - handler: The closure to execute when the event occurs.
+    ///
+    /// - Returns: A `Cancelable` object that you can use to stop listening for
+    ///     the event. This is especially important if you have a retain cycle in
+    ///     the handler.
     @discardableResult
-    private func onNext(eventTypes: [MapEvents.EventKind], handler: @escaping (Event) -> Void) -> Cancelable {
-        return observable.onNext(eventTypes, handler: handler)
+    public func onNext<Payload>(event eventType: MapEvents.Event<Payload>, handler: @escaping (MapEvent<Payload>) -> Void) -> Cancelable {
+        return observable.onNext(event: eventType, handler: handler)
     }
 
     /// Listen to a single occurrence of a Map event.
@@ -856,6 +923,7 @@ extension MapboxMap: MapEventsObservable {
     /// - Returns: A `Cancelable` object that you can use to stop listening for
     ///     the event. This is especially important if you have a retain cycle in
     ///     the handler.
+    @available(*, deprecated, renamed: "onNext(event:handler:)")
     @discardableResult
     public func onNext(_ eventType: MapEvents.EventKind, handler: @escaping (Event) -> Void) -> Cancelable {
         return observable.onNext([eventType], handler: handler)
@@ -870,9 +938,24 @@ extension MapboxMap: MapEventsObservable {
     /// - Returns: A `Cancelable` object that you can use to stop listening for
     ///     events. This is especially important if you have a retain cycle in
     ///     the handler.
+    @available(*, deprecated, renamed: "onEvery(event:handler:)")
     @discardableResult
     public func onEvery(_ eventType: MapEvents.EventKind, handler: @escaping (Event) -> Void) -> Cancelable {
         return observable.onEvery([eventType], handler: handler)
+    }
+
+    /// Listen to multiple occurrences of a Map event.
+    ///
+    /// - Parameters:
+    ///   - eventType: The event type to listen to.
+    ///   - handler: The closure to execute when the event occurs.
+    ///
+    /// - Returns: A `Cancelable` object that you can use to stop listening for
+    ///     events. This is especially important if you have a retain cycle in
+    ///     the handler.
+    @discardableResult
+    public func onEvery<Payload>(event: MapEvents.Event<Payload>, handler: @escaping (MapEvent<Payload>) -> Void) -> Cancelable {
+        return observable.onEvery(event: event, handler: handler)
     }
 
     internal func performWithoutNotifying(_ block: () -> Void) {
@@ -939,7 +1022,7 @@ extension MapboxMap {
                               sourceLayerId: sourceLayerId,
                               featureId: featureId,
                               callback: coreAPIClosureAdapter(for: callback,
-                                                              type: NSDictionary.self,
+                                                              type: AnyObject.self,
                                                               concreteErrorType: MapError.self))
     }
 
@@ -970,31 +1053,31 @@ extension MapboxMap {
 
     internal func addViewAnnotation(withId id: String, options: ViewAnnotationOptions) throws {
         let expected = __map.addViewAnnotation(forIdentifier: id, options: MapboxCoreMaps.ViewAnnotationOptions(options))
-        if expected.isError(), let reason = expected.error as? NSString {
+        if expected.isError(), let reason = expected.error {
             throw MapError(coreError: reason)
         }
     }
 
     internal func updateViewAnnotation(withId id: String, options: ViewAnnotationOptions) throws {
         let expected = __map.updateViewAnnotation(forIdentifier: id, options: MapboxCoreMaps.ViewAnnotationOptions(options))
-        if expected.isError(), let reason = expected.error as? NSString {
+        if expected.isError(), let reason = expected.error {
             throw MapError(coreError: reason)
         }
     }
 
     internal func removeViewAnnotation(withId id: String) throws {
         let expected = __map.removeViewAnnotation(forIdentifier: id)
-        if expected.isError(), let reason = expected.error as? NSString {
+        if expected.isError(), let reason = expected.error {
             throw MapError(coreError: reason)
         }
     }
 
     internal func options(forViewAnnotationWithId id: String) throws -> ViewAnnotationOptions {
         let expected = __map.getViewAnnotationOptions(forIdentifier: id)
-        if expected.isError(), let reason = expected.error as? NSString {
+        if expected.isError(), let reason = expected.error {
             throw MapError(coreError: reason)
         }
-        guard let options = expected.value as? MapboxCoreMaps.ViewAnnotationOptions else {
+        guard let options = expected.value else {
             fatalError("Failed to unwrap ViewAnnotationOptions")
         }
         return ViewAnnotationOptions(options)
@@ -1002,33 +1085,10 @@ extension MapboxMap {
 
 }
 
-// MARK: - MapProjection
-
+// MARK: - Map Recorder
 extension MapboxMap {
-    /// Errors related to MapProjection API
-    @_spi(Experimental) public enum MapProjectionError: Error {
-        case unsupportedProjection
-    }
-
-    /// Set map projection for Mapbox map.
-    /// - Parameter mode: The `MapProjection` to be used by the map.
-    /// - Throws: Errors during encoding or `MapProjectionError.unsupportedProjection` if the supplied projection is not compatible with the SDK.
-    @_spi(Experimental) public func setMapProjection(_ mapProjection: MapProjection) throws {
-        try __map.setMapProjectionForProjection(mapProjection.toJSON())
-    }
-
-    /// Get current map projection for Mapbox map.
-    ///
-    /// Please note that even if MapboxMap is configured to use `MapProjection.globe`
-    /// starting from `GlobeMapProjection.transitionZoomLevel` and above
-    /// this method will return `MapProjection.mercator`.
-    ///
-    /// - Returns:
-    ///     `MapProjection` map is using.
-    /// - Throws: Errors during decoding
-    @_spi(Experimental) public func mapProjection() throws -> MapProjection {
-        let data = try JSONSerialization.data(withJSONObject: __map.getMapProjection(), options: [])
-        return try JSONDecoder().decode(MapProjection.self, from: data)
+    internal func makeRecorder() -> MapRecorder {
+        MapRecorder(mapView: __map)
     }
 }
 

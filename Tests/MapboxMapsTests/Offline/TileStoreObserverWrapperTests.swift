@@ -1,5 +1,5 @@
 import XCTest
-import MapboxCommon_Private
+@_implementationOnly import MapboxCommon_Private
 @testable import MapboxMaps
 
 final class TileStoreObserverWrapperTests: XCTestCase {
@@ -34,8 +34,8 @@ final class TileStoreObserverWrapperTests: XCTestCase {
         wrapper.onRegionLoadProgress(forId: id, progress: progress)
 
         XCTAssertEqual(observer.onRegionLoadProgressStub.invocations.count, 1)
-        XCTAssertEqual(observer.onRegionLoadProgressStub.parameters.first?.id, id)
-        XCTAssertTrue(observer.onRegionLoadProgressStub.parameters.first?.progress === progress)
+        XCTAssertEqual(observer.onRegionLoadProgressStub.invocations.first?.parameters.id, id)
+        XCTAssertTrue(observer.onRegionLoadProgressStub.invocations.first?.parameters.progress === progress)
     }
 
     func testOnRegionLoadFinishedWithValidValue() throws {
@@ -45,12 +45,12 @@ final class TileStoreObserverWrapperTests: XCTestCase {
             completedResourceCount: 0,
             completedResourceSize: 0,
             expires: nil)
-        let expected = Expected<AnyObject, AnyObject>(value: tileRegion)
+        let expected = Expected<TileRegion, MapboxCommon.TileRegionError>(value: tileRegion)
 
         wrapper.onRegionLoadFinished(forId: id, region: expected)
 
         XCTAssertEqual(observer.onRegionLoadFinishedStub.invocations.count, 1)
-        let parameters = try XCTUnwrap(observer.onRegionLoadFinishedStub.parameters.first)
+        let parameters = try XCTUnwrap(observer.onRegionLoadFinishedStub.invocations.first?.parameters)
         XCTAssertEqual(parameters.id, id)
         guard case .success(let regionParameter) = parameters.region else {
             XCTFail("Expected region parameter to be Result.success, but found \(parameters.region)")
@@ -59,29 +59,15 @@ final class TileStoreObserverWrapperTests: XCTestCase {
         XCTAssertTrue(tileRegion === regionParameter)
     }
 
-    func testOnRegionLoadFinishedWithInalidValue() throws {
-        let expected = Expected<AnyObject, AnyObject>(value: NSNull())
-
-        wrapper.onRegionLoadFinished(forId: id, region: expected)
-
-        XCTAssertEqual(observer.onRegionLoadFinishedStub.invocations.count, 1)
-        let parameters = try XCTUnwrap(observer.onRegionLoadFinishedStub.parameters.first)
-        XCTAssertEqual(parameters.id, id)
-        guard case .failure(TypeConversionError.unexpectedType) = parameters.region else {
-            XCTFail("Expected region parameter to be Result.failure(TypeConversionError.unexpectedType), but found \(parameters.region)")
-            return
-        }
-    }
-
     func testOnRegionLoadFinishedWithValidError() throws {
         let types: [TileRegionErrorType] = [.canceled, .diskFull, .doesNotExist, .other, .tileCountExceeded, .tilesetDescriptor]
         let error = MapboxCommon.TileRegionError(type: types.randomElement()!, message: .randomASCII(withLength: 10))
-        let expected = Expected<AnyObject, AnyObject>(error: error)
+        let expected = Expected<TileRegion, MapboxCommon.TileRegionError>(error: error)
 
         wrapper.onRegionLoadFinished(forId: id, region: expected)
 
         XCTAssertEqual(observer.onRegionLoadFinishedStub.invocations.count, 1)
-        let parameters = try XCTUnwrap(observer.onRegionLoadFinishedStub.parameters.first)
+        let parameters = try XCTUnwrap(observer.onRegionLoadFinishedStub.invocations.first?.parameters)
         XCTAssertEqual(parameters.id, id)
         guard case .failure(let e) = parameters.region, let tileRegionError = e as? MapboxMaps.TileRegionError else {
             XCTFail("Expected region parameter to be Result.failure with error of type TileRegionError, but found \(parameters.region)")
@@ -90,23 +76,10 @@ final class TileStoreObserverWrapperTests: XCTestCase {
         XCTAssertEqual(tileRegionError, TileRegionError(coreError: error))
     }
 
-    func testOnRegionLoadFinishedWithInvalidError() throws {
-        let expected = Expected<AnyObject, AnyObject>(error: NSError())
-        wrapper.onRegionLoadFinished(forId: id, region: expected)
-
-        XCTAssertEqual(observer.onRegionLoadFinishedStub.invocations.count, 1)
-        let parameters = try XCTUnwrap(observer.onRegionLoadFinishedStub.parameters.first)
-        XCTAssertEqual(parameters.id, id)
-        guard case .failure(TypeConversionError.unexpectedType) = parameters.region else {
-            XCTFail("Expected region parameter to be Result.failure(TypeConversionError.unexpectedType), but found \(parameters.region)")
-            return
-        }
-    }
-
     func testOnRegionRemoved() {
         wrapper.onRegionRemoved(forId: id)
 
-        XCTAssertEqual(observer.onRegionRemovedStub.parameters, [id!])
+        XCTAssertEqual(observer.onRegionRemovedStub.invocations.map(\.parameters), [id!])
     }
 
     func testOnRegionGeometryChanged() {
@@ -115,8 +88,8 @@ final class TileStoreObserverWrapperTests: XCTestCase {
         wrapper.onRegionGeometryChanged(forId: id, geometry: MapboxCommon.Geometry(geometry))
 
         XCTAssertEqual(observer.onRegionGeometryChangedStub.invocations.count, 1)
-        XCTAssertEqual(observer.onRegionGeometryChangedStub.parameters.first?.id, id)
-        XCTAssertEqual(observer.onRegionGeometryChangedStub.parameters.first?.geometry, geometry)
+        XCTAssertEqual(observer.onRegionGeometryChangedStub.invocations.first?.parameters.id, id)
+        XCTAssertEqual(observer.onRegionGeometryChangedStub.invocations.first?.parameters.geometry, geometry)
     }
 
     func testOnRegionMetadataChanged() {
@@ -125,7 +98,7 @@ final class TileStoreObserverWrapperTests: XCTestCase {
         wrapper.onRegionMetadataChanged(forId: id, value: value)
 
         XCTAssertEqual(observer.onRegionMetadataChangedStub.invocations.count, 1)
-        XCTAssertEqual(observer.onRegionMetadataChangedStub.parameters.first?.id, id)
-        XCTAssertEqual(observer.onRegionMetadataChangedStub.parameters.first?.value as? Int, value)
+        XCTAssertEqual(observer.onRegionMetadataChangedStub.invocations.first?.parameters.id, id)
+        XCTAssertEqual(observer.onRegionMetadataChangedStub.invocations.first?.parameters.value as? Int, value)
     }
 }

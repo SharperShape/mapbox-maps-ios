@@ -403,6 +403,19 @@ public enum SkyType: String, Codable, CaseIterable {
 
 }
 
+// MARK: MODEL_TYPE
+
+/// Defines rendering behavior of model in respect to other 3D scene objects.
+public enum ModelType: String, Codable, CaseIterable {
+
+    /// Integrated to 3D scene, using depth testing, along with terrain, fill-extrusions and custom layer.
+    case common3d = "common-3d"
+
+    /// Displayed over other 3D content, occluded by terrain.
+    case locationIndicator = "location-indicator"
+
+}
+
 // MARK: ANCHOR
 
 /// Whether extruded geometries are lit relative to the map or viewport.
@@ -413,6 +426,19 @@ public enum Anchor: String, Codable, CaseIterable {
 
     /// The position of the light source is aligned to the rotation of the viewport.
     case viewport = "viewport"
+
+}
+
+// MARK: NAME
+
+/// The name of the projection to be used for rendering the map.
+public enum StyleProjectionName: String, Codable, CaseIterable {
+
+    /// The Mercator projection is the default projection.
+    case mercator = "mercator"
+
+    /// A globe projection.
+    case globe = "globe"
 
 }
 

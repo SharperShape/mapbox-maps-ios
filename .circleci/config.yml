@@ -1,6 +1,11 @@
 ---
 version: 2.1
 
+parameters:
+  turf-revision:
+    type: string
+    default: ""
+
 orbs:
   # https://circleci.com/orbs/registry/orb/circleci/slack
   slack: circleci/slack@4.5
@@ -19,12 +24,12 @@ release-precheck: &release-anchor
 executors:
   xcode-latest:
     macos:
-      xcode: 13.2.1
+      xcode: 13.3.0
   # Note that `create-github-draft-release.sh` depends on this structure to parse the minimum supported Xcode version.
   # Please keep them in sync if this structure changes.
   xcode-sdk-min:
     macos:
-      xcode: 12.5.1
+      xcode: 13.0.0
 
 ### Workflows
 
@@ -42,19 +47,19 @@ workflows:
     jobs:
       - swiftlint
       - depsvalidator:
-          xcode: "12.5.0"
+          xcode: "13.3.0"
       - build-sdk:
           configuration: "Release"
           report_failure: true
           matrix:
             parameters:
-              xcode: ["12.5.0", "13.0.0"]
+              xcode: ["13.0.0", "13.2.1"]
       - unit-test-sdk:
           configuration: "Release"
           report_failure: true
           matrix:
             parameters:
-              xcode: ["12.5.0", "13.0.0"]
+              xcode: ["13.0.0", "13.2.1"]
       - build-tests:
           name: Build MapboxTestHost tests
       - run-tests:
@@ -72,11 +77,10 @@ workflows:
       - create-xcframework:
           create-xcframework-always-run: true
           report_failure: true
-          matrix:
-            parameters:
-              xcode: ["12.5.0", "13.2.1"]
+          xcode: "13.0.0"
 
   optional-tests:
+    unless: << pipeline.parameters.turf-revision >>
     jobs:
       - run-tests?:
           type: approval
@@ -110,13 +114,20 @@ workflows:
             - Build Examples tests [non-main]
           devices: --device model=iphone8,version=14.7
 
+      - trigger-compatibility-verification?:
+          type: approval
+      - trigger-compatibility-verification:
+          requires:
+            - trigger-compatibility-verification?
+
   steve:
+    unless: << pipeline.parameters.turf-revision >>
     jobs:
       - swiftlint
       - depsvalidator:
-          xcode: "12.5.0"
+          xcode: "13.3.0"
       - build-sdk:
-          xcode: "12.5.0"
+          xcode: "13.0.0"
           configuration: "Release"
 
       - build-sdk-for-api-compatibility-check
@@ -127,6 +138,7 @@ workflows:
       - validate-integrations-for-branch
 
       # Trigger mobile-metrics workflows
+      - trigger-metrics-v2
       - trigger-binary-size:
           requires:
             - build-sdk
@@ -143,7 +155,12 @@ workflows:
       # Run unit tests on CI simulator
       - unit-test-sdk:
           name: "Run Unit tests"
-          xcode: "12.5.0"
+          xcode: "13.0.0"
+
+      - unit-test-sdk:
+          name: "Run Unit Tests with min Turf"
+          xcode: "13.0.0"
+          turf-revision: v2.0.0
 
       # Build all tests with host application
       # Run on main by default
@@ -177,7 +194,9 @@ workflows:
     jobs:
       - release-precheck:
           <<: *release-anchor
-          requires: [ ]
+          requires: []
+      - trigger-metrics-v2:
+          <<: *release-anchor
       - build-dynamic:
           <<: *release-anchor
       - build-static:
@@ -229,6 +248,13 @@ workflows:
             - update-examples
             - validate-integrations
 
+  turf-integration:
+    when: << pipeline.parameters.turf-revision >>
+    jobs:
+      - turf-integration:
+          name: "Run Unit Tests"
+          turf-revision: << pipeline.parameters.turf-revision >>
+
 # ==============================================================================
 
 jobs:
@@ -240,7 +266,7 @@ jobs:
     parameters:
       xcode:
         type: string
-        default: "12.5.0"
+        default: "13.0.0"
       create-xcframework-always-run:
         type: boolean
         default: false
@@ -253,9 +279,9 @@ jobs:
       scheme:
         type: string
         default: "MapboxTestHost"
-      app-name:
+      turf-revision:
         type: string
-        default: "MapboxTestHost"
+        default: ""
     macos:
       xcode: << parameters.xcode >>
     environment:
@@ -330,14 +356,14 @@ jobs:
       - run:
           name: Trigger binary size test
           command: |
-            if [ -n "${CIRCLECI_METRICS_TOKEN}" ]; then
+            if [ -n "${CIRCLECI_API_TOKEN_MOBILE_METRICS}" ]; then
               if [[ $CIRCLE_BRANCH == main ]]; then
-                curl --fail -X POST --header "Content-Type: application/json" --data "{\"build_parameters\":{\"CIRCLE_JOB\":\"ios-maps-v10-binary-size\",\"SOURCE_HASH\":\"${CIRCLE_SHA1}\",\"SOURCE_NAME\":\"ios-maps-v10\"}}" https://circleci.com/api/v1.1/project/github/mapbox/mobile-metrics/tree/master?circle-token=${CIRCLECI_METRICS_TOKEN}
+                curl --fail -X POST --header "Content-Type: application/json" --data "{\"build_parameters\":{\"CIRCLE_JOB\":\"ios-maps-v10-binary-size\",\"SOURCE_HASH\":\"${CIRCLE_SHA1}\",\"SOURCE_NAME\":\"ios-maps-v10\"}}" https://circleci.com/api/v1.1/project/github/mapbox/mobile-metrics/tree/master?circle-token=${CIRCLECI_API_TOKEN_MOBILE_METRICS}
               else
-                curl --fail -X POST --header "Content-Type: application/json" --data "{\"build_parameters\":{\"CIRCLE_JOB\":\"ios-maps-v10-binary-size\",\"SOURCE_HASH\":\"${CIRCLE_SHA1}\",\"SOURCE_NAME\":\"ios-maps-v10\",\"SOURCE_COMPARE_BASELINE\":\"YES\"}}" https://circleci.com/api/v1.1/project/github/mapbox/mobile-metrics/tree/master?circle-token=${CIRCLECI_METRICS_TOKEN}
+                curl --fail -X POST --header "Content-Type: application/json" --data "{\"build_parameters\":{\"CIRCLE_JOB\":\"ios-maps-v10-binary-size\",\"SOURCE_HASH\":\"${CIRCLE_SHA1}\",\"SOURCE_NAME\":\"ios-maps-v10\",\"SOURCE_COMPARE_BASELINE\":\"YES\"}}" https://circleci.com/api/v1.1/project/github/mapbox/mobile-metrics/tree/master?circle-token=${CIRCLECI_API_TOKEN_MOBILE_METRICS}
               fi
             else
-              echo "CIRCLECI_METRICS_TOKEN not provided"
+              echo "CIRCLECI_API_TOKEN_MOBILE_METRICS not provided"
             fi
 
   trigger-metrics-build:
@@ -346,18 +372,48 @@ jobs:
       - run:
           name: Build metrics tests
           command: |
-            if [ -n "${CIRCLECI_METRICS_TOKEN}" ]; then
+            if [ -n "${CIRCLECI_API_TOKEN_MOBILE_METRICS}" ]; then
               if [[ $CIRCLE_BRANCH == main ]]; then
-                curl --fail -X POST --header "Content-Type: application/json" --data "{\"build_parameters\":{\"CIRCLE_JOB\":\"ios-maps-v10-build\",\"SOURCE_HASH\":\"${CIRCLE_SHA1}\",\"SOURCE_NAME\":\"ios-maps-v10\"}}" https://circleci.com/api/v1.1/project/github/mapbox/mobile-metrics/tree/master?circle-token=${CIRCLECI_METRICS_TOKEN}
+                curl --fail -X POST --header "Content-Type: application/json" --data "{\"build_parameters\":{\"CIRCLE_JOB\":\"ios-maps-v10-build\",\"SOURCE_HASH\":\"${CIRCLE_SHA1}\",\"SOURCE_NAME\":\"ios-maps-v10\"}}" https://circleci.com/api/v1.1/project/github/mapbox/mobile-metrics/tree/master?circle-token=${CIRCLECI_API_TOKEN_MOBILE_METRICS}
               else
                 echo "Trying $CIRCLE_BRANCH first:"
-                if ! curl --fail -X POST --header "Content-Type: application/json" --data "{\"build_parameters\":{\"CIRCLE_JOB\":\"ios-maps-v10-build\",\"SOURCE_HASH\":\"${CIRCLE_SHA1}\",\"SOURCE_NAME\":\"ios-maps-v10\"}}" https://circleci.com/api/v1.1/project/github/mapbox/mobile-metrics/tree/$CIRCLE_BRANCH?circle-token=${CIRCLECI_METRICS_TOKEN}; then
+                if ! curl --fail -X POST --header "Content-Type: application/json" --data "{\"build_parameters\":{\"CIRCLE_JOB\":\"ios-maps-v10-build\",\"SOURCE_HASH\":\"${CIRCLE_SHA1}\",\"SOURCE_NAME\":\"ios-maps-v10\"}}" https://circleci.com/api/v1.1/project/github/mapbox/mobile-metrics/tree/$CIRCLE_BRANCH?circle-token=${CIRCLECI_API_TOKEN_MOBILE_METRICS}; then
                   echo "Falling back to `master` branch:"
-                  curl --fail -X POST --header "Content-Type: application/json" --data "{\"build_parameters\":{\"CIRCLE_JOB\":\"ios-maps-v10-build\",\"SOURCE_HASH\":\"${CIRCLE_SHA1}\",\"SOURCE_NAME\":\"ios-maps-v10\"}}" https://circleci.com/api/v1.1/project/github/mapbox/mobile-metrics/tree/master?circle-token=${CIRCLECI_METRICS_TOKEN}
+                  curl --fail -X POST --header "Content-Type: application/json" --data "{\"build_parameters\":{\"CIRCLE_JOB\":\"ios-maps-v10-build\",\"SOURCE_HASH\":\"${CIRCLE_SHA1}\",\"SOURCE_NAME\":\"ios-maps-v10\"}}" https://circleci.com/api/v1.1/project/github/mapbox/mobile-metrics/tree/master?circle-token=${CIRCLECI_API_TOKEN_MOBILE_METRICS}
                 fi
               fi
             else
-              echo "CIRCLECI_METRICS_TOKEN not provided"
+              echo "CIRCLECI_API_TOKEN_MOBILE_METRICS not provided"
+            fi
+
+  trigger-metrics-v2:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: Run Workflow
+          command: |
+            if [[ $CIRCLE_BRANCH == main ]]; then
+              curl -X POST "https://circleci.com/api/v2/project/github/mapbox/mapbox-maps-ios-internal/pipeline" \
+                  -H 'Content-Type: application/json' \
+                  -H "Circle-Token: $CIRCLECI_API_TOKEN_MAPBOX_MAPS_IOS_INTERNAL" \
+                  -d $'{
+                "branch": "main",
+                "parameters": {
+                  "maps-ios-checkout-reference": "<< pipeline.git.revision >>",
+                  "run-tests": true
+                }
+              }'
+            else
+              curl -X POST "https://circleci.com/api/v2/project/github/mapbox/mapbox-maps-ios-internal/pipeline" \
+                -H 'Content-Type: application/json' \
+                -H "Circle-Token: $CIRCLECI_API_TOKEN_MAPBOX_MAPS_IOS_INTERNAL" \
+                -d $'{
+              "branch": "main",
+              "parameters": {
+                "maps-ios-checkout-reference": "<< pipeline.git.revision >>"
+              }
+            }'
             fi
 
   trigger-metrics-collection:
@@ -367,14 +423,30 @@ jobs:
           # TODO: main by default (this is set as a filter), other commits on-demand
           name: Trigger metrics
           command: |
-            if [ -n "${CIRCLECI_METRICS_TOKEN}" ]; then
-              curl --fail -X POST --header "Content-Type: application/json" --data "{\"parameters\":{\"run_ios_maps_v10_benchmark\":true,\"ci_ref\":${CIRCLE_BUILD_NUM},\"mapbox_hash\":\"${CIRCLE_SHA1}\",\"target_branch\":\"${CIRCLE_BRANCH}\"},\"branch\":\"master\"}" https://circleci.com/api/v2/project/github/mapbox/mobile-metrics/pipeline?circle-token=${CIRCLECI_METRICS_TOKEN}
+            if [ -n "${CIRCLECI_API_TOKEN_MOBILE_METRICS}" ]; then
+              curl --fail -X POST --header "Content-Type: application/json" --data "{\"parameters\":{\"run_ios_maps_v10_benchmark\":true,\"ci_ref\":${CIRCLE_BUILD_NUM},\"mapbox_hash\":\"${CIRCLE_SHA1}\",\"target_branch\":\"${CIRCLE_BRANCH}\"},\"branch\":\"master\"}" https://circleci.com/api/v2/project/github/mapbox/mobile-metrics/pipeline?circle-token=${CIRCLECI_API_TOKEN_MOBILE_METRICS}
             else
-              echo "CIRCLECI_METRICS_TOKEN not provided"
+              echo "CIRCLECI_API_TOKEN_MOBILE_METRICS not provided"
             fi
       - report-failure:
           report_failure: << parameters.report_failure >>
           message: "metrics"
+
+  trigger-compatibility-verification:
+    docker:
+      - image: cimg/python:3.10.4
+    steps:
+      - checkout
+      - run:
+          name: Install python depedencies
+          command: |
+            pip3 install PyYAML
+            pip3 install GitPython
+            pip3 install requests
+      - run:
+          name: Trigger compatibility test
+          command: |
+            python3 scripts/ci-trigger/ci-compatibility-start-pipeline.py --target-slug mapbox/mapbox-sdk --token ${CIRCLECI_API_TOKEN_MAPBOX_MAPS_IOS_INTERNAL} --config mapbox-maps-ios=${CIRCLE_SHA1} --origin-slug mapbox/mapbox-maps-ios --platform ios
 
   unit-test-sdk:
     <<: *base-job
@@ -382,6 +454,13 @@ jobs:
     steps:
       - checkout
       - configure-environment
+      - when:
+          condition: << parameters.turf-revision >>
+          steps:
+            - run:
+                name: Set Turf Revision
+                command: |
+                  sed -i '' 's/turf-swift.git", from: "2.0.0"/turf-swift.git", .revision("<< parameters.turf-revision >>")/' Package.swift
       # Building and testing are split into 2, with the aim that we'll be able to reuse
       # the build product and test on multiple simulators
       - run:
@@ -532,7 +611,7 @@ jobs:
             condition:
               not:
                 matches:
-                  pattern: "^12.*$"
+                  pattern: "^13.0.*$"
                   value: << parameters.xcode >>
             steps:
               - check-breaking-api:
@@ -546,7 +625,7 @@ jobs:
             condition:
               not:
                 matches:
-                  pattern: "^12.*$"
+                  pattern: "^13.0.*$"
                   value: << parameters.xcode >>
             steps:
               - check-breaking-api:
@@ -573,7 +652,8 @@ jobs:
       - store-default-artifacts
 
   check-api-compatibility:
-    executor: xcode-latest
+    macos:
+      xcode: 13.2.1
     steps:
       - checkout
       - configure-environment
@@ -633,6 +713,10 @@ jobs:
       - run:
           name: Podspec points to the release version
           command: '[[ $(pod ipc spec  MapboxMaps.podspec | jq -r .version) == "$VERSION" ]]'
+      - inject-netrc-credentials
+      - run:
+          name: General podspec check
+          command: pod spec lint --verbose --allow-warnings
       - slack-notify-failure-if-any
 
   build-dynamic:
@@ -715,8 +799,8 @@ jobs:
           name: Wait binaries public access
           command: |
             echo $VERSION
-            timeout 1800 bash -c 'while [[ "$(curl -n -s -o /dev/null -w ''%{http_code}'' https://api.mapbox.com/downloads/v2/mobile-maps-ios/releases/ios/$VERSION/MapboxMaps.zip)" != "200" ]]; do sleep 5; done' || false
-          no_output_timeout: 30m
+            timeout 3600 bash -c 'while [[ "$(curl -n -s -o /dev/null -w ''%{http_code}'' https://api.mapbox.com/downloads/v2/mobile-maps-ios/releases/ios/$VERSION/MapboxMaps.zip)" != "200" ]]; do sleep 5; done' || false
+          no_output_timeout: 60m
       - slack-notify-failure-if-any
 
   create-docs-prs:
@@ -756,7 +840,7 @@ jobs:
       - configure-environment
       - run:
           name: Publish CocoaPods Podspec
-          command: pod trunk push
+          command: pod trunk push --allow-warnings
       - slack-notify-failure-if-any
 
   create-draft-release:
@@ -785,6 +869,52 @@ jobs:
             echo $VERSION
             timeout 1800 bash -c 'while [[ "$(curl -n -s -o /dev/null -w ''%{http_code}'' https://api.mapbox.com/downloads/v2/mobile-maps-ios/releases/ios/$VERSION/MapboxMaps.zip)" != "200" ]]; do sleep 5; done' || false
           no_output_timeout: 30m
+
+  turf-integration:
+    parameters:
+      turf-revision:
+        type: string
+        default: ""
+    macos:
+      xcode: "13.0.0"
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+      CONFIGURATION: "Debug"
+    resource_class: macos.x86.medium.gen2
+    steps:
+      - checkout
+      - configure-environment
+      - turf-report-pending:
+          turf-revision: << parameters.turf-revision >>
+      - run:
+          name: Set Turf Revision
+          command: |
+            sed -i '' 's/turf-swift.git", from: "2.0.0"/turf-swift.git", .revision("<< parameters.turf-revision >>")/' Package.swift
+      # Building and testing are split into 2, with the aim that we'll be able to reuse
+      # the build product and test on multiple simulators
+      - run:
+          name: Building MapboxMaps for simulator
+          command: make build-sdk-for-testing-simulator
+          no_output_timeout: 5m
+      - run:
+          name: Testing MapboxMaps with simulator
+          command: make test-sdk-without-building-simulator
+      - run:
+          name: Compress XCResult
+          command: zip -r MapboxMapsTests.xcresult.zip MapboxMapsTests.xcresult
+          when: always
+      - store_artifacts:
+          path: MapboxMapsTests.xcresult.zip
+      - locate-derived-data-directory:
+          base_name: $(basename $(pwd))
+      - store-logs:
+          artifact_name: MapboxMaps
+          derived_data_path: $DERIVED_DATA_PATH
+      - turf-report-success:
+          turf-revision: << parameters.turf-revision >>
+      - turf-report-failure:
+          turf-revision: << parameters.turf-revision >>
 
 # ==============================================================================
 # Reusable commands
@@ -1173,3 +1303,46 @@ commands:
           when: always
       - store_artifacts:
           path: artifacts.zip
+
+  turf-report-pending:
+    parameters:
+      turf-revision:
+        type: string
+    steps:
+      - run:
+          name: Set Turf commit status to pending
+          command: |
+            curl --request POST \
+              --url https://api.github.com/repos/mapbox/turf-swift/statuses/<< parameters.turf-revision >> \
+              --header 'Accept: application/vnd.github.v3+json' \
+              --header "Authorization: token $(mbx-ci github notifier token)" \
+              --data "{\"state\":\"pending\",\"target_url\":\"$CIRCLE_BUILD_URL\",\"description\":\"MapboxMaps SDK integration tests are running\",\"context\":\"Maps SDK Integration\"}"
+
+  turf-report-success:
+    parameters:
+      turf-revision:
+        type: string
+    steps:
+      - run:
+          name: Set Turf commit status to success
+          command: |
+            curl --request POST \
+              --url https://api.github.com/repos/mapbox/turf-swift/statuses/<< parameters.turf-revision >> \
+              --header 'Accept: application/vnd.github.v3+json' \
+              --header "Authorization: token $(mbx-ci github notifier token)" \
+              --data "{\"state\":\"success\",\"target_url\":\"$CIRCLE_BUILD_URL\",\"description\":\"MapboxMaps SDK integration tests passed\",\"context\":\"Maps SDK Integration\"}"
+
+  turf-report-failure:
+    parameters:
+      turf-revision:
+        type: string
+    steps:
+      - run:
+          when: on_fail
+          name: Set Turf commit status to failure
+          command: |
+            curl --request POST \
+              --url https://api.github.com/repos/mapbox/turf-swift/statuses/<< parameters.turf-revision >> \
+              --header 'Accept: application/vnd.github.v3+json' \
+              --header "Authorization: token $(mbx-ci github notifier token)" \
+              --data "{\"state\":\"failure\",\"target_url\":\"$CIRCLE_BUILD_URL\",\"description\":\"MapboxMaps SDK integration tests failed\",\"context\":\"Maps SDK Integration\"}"

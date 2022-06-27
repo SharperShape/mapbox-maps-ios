@@ -93,12 +93,12 @@ public class Snapshotter {
 
         mapSnapshotter.start { (expected) in
             if expected.isError() {
-                completion(.failure(.snapshotFailed(reason: expected.error as? String)))
+                completion(.failure(.snapshotFailed(reason: expected.error as String)))
                 return
             }
 
-            guard expected.isValue(), let snapshot = expected.value as? MapSnapshot else {
-                completion(.failure(.snapshotFailed(reason: expected.error as? String)))
+            guard expected.isValue(), let snapshot = expected.value else {
+                completion(.failure(.snapshotFailed(reason: expected.error as String)))
                 return
             }
 
@@ -174,9 +174,7 @@ public class Snapshotter {
                     }
 
                     let coordinateForPoint = { (point: CGPoint) -> CLLocationCoordinate2D in
-                        // TODO: Fix circular dependency issues with MapboxMapsStyle/Foundation in order to use point.screenCoordinate extension
-                        let screenCoordinate = ScreenCoordinate(x: Double(point.x), y: Double(point.y))
-                        return snapshot.coordinate(for: screenCoordinate)
+                        return snapshot.coordinate(for: point.screenCoordinate)
                     }
 
                     // Apply the overlay, if provided.
@@ -307,9 +305,46 @@ extension Snapshotter: MapEventsObservable {
     /// - Returns: A `Cancelable` object that you can use to stop listening for
     ///     the event. This is especially important if you have a retain cycle in
     ///     the handler.
+    @available(*, deprecated, renamed: "onNext(event:handler:)")
     @discardableResult
     public func onNext(_ eventType: MapEvents.EventKind, handler: @escaping (Event) -> Void) -> Cancelable {
         observable.onNext([eventType], handler: handler)
+    }
+
+    /// Listen to a single occurrence of a Map event.
+    ///
+    /// This will observe the next (and only the next) event of the specified
+    /// type. After observation, the underlying subscriber will unsubscribe from
+    /// the map or snapshotter.
+    ///
+    /// If you need to unsubscribe before the event fires, call `cancel()` on
+    /// the returned `Cancelable` object.
+    ///
+    /// - Parameters:
+    ///   - eventType: The event type to listen to.
+    ///   - handler: The closure to execute when the event occurs.
+    ///
+    /// - Returns: A `Cancelable` object that you can use to stop listening for
+    ///     the event. This is especially important if you have a retain cycle in
+    ///     the handler.
+    @discardableResult
+    public func onNext<Payload>(event: MapEvents.Event<Payload>, handler: @escaping (MapEvent<Payload>) -> Void) -> Cancelable {
+        return observable.onNext(event: event, handler: handler)
+    }
+
+    /// Listen to multiple occurrences of a Map event.
+    ///
+    /// - Parameters:
+    ///   - eventType: The event type to listen to.
+    ///   - handler: The closure to execute when the event occurs.
+    ///
+    /// - Returns: A `Cancelable` object that you can use to stop listening for
+    ///     events. This is especially important if you have a retain cycle in
+    ///     the handler.
+    @available(*, deprecated, renamed: "onEvery(event:handler:)")
+    @discardableResult
+    public func onEvery(_ eventType: MapEvents.EventKind, handler: @escaping (Event) -> Void) -> Cancelable {
+        observable.onEvery([eventType], handler: handler)
     }
 
     /// Listen to multiple occurrences of a Map event.
@@ -322,8 +357,8 @@ extension Snapshotter: MapEventsObservable {
     ///     events. This is especially important if you have a retain cycle in
     ///     the handler.
     @discardableResult
-    public func onEvery(_ eventType: MapEvents.EventKind, handler: @escaping (Event) -> Void) -> Cancelable {
-        observable.onEvery([eventType], handler: handler)
+    public func onEvery<Payload>(event: MapEvents.Event<Payload>, handler: @escaping (MapEvent<Payload>) -> Void) -> Cancelable {
+        return observable.onEvery(event: event, handler: handler)
     }
 }
 

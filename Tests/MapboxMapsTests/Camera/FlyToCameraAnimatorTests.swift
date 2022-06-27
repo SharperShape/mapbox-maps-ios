@@ -26,57 +26,49 @@ final class FlyToCameraAnimatorTests: XCTestCase {
         bearing: 10,
         pitch: 10)
 
-    let animationOwner = AnimationOwner(rawValue: "fly-to")
     let duration: TimeInterval = 10
+    var owner: AnimationOwner!
     var mapboxMap: MockMapboxMap!
+    var mainQueue: MockMainQueue!
     var dateProvider: MockDateProvider!
+    var flyToCameraAnimator: FlyToCameraAnimator!
     // swiftlint:disable:next weak_delegate
     var delegate: MockCameraAnimatorDelegate!
-    var flyToCameraAnimator: FlyToCameraAnimator!
 
     override func setUp() {
         super.setUp()
+        owner = .random()
         mapboxMap = MockMapboxMap()
+        mapboxMap.cameraState = initialCameraState
+        mapboxMap.cameraBounds = .default
+        mapboxMap.size = CGSize(width: 500, height: 500)
+        mainQueue = MockMainQueue()
         dateProvider = MockDateProvider()
-        delegate = MockCameraAnimatorDelegate()
         flyToCameraAnimator = FlyToCameraAnimator(
-            initial: initialCameraState,
-            final: finalCameraOptions,
-            cameraBounds: CameraBounds.default,
-            owner: AnimationOwner(rawValue: "fly-to"),
+            toCamera: finalCameraOptions,
+            owner: owner,
             duration: duration,
-            mapSize: CGSize(width: 500, height: 500),
             mapboxMap: mapboxMap,
-            dateProvider: dateProvider,
-            delegate: delegate)
+            mainQueue: mainQueue,
+            dateProvider: dateProvider)
+        delegate = MockCameraAnimatorDelegate()
+        flyToCameraAnimator.delegate = delegate
     }
 
     override func tearDown() {
-        flyToCameraAnimator = nil
         delegate = nil
+        flyToCameraAnimator = nil
         dateProvider = nil
+        mainQueue = nil
         mapboxMap = nil
+        owner = nil
         super.tearDown()
     }
 
     func testInitializationWithValidOptions() {
-        XCTAssertEqual(flyToCameraAnimator.owner, animationOwner)
+        XCTAssertEqual(flyToCameraAnimator.owner, owner)
         XCTAssertEqual(flyToCameraAnimator.duration, duration)
         XCTAssertEqual(flyToCameraAnimator.state, .inactive)
-    }
-
-    func testInitializationWithANilDurationSetsDurationToCalculatedValue() {
-        let animator = FlyToCameraAnimator(
-            initial: initialCameraState,
-            final: finalCameraOptions,
-            cameraBounds: CameraBounds.default,
-            owner: AnimationOwner(rawValue: "fly-to"),
-            duration: nil,
-            mapSize: CGSize(width: 500, height: 500),
-            mapboxMap: mapboxMap,
-            dateProvider: dateProvider,
-            delegate: delegate)
-        XCTAssertNotNil(animator.duration)
     }
 
     func testStartAnimationChangesStateToActiveAndInformsDelegate() {
@@ -84,38 +76,117 @@ final class FlyToCameraAnimatorTests: XCTestCase {
 
         XCTAssertEqual(flyToCameraAnimator.state, .active)
         XCTAssertEqual(delegate.cameraAnimatorDidStartRunningStub.invocations.count, 1)
-        XCTAssertTrue(delegate.cameraAnimatorDidStartRunningStub.parameters.first === flyToCameraAnimator)
+        XCTAssertTrue(delegate.cameraAnimatorDidStartRunningStub.invocations.first?.parameters === flyToCameraAnimator)
+    }
+
+    func testStartAnimationMoreThanOnceHasNoEffect() {
+        flyToCameraAnimator.startAnimation()
+        delegate.cameraAnimatorDidStartRunningStub.reset()
+
+        flyToCameraAnimator.startAnimation()
+
+        XCTAssertEqual(delegate.cameraAnimatorDidStartRunningStub.invocations.count, 0)
+    }
+
+    func testStartAnimationAfterCompletionHasNoEffect() {
+        flyToCameraAnimator.stopAnimation()
+
+        flyToCameraAnimator.startAnimation()
+
+        XCTAssertEqual(delegate.cameraAnimatorDidStartRunningStub.invocations.count, 0)
     }
 
     func testAnimationCompletion() {
-        var animatingPositions = [UIViewAnimatingPosition]()
-        flyToCameraAnimator.addCompletion { (position) in
-            animatingPositions.append(position)
-        }
+        let completion = Stub<UIViewAnimatingPosition, Void>()
+        flyToCameraAnimator.addCompletion(completion.call(with:))
         flyToCameraAnimator.startAnimation()
         dateProvider.nowStub.defaultReturnValue = Date(timeIntervalSinceReferenceDate: 20)
 
         flyToCameraAnimator.update()
 
         XCTAssertEqual(flyToCameraAnimator.state, .inactive)
-        XCTAssertEqual(animatingPositions, [.end])
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.end])
         XCTAssertEqual(delegate.cameraAnimatorDidStopRunningStub.invocations.count, 1)
-        XCTAssertTrue(delegate.cameraAnimatorDidStopRunningStub.parameters.first === flyToCameraAnimator)
+        XCTAssertTrue(delegate.cameraAnimatorDidStartRunningStub.invocations.first?.parameters === flyToCameraAnimator)
     }
 
     func testStopAnimation() {
-        var animatingPositions = [UIViewAnimatingPosition]()
-        flyToCameraAnimator.addCompletion { (position) in
-            animatingPositions.append(position)
-        }
+        let completion = Stub<UIViewAnimatingPosition, Void>()
+        flyToCameraAnimator.addCompletion(completion.call(with:))
         flyToCameraAnimator.startAnimation()
 
         flyToCameraAnimator.stopAnimation()
 
-        XCTAssertEqual(animatingPositions, [.current])
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.current])
         XCTAssertEqual(flyToCameraAnimator.state, .inactive)
         XCTAssertEqual(delegate.cameraAnimatorDidStopRunningStub.invocations.count, 1)
-        XCTAssertTrue(delegate.cameraAnimatorDidStopRunningStub.parameters.first === flyToCameraAnimator)
+        XCTAssertTrue(delegate.cameraAnimatorDidStartRunningStub.invocations.first?.parameters === flyToCameraAnimator)
+    }
+
+    func testStopAnimationThatHasNotStarted() {
+        let completion = Stub<UIViewAnimatingPosition, Void>()
+        flyToCameraAnimator.addCompletion(completion.call(with:))
+
+        flyToCameraAnimator.stopAnimation()
+
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.current])
+        XCTAssertEqual(flyToCameraAnimator.state, .inactive)
+        XCTAssertEqual(delegate.cameraAnimatorDidStopRunningStub.invocations.count, 0)
+    }
+
+    func testStopAnimationThatHasAlreadyCompleted() {
+        let completion = Stub<UIViewAnimatingPosition, Void>()
+        flyToCameraAnimator.addCompletion(completion.call(with:))
+        flyToCameraAnimator.stopAnimation()
+        completion.reset()
+
+        flyToCameraAnimator.stopAnimation()
+
+        XCTAssertEqual(completion.invocations.count, 0)
+        XCTAssertEqual(flyToCameraAnimator.state, .inactive)
+        XCTAssertEqual(delegate.cameraAnimatorDidStopRunningStub.invocations.count, 0)
+    }
+
+    func testAddCompletionToRunningAnimator() {
+        flyToCameraAnimator.startAnimation()
+
+        let completion = Stub<UIViewAnimatingPosition, Void>()
+        flyToCameraAnimator.addCompletion(completion.call(with:))
+
+        flyToCameraAnimator.stopAnimation()
+
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.current])
+    }
+
+    func testAddCompletionToCanceledAnimator() throws {
+        flyToCameraAnimator.startAnimation()
+        flyToCameraAnimator.stopAnimation()
+
+        let completion = Stub<UIViewAnimatingPosition, Void>()
+        flyToCameraAnimator.addCompletion(completion.call(with:))
+
+        XCTAssertEqual(mainQueue.asyncStub.invocations.count, 1)
+        let closure = try XCTUnwrap(mainQueue.asyncStub.invocations.first?.parameters)
+
+        closure()
+
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.current])
+    }
+
+    func testAddCompletionToCompletedAnimator() throws {
+        flyToCameraAnimator.startAnimation()
+        dateProvider.nowStub.defaultReturnValue = Date(timeIntervalSinceReferenceDate: 20)
+        flyToCameraAnimator.update()
+
+        let completion = Stub<UIViewAnimatingPosition, Void>()
+        flyToCameraAnimator.addCompletion(completion.call(with:))
+
+        XCTAssertEqual(mainQueue.asyncStub.invocations.count, 1)
+        let closure = try XCTUnwrap(mainQueue.asyncStub.invocations.first?.parameters)
+
+        closure()
+
+        XCTAssertEqual(completion.invocations.map(\.parameters), [.end])
     }
 
     func testUpdateDoesNotSetCameraIfAnimationIsNotRunning() {
