@@ -4,6 +4,24 @@ Mapbox welcomes participation and contributions from everyone.
 
 ## main
 
+* Expand scale bar range up to 15000 km/10000 miles. ([#1455](https://github.com/mapbox/mapbox-maps-ios/pull/1455))
+* Add the ability to override scale bar units. ([#1473](https://github.com/mapbox/mapbox-maps-ios/pull/1473))
+* Animate padding changes between 2 camera when used with `FlyToCameraAnimator`. ([#1479](https://github.com/mapbox/mapbox-maps-ios/pull/1479))
+
+## 10.7.0-rc.1 - July 14, 2022
+
+* Add rotation threshold to prevent map from being rotated accidentally. ([#1429](https://github.com/mapbox/mapbox-maps-ios/pull/1429))
+* Introduce `GestureOptions.simultaneousRotateAndPinchZoomEnabled` and deprecate `GestureOptions.pinchRotateEnabled` in favor of `GestureOptions.rotateEnabled`. ([1429](https://github.com/mapbox/mapbox-maps-ios/pull/1429))
+* Add experimental `Puck3DConfiguration.modelCastShadows` option to control shadow casting for the 3D puck. ([#1435](https://github.com/mapbox/mapbox-maps-ios/pull/1435))
+* Expose public initializer for `TilesetDescriptorOptionsForTilesets`. ([#1431](https://github.com/mapbox/mapbox-maps-ios/pull/1431))
+* Fix view annotation losing its feature association after update. ([#1446](https://github.com/mapbox/mapbox-maps-ios/pull/1446))
+* Update CoreMaps to `10.7.0-rc.1`. ([#1456](https://github.com/mapbox/mapbox-maps-ios/pull/1456))
+
+## 10.7.0-beta.1 - June 29, 2022
+
+* Introduce `FillExtrusionLayer.fillExtrusionAmbientOcclusionIntensity` and `FillExtrusionLayer.fillExtrusionAmbientOcclusionRadius` properties for FillExtrusionLayer. ([1410](https://github.com/mapbox/mapbox-maps-ios/pull/1410))
+* Introduce `PointAnnotation.textLineHeight` and deprecated `PointAnnotationManager.textLineHeight`, as `text-line-height` is data-driven property now. ([1410](https://github.com/mapbox/mapbox-maps-ios/pull/1410))
+* Expose experimental shadow APIs for `Light`. ([#1409](https://github.com/mapbox/mapbox-maps-ios/pull/1409))
 * Remove experimental annotation from Viewport API. ([#1392](https://github.com/mapbox/mapbox-maps-ios/pull/1392))
 * Remove deprecated `animationDuration` parameter in `FollowPuckViewportStateOptions` initializer.([#1390](https://github.com/mapbox/mapbox-maps-ios/pull/1390))
 * Deprecate existing QueryRenderedFeatures methods and add cancellable counterparts. ([#1378](https://github.com/mapbox/mapbox-maps-ios/pull/1378))
@@ -11,6 +29,14 @@ Mapbox welcomes participation and contributions from everyone.
 * Use MapboxCoreMaps API to move a Layer instead of manually removing the layer then adding it back. ([#1367](https://github.com/mapbox/mapbox-maps-ios/pull/1367))
 * Expose API to get puck's location updates. ([#1365](https://github.com/mapbox/mapbox-maps-ios/pull/1365))
 * Add example for simulating a route with vanishing effects. ([#1328](https://github.com/mapbox/mapbox-maps-ios/pull/1328))
+* Expose transition properties for Atmosphere API. ([#1401](https://github.com/mapbox/mapbox-maps-ios/pull/1401))
+* Fix Atmosphere API coding keys so engine can read the new values properly. ([#1401](https://github.com/mapbox/mapbox-maps-ios/pull/1401))
+* Pause metal rendering earlier in app/scene life-cycle to address rendering artifacts when coming from background. ([#1402](https://github.com/mapbox/mapbox-maps-ios/pull/1402))
+* Update to MapboxCoreMaps 10.7.0-beta.1 and MapboxCommon to 22.1.0-beta.1. ([#1415](https://github.com/mapbox/mapbox-maps-ios/pull/1415))
+
+## 10.6.0 - June 16, 2022
+
+* Update to MapboxCoreMaps 10.6.0 and MapboxCommon to 22.0.0. ([#1394](https://github.com/mapbox/mapbox-maps-ios/pull/1394))
 
 ## 10.6.0-rc.1 - June 2, 2022
 
