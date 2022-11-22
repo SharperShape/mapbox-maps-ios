@@ -17,7 +17,7 @@ let package = Package(
         // We keep MME dependency for compatibility reasons
         .package(name: "MapboxMobileEvents", url: "https://github.com/mapbox/mapbox-events-ios.git", .exact("1.0.8")),
         .package(name: "MapboxCommon", url: "https://github.com/mapbox/mapbox-common-ios.git", .exact("23.1.0")),
-        .package(name: "Turf", url: "https://github.com/mapbox/turf-swift.git", from: "2.0.0"),
+        .package(name: "Turf", url: "https://github.com/slozo/turf-swift.git", from: "v2-new"),
         .package(name: "CocoaImageHashing", url: "https://github.com/ameingast/cocoaimagehashing", .exact("1.9.0"))
     ],
     targets: [
