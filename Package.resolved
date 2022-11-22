@@ -39,11 +39,11 @@
       },
       {
         "package": "Turf",
-        "repositoryURL": "https://github.com/mapbox/turf-swift.git",
+        "repositoryURL": "https://github.com/slozo/turf-swift.git",
         "state": {
-          "branch": null,
-          "revision": "dbc07b0a298d642414d3abec59c9eaba1fb3367f",
-          "version": "2.5.0"
+          "branch": "v2-new",
+          "revision": "cbc4ed182fd41c8569adb1d3466b28a431faba41",
+          "version": null
         }
       }
     ]
