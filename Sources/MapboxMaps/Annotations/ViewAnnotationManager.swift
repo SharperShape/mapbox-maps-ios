@@ -1,6 +1,8 @@
+// swiftlint:disable file_length
 import UIKit
 @_implementationOnly import MapboxCommon_Private
 @_implementationOnly import MapboxCoreMaps_Private
+import Turf
 
 public enum ViewAnnotationManagerError: Error {
     case viewIsAlreadyAdded
@@ -59,6 +61,13 @@ public final class ViewAnnotationManager {
     /// the SDK prints a warning and reverts the changes, as the view is still considered for layout calculation.
     /// The default value is true, and setting this value to false will disable the validation.
     public var validatesViews = true
+
+    /// The complete list of annotations associated with the receiver.
+    public var annotations: [UIView: ViewAnnotationOptions] {
+        idsByView.compactMapValues { [mapboxMap] id in
+            try? mapboxMap.options(forViewAnnotationWithId: id)
+        }
+    }
 
     internal init(containerView: UIView, mapboxMap: MapboxMapProtocol) {
         self.containerView = containerView
@@ -149,12 +158,13 @@ public final class ViewAnnotationManager {
         }
 
         view.translatesAutoresizingMaskIntoConstraints = false
+        view.isHidden = true
 
         let id = id ?? UUID().uuidString
         try mapboxMap.addViewAnnotation(withId: id, options: creationOptions)
         viewsById[id] = view
         idsByView[view] = id
-        expectedHiddenByView[view] = !(creationOptions.visible ?? true)
+        expectedHiddenByView[view] = true
         if let featureId = creationOptions.associatedFeatureId {
             viewsByFeatureIds[featureId] = view
         }
@@ -218,9 +228,12 @@ public final class ViewAnnotationManager {
         }
         let currentFeatureId = try? mapboxMap.options(forViewAnnotationWithId: id).associatedFeatureId
         try mapboxMap.updateViewAnnotation(withId: id, options: options)
-        let isHidden = !(options.visible ?? true)
-        expectedHiddenByView[view] = isHidden
-        viewsById[id]?.isHidden = isHidden
+
+        if options.visible == false {
+            expectedHiddenByView[view] = true
+            view.isHidden = true
+        }
+
         if let id = currentFeatureId, let updatedId = options.associatedFeatureId, id != updatedId {
             viewsByFeatureIds[id] = nil
         }
@@ -283,6 +296,52 @@ public final class ViewAnnotationManager {
         observers.removeValue(forKey: ObjectIdentifier(observer))
     }
 
+    // MARK: Framing
+
+    /// Calculates ``CameraOptions`` to fit the list of view annotations.
+    ///
+    /// - Important: This API isn't supported by Globe projection.
+    ///
+    /// - Parameter ids: The list of annotations ids to be framed.
+    /// - Parameter padding: See ``CameraOptions/padding``.
+    /// - Parameter bearing: See ``CameraOptions/bearing``.
+    /// - Parameter pitch: See ``CameraOptions/pitch``.
+    public func camera(forAnnotations ids: [String], padding: UIEdgeInsets = .zero, bearing: CGFloat? = nil, pitch: CGFloat? = nil) -> CameraOptions? {
+        let options = ids.compactMap { try? mapboxMap.options(forViewAnnotationWithId: $0) }
+        guard !options.isEmpty else { return nil }
+
+        var north, east, south, west: CLLocationDegrees!
+        var accumulatedPadding = UIEdgeInsets.zero
+
+        for annotationOption in options where annotationOption.visible != false {
+            guard case .point(let point) = annotationOption.geometry else { continue }
+
+            let annotationFrame = annotationOption.frame
+            if north == nil || north > point.coordinates.latitude {
+                north = point.coordinates.latitude
+                accumulatedPadding.top =  padding.top + abs(annotationFrame.minY)
+            }
+            if east == nil || east < point.coordinates.longitude {
+                east = point.coordinates.longitude
+                accumulatedPadding.right = padding.right + annotationFrame.maxX
+            }
+            if south == nil || south < point.coordinates.latitude {
+                south = point.coordinates.latitude
+                accumulatedPadding.bottom = padding.bottom + annotationFrame.maxY
+            }
+            if west == nil || west > point.coordinates.longitude {
+                west = point.coordinates.longitude
+                accumulatedPadding.left = padding.left + abs(annotationFrame.minX)
+            }
+        }
+
+        let points = MultiPoint([
+            CLLocationCoordinate2D(latitude: north, longitude: east),
+            CLLocationCoordinate2D(latitude: south, longitude: west),
+        ])
+        return mapboxMap.camera(for: .multiPoint(points), padding: accumulatedPadding, bearing: bearing, pitch: pitch)
+    }
+
     // MARK: - Private functions
 
     private func placeAnnotations(positions: [ViewAnnotationPositionDescriptor]) {
@@ -310,6 +369,7 @@ public final class ViewAnnotationManager {
             view.isHidden = false
             expectedHiddenByView[view] = false
             visibleAnnotationIds.insert(position.identifier)
+            containerView.bringSubviewToFront(view)
         }
 
         defer {
@@ -369,7 +429,6 @@ extension ViewAnnotationManager: DelegatingViewAnnotationPositionsUpdateListener
     internal func onViewAnnotationPositionsUpdate(forPositions positions: [ViewAnnotationPositionDescriptor]) {
         placeAnnotations(positions: positions)
     }
-
 }
 
 private extension ViewAnnotationPositionDescriptor {

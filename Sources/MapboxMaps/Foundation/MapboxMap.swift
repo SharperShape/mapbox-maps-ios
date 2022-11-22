@@ -28,6 +28,7 @@ internal protocol MapboxMapProtocol: AnyObject {
     func options(forViewAnnotationWithId id: String) throws -> ViewAnnotationOptions
     func pointIsAboveHorizon(_ point: CGPoint) -> Bool
     func camera(for geometry: Geometry, padding: UIEdgeInsets, bearing: CGFloat?, pitch: CGFloat?) -> CameraOptions
+    func coordinate(for point: CGPoint) -> CLLocationCoordinate2D
     func point(for coordinate: CLLocationCoordinate2D) -> CGPoint
     func performWithoutNotifying(_ block: () -> Void)
 }
@@ -79,16 +80,22 @@ public final class MapboxMap: MapboxMapProtocol {
     // MARK: - Style loading
 
     private func observeStyleLoad(_ completion: @escaping (Result<Style, Error>) -> Void) {
-        onNext(event: .styleLoaded) { [style] _ in
+        let cancellable = CompositeCancelable()
+
+        cancellable.add(onNext(event: .styleLoaded) { [style] _ in
             if !style.isLoaded {
                 Log.warning(forMessage: "style.isLoaded == false, was this an empty style?", category: "Style")
             }
             completion(.success(style))
-        }
+            cancellable.cancel()
+        })
 
-        onNext(event: .mapLoadingError) { event in
+        cancellable.add(onEvery(event: .mapLoadingError) { event in
+            guard case .style = event.payload.error else { return }
+
             completion(.failure(event.payload.error))
-        }
+            cancellable.cancel()
+        })
     }
 
     /// Loads a `style` from a StyleURI, calling a completion closure when the
@@ -170,6 +177,19 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Parameter cacheOptions: The cache options to be set to the Map.
     @_spi(Experimental) public func setRenderCache(_ cacheOptions: RenderCacheOptions) {
         __map.setRenderCacheOptionsFor(cacheOptions)
+    }
+
+    /// Defines whether multiple copies of the world will be rendered side by side beyond -180 and 180 degrees longitude.
+    ///
+    /// If disabled, when the map is zoomed out far enough that a single representation of the world does not fill the map's entire container,
+    /// there will be blank space beyond 180 and -180 degrees longitude.
+    /// In this case, features that cross 180 and -180 degrees longitude will be cut in two (with one portion on the right edge of the map
+    /// and the other on the left edge of the map) at every zoom level.
+    ///
+    /// By default, `shouldRenderWorldCopies` is set to `true`.
+    public var shouldRenderWorldCopies: Bool {
+        get { __map.getRenderWorldCopies() }
+        set { __map.setRenderWorldCopiesForRenderWorldCopies(newValue) }
     }
 
     /// Gets the resource options for the map.

@@ -9,7 +9,6 @@ final class MapViewTests: XCTestCase {
     var displayLink: MockDisplayLink!
     var locationProducer: MockLocationProducer!
     var dependencyProvider: MockMapViewDependencyProvider!
-    var orientationProvider: MockInterfaceOrientationProvider!
     var attributionURLOpener: MockAttributionURLOpener!
     var mapView: MapView!
     var window: UIWindow!
@@ -28,14 +27,8 @@ final class MapViewTests: XCTestCase {
         dependencyProvider.cameraAnimatorsRunnerEnablable = cameraAnimatorsRunnerEnablable
         dependencyProvider.makeDisplayLinkStub.defaultReturnValue = displayLink
         dependencyProvider.makeLocationProducerStub.defaultReturnValue = locationProducer
-        orientationProvider = MockInterfaceOrientationProvider()
         attributionURLOpener = MockAttributionURLOpener()
-        mapView = MapView(
-            frame: CGRect(origin: .zero, size: CGSize(width: 100, height: 100)),
-            mapInitOptions: MapInitOptions(),
-            dependencyProvider: dependencyProvider,
-            orientationProvider: orientationProvider,
-            urlOpener: attributionURLOpener)
+        mapView = buildMapView()
         window = UIWindow()
         window.addSubview(mapView)
 
@@ -49,7 +42,6 @@ final class MapViewTests: XCTestCase {
         window = nil
         mapView = nil
         attributionURLOpener = nil
-        orientationProvider = nil
         dependencyProvider = nil
         locationProducer = nil
         displayLink = nil
@@ -57,6 +49,14 @@ final class MapViewTests: XCTestCase {
         bundle = nil
         notificationCenter = nil
         super.tearDown()
+    }
+
+    func buildMapView() -> MapView {
+        return MapView(
+            frame: CGRect(origin: .zero, size: CGSize(width: 100, height: 100)),
+            mapInitOptions: MapInitOptions(),
+            dependencyProvider: dependencyProvider,
+            urlOpener: attributionURLOpener)
     }
 
     func invokeDisplayLinkCallback() throws {
@@ -99,7 +99,6 @@ final class MapViewTests: XCTestCase {
             frame: CGRect(origin: .zero, size: CGSize(width: 100, height: 100)),
             mapInitOptions: MapInitOptions(),
             dependencyProvider: dependencyProvider,
-            orientationProvider: orientationProvider,
             urlOpener: attributionURLOpener)
 
         XCTAssertEqual(cameraAnimatorsRunnerEnablable.$isEnabled.setStub.invocations.map(\.parameters), [false])
@@ -125,7 +124,6 @@ final class MapViewTests: XCTestCase {
             frame: CGRect(origin: .zero, size: CGSize(width: 100, height: 100)),
             mapInitOptions: MapInitOptions(),
             dependencyProvider: dependencyProvider,
-            orientationProvider: orientationProvider,
             urlOpener: attributionURLOpener)
         let runner = try XCTUnwrap(dependencyProvider.makeCameraAnimatorsRunnerStub.invocations.first?.returnValue as? MockCameraAnimatorsRunner)
         runner.cancelAnimationsStub.reset()
@@ -150,9 +148,6 @@ final class MapViewTests: XCTestCase {
         XCTAssertEqual(mapView.preferredFramesPerSecond, 23)
     }
 
-    // Checking Swift version as a proxy for iOS SDK version to enable
-    // building with iOS SDKs < 15
-    #if swift(>=5.5)
     func testPreferredFrameRateRangeIsDefault() throws {
         guard #available(iOS 15.0, *) else {
             throw XCTSkip("Test requires iOS 15 or higher.")
@@ -172,7 +167,6 @@ final class MapViewTests: XCTestCase {
         XCTAssertEqual(displayLink.preferredFrameRateRange, frameRateRange)
         XCTAssertEqual(mapView.preferredFrameRateRange, frameRateRange)
     }
-    #endif
 
     func testDisplayLinkTimestampIsNilWhenDisplayLinkIsNil() {
         mapView.removeFromSuperview()
@@ -262,7 +256,17 @@ final class MapViewTests: XCTestCase {
     }
 
     func testDisplayLinkPausedWhenAppWillResignActive() {
+        displayLink.$isPaused.setStub.reset()
+
         notificationCenter.post(name: UIApplication.willResignActiveNotification, object: nil)
+
+        XCTAssertEqual(displayLink.$isPaused.setStub.invocations.map(\.parameters), [true])
+    }
+
+    func testDisplayLinkPausedWhenAppDidEnterBackground() {
+        displayLink.$isPaused.setStub.reset()
+
+        notificationCenter.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
 
         XCTAssertEqual(displayLink.$isPaused.setStub.invocations.map(\.parameters), [true])
     }
@@ -273,27 +277,48 @@ final class MapViewTests: XCTestCase {
         XCTAssertEqual(metalView.releaseDrawablesStub.invocations.count, 1)
     }
 
-    func testDisplayLinkResumedWhenAppDidBecomeActive() {
+    func testDisplayLinkResumedWhenAppDidBecomeActiveOnIOS12() throws {
+        if #available(iOS 13.0, *) {
+            throw XCTSkip("Test applies only on iOS 12")
+        }
+
         notificationCenter.post(name: UIApplication.didBecomeActiveNotification, object: nil)
 
         XCTAssertEqual(displayLink.$isPaused.setStub.invocations.map(\.parameters), [false])
     }
 
-    func testOrientationProviderIsUsed() throws {
-        try invokeDisplayLinkCallback()
-
-        XCTAssertEqual(orientationProvider.interfaceOrientationStub.invocations.count, 1)
-    }
-
-    func testOrientationChangeIsPropagated() throws {
-        let orientations: [UIInterfaceOrientation] = [.portrait, .landscapeLeft, .landscapeRight, .portraitUpsideDown]
-        for orientation in orientations {
-            orientationProvider.interfaceOrientationStub.defaultReturnValue = orientation
-
-            try invokeDisplayLinkCallback()
-
-            XCTAssertEqual(locationProducer.headingOrientation, CLDeviceOrientation(interfaceOrientation: orientation))
+    func testSubscribesToCorrectNotificationsOniOS12() throws {
+        if #available(iOS 13, *) {
+            throw XCTSkip()
         }
+
+        let observers = notificationCenter.addObserverStub.invocations.map(\.parameters.observer)
+
+        XCTAssertTrue(observers.allSatisfy { ($0 as AnyObject) === mapView })
+
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations.count, 4)
+
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations[0].parameters.name, UIApplication.didBecomeActiveNotification)
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations[1].parameters.name, UIApplication.didEnterBackgroundNotification)
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations[2].parameters.name, UIApplication.willResignActiveNotification)
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations[3].parameters.name, UIApplication.didReceiveMemoryWarningNotification)
+
+    }
+    func testSubscribesToCorrectNotifications() throws {
+        guard #available(iOS 13, *) else {
+            throw XCTSkip()
+        }
+        let observers = notificationCenter.addObserverStub.invocations.map(\.parameters.observer)
+
+        XCTAssertTrue(observers.allSatisfy { ($0 as AnyObject) === mapView })
+
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations.count, 6)
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations[0].parameters.name, UIScene.didEnterBackgroundNotification)
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations[1].parameters.name, UIScene.willDeactivateNotification)
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations[2].parameters.name, UIScene.didActivateNotification)
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations[3].parameters.name, UIApplication.didEnterBackgroundNotification)
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations[4].parameters.name, UIApplication.willResignActiveNotification)
+        XCTAssertEqual(notificationCenter.addObserverStub.invocations[5].parameters.name, UIApplication.didReceiveMemoryWarningNotification)
     }
 
     func testURLOpener() {
@@ -305,6 +330,23 @@ final class MapViewTests: XCTestCase {
 
         XCTAssertEqual(attributionURLOpener.openAttributionURLStub.invocations.count, 1)
         XCTAssertEqual(attributionURLOpener.openAttributionURLStub.invocations.first?.parameters, url)
+    }
+
+    func testEventsFlushingOnDeinit() throws {
+        dependencyProvider.makeEventsManagerStub.returnValueQueue.append(EventsManagerMock())
+
+        autoreleasepool {
+            mapView = buildMapView()
+        }
+
+        let flushStub = try XCTUnwrap(mapView.eventsManager as? EventsManagerMock).flushStub
+
+        XCTAssertTrue(flushStub.invocations.isEmpty)
+
+        resetAllStubs()
+        mapView = nil
+
+        XCTAssertEqual(flushStub.invocations.count, 1)
     }
 }
 
@@ -342,7 +384,6 @@ final class MapViewTestsWithScene: XCTestCase {
             frame: CGRect(origin: .zero, size: CGSize(width: 100, height: 100)),
             mapInitOptions: MapInitOptions(),
             dependencyProvider: dependencyProvider,
-            orientationProvider: orientationProvider,
             urlOpener: attributionURLOpener)
         window = UIWindow()
         window.addSubview(mapView)
@@ -371,6 +412,7 @@ final class MapViewTestsWithScene: XCTestCase {
         guard #available(iOS 13.0, *) else {
             throw XCTSkip("Test requires iOS 13 or higher.")
         }
+        displayLink.$isPaused.setStub.reset()
 
         notificationCenter.post(name: UIScene.didActivateNotification, object: window.parentScene)
 
@@ -381,8 +423,20 @@ final class MapViewTestsWithScene: XCTestCase {
         guard #available(iOS 13.0, *) else {
             throw XCTSkip("Test requires iOS 13 or higher.")
         }
+        displayLink.$isPaused.setStub.reset()
 
         notificationCenter.post(name: UIScene.willDeactivateNotification, object: window.parentScene)
+
+        XCTAssertEqual(displayLink.$isPaused.setStub.invocations.map(\.parameters), [true])
+    }
+
+    func testDisplayLinkPausedWhenSceneDidEnterBackground() throws {
+        guard #available(iOS 13.0, *) else {
+            throw XCTSkip("Test requires iOS 13 or higher.")
+        }
+        displayLink.$isPaused.setStub.reset()
+
+        notificationCenter.post(name: UIScene.didEnterBackgroundNotification, object: window.parentScene)
 
         XCTAssertEqual(displayLink.$isPaused.setStub.invocations.map(\.parameters), [true])
     }
@@ -397,27 +451,26 @@ final class MapViewTestsWithScene: XCTestCase {
         XCTAssertEqual(metalView.releaseDrawablesStub.invocations.count, 1)
     }
 
-    func testMetalViewHasCorrectParameters() {
+    func testMetalViewHasCorrectParameters() throws {
         let mapViewSize = CGSize(width: 100, height: 100)
         mapView = MapView(
             frame: CGRect(origin: .zero, size: mapViewSize),
             mapInitOptions: MapInitOptions(),
             dependencyProvider: dependencyProvider,
-            orientationProvider: orientationProvider,
             urlOpener: attributionURLOpener)
 
-        let metalView = mapView.getMetalView(for: nil)
+        let metalView = try XCTUnwrap(mapView.getMetalView(for: nil))
 
-        XCTAssertEqual(metalView?.translatesAutoresizingMaskIntoConstraints, false)
-        XCTAssertEqual(metalView?.autoResizeDrawable, true)
-        XCTAssertEqual(metalView?.contentScaleFactor, window.screen.scale)
-        XCTAssertEqual(metalView?.contentMode, .center)
-        XCTAssertEqual(metalView?.isOpaque, true)
-        XCTAssertEqual(metalView?.layer.isOpaque, true)
-        XCTAssertEqual(metalView?.isPaused, true)
-        XCTAssertEqual(metalView?.enableSetNeedsDisplay, false)
-        XCTAssertEqual(metalView?.presentsWithTransaction, false)
-        XCTAssertEqual(metalView?.bounds.size, mapViewSize)
+        XCTAssertEqual(metalView.translatesAutoresizingMaskIntoConstraints, false)
+        XCTAssertEqual(metalView.autoResizeDrawable, true)
+        XCTAssertEqual(metalView.contentScaleFactor, window.screen.nativeScale, accuracy: 0.001)
+        XCTAssertEqual(metalView.contentMode, .center)
+        XCTAssertEqual(metalView.isOpaque, true)
+        XCTAssertEqual(metalView.layer.isOpaque, true)
+        XCTAssertEqual(metalView.isPaused, true)
+        XCTAssertEqual(metalView.enableSetNeedsDisplay, false)
+        XCTAssertEqual(metalView.presentsWithTransaction, false)
+        XCTAssertEqual(metalView.bounds.size, mapViewSize)
     }
 
     func testMetalViewHasMinimumSize() {
@@ -427,7 +480,6 @@ final class MapViewTestsWithScene: XCTestCase {
             frame: CGRect(origin: .zero, size: mapViewSize),
             mapInitOptions: MapInitOptions(),
             dependencyProvider: dependencyProvider,
-            orientationProvider: orientationProvider,
             urlOpener: attributionURLOpener)
 
         let metalView = mapView.getMetalView(for: nil)

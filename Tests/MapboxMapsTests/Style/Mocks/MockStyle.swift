@@ -2,6 +2,16 @@
 
 final class MockStyle: StyleProtocol {
 
+    struct AddLayerParams {
+        var layer: Layer
+        var layerPosition: LayerPosition?
+    }
+
+    let addLayerStub = Stub<AddLayerParams, Void>()
+    func addLayer(_ layer: MapboxMaps.Layer, layerPosition: MapboxMaps.LayerPosition?) throws {
+        addLayerStub.call(with: .init(layer: layer, layerPosition: layerPosition))
+    }
+
     struct SetSourcePropertyParams {
         let sourceId: String
         let property: String
@@ -44,6 +54,11 @@ final class MockStyle: StyleProtocol {
     let layerExistsStub = Stub<String, Bool>(defaultReturnValue: false)
     func layerExists(withId id: String) -> Bool {
         layerExistsStub.call(with: id)
+    }
+
+    let layerPropertiesStub = Stub<String, [String: Any]>(defaultReturnValue: [:])
+    func layerProperties(for layerId: String) throws -> [String: Any] {
+        layerPropertiesStub.call(with: layerId)
     }
 
     struct SetLayerPropertiesParams {
@@ -132,5 +147,14 @@ final class MockStyle: StyleProtocol {
     let addImageWithInsetsStub = Stub<AddImageWithInsetsParams, Void>()
     func addImage(_ image: UIImage, id: String, sdf: Bool, contentInsets: UIEdgeInsets) throws {
         addImageWithInsetsStub.call(with: .init(image: image, id: id, sdf: sdf, contentInsets: contentInsets))
+    }
+
+    struct UpdateGeoJSONSourceParams {
+        let id: String
+        let geojson: GeoJSONObject
+    }
+    let updateGeoJSONSourceStub = Stub<UpdateGeoJSONSourceParams, Void>()
+    func updateGeoJSONSource(withId id: String, geoJSON: GeoJSONObject) throws {
+        updateGeoJSONSourceStub.call(with: UpdateGeoJSONSourceParams(id: id, geojson: geoJSON))
     }
 }

@@ -104,8 +104,11 @@ struct Examples {
                 description: "Show circle annotations on a map",
                 type: CircleAnnotationExample.self),
         Example(title: "Add Cluster Symbol Annotations",
-                description: "Show fire hydrants in Washington DC area in a cluster.",
+                description: "Show fire hydrants in Washington DC area in a cluster using a symbol layer.",
                 type: SymbolClusteringExample.self),
+        Example(title: "Add Cluster Point Annotations",
+                description: "Show fire hydrants in Washington DC area in a cluster using point annotations.",
+                type: PointAnnotationClusteringExample.self),
         Example(title: "Add markers to a map",
                 description: "Add markers that use different icons.",
                 type: AddMarkersSymbolExample.self),
@@ -135,7 +138,14 @@ struct Examples {
                 type: ViewAnnotationBasicExample.self),
         Example(title: "View annotations: advanced example",
                 description: "Add view annotations anchored to a symbol layer feature.",
-                type: ViewAnnotationMarkerExample.self)
+                type: ViewAnnotationMarkerExample.self),
+        Example(title: "View annotations: Frame list of annotations",
+                description: "Animates to camera framing the list of selected view annotations.",
+                type: FrameViewAnnotationsExample.self),
+        Example(title: "View annotations: animation",
+                description: "Animate a view annotation along a route",
+                testTimeout: 60,
+                type: ViewAnnotationAnimationExample.self)
     ]
 
     // Examples that focus on setting, animating, or otherwise changing the map's camera and viewport.
@@ -154,7 +164,9 @@ struct Examples {
         Example(title: "Advanced Viewport Gestures",
                 description: "Viewport configured to allow gestures",
                 type: AdvancedViewportGesturesExample.self),
-
+        Example(title: "Filter symbols based on pitch and distance",
+                description: "Use pitch and distance-from-center expressions in the filter field of a symbol layer to remove large size POI labels in the far distance at high pitch",
+                type: PitchAndDistanceExample.self),
     ]
 
     // Miscellaneous examples
@@ -190,6 +202,7 @@ struct Examples {
     ]
 
     // Examples that highlight using the Offline APIs.
+
     static let offlineExamples = [
         Example(title: "Use OfflineManager and TileStore to download a region",
                 description: """
@@ -202,12 +215,21 @@ struct Examples {
                     to change. Please contact Mapbox if you require a higher limit.
                     Additional charges may apply.
                 """,
-                type: OfflineManagerExample.self),
-        Example(title: "Use OfflineRegionManager to download a region",
-                description: "Use the deprecated OfflineRegionManager to download regions for offline use.",
-                testTimeout: 120,
-                type: OfflineRegionManagerExample.self),
-    ]
+                type: OfflineManagerExample.self)
+    ] + deprecatedOfflineExamples
+
+    private static var deprecatedOfflineExamples: [Example] {
+        #if DEBUG
+            return [
+                Example(title: "Use OfflineRegionManager to download a region",
+                        description: "Use the deprecated OfflineRegionManager to download regions for offline use.",
+                        testTimeout: 120,
+                        type: OfflineRegionManagerExample.self)
+            ]
+        #else
+            return []
+        #endif
+    }
 
     // Examples that show how to use the map's snapshotter.
     static let snapshotExamples = [

@@ -4,10 +4,12 @@
 import UIKit
 
 internal protocol StyleProtocol: AnyObject {
+    func addLayer(_ layer: Layer, layerPosition: LayerPosition?) throws
     func addPersistentLayer(_ layer: Layer, layerPosition: LayerPosition?) throws
     func addPersistentLayer(with properties: [String: Any], layerPosition: LayerPosition?) throws
     func removeLayer(withId id: String) throws
     func layerExists(withId id: String) -> Bool
+    func layerProperties(for layerId: String) throws -> [String: Any]
     func setLayerProperties(for layerId: String, properties: [String: Any]) throws
     func setLayerProperty(for layerId: String, property: String, value: Any) throws
 
@@ -16,6 +18,7 @@ internal protocol StyleProtocol: AnyObject {
     func sourceExists(withId id: String) -> Bool
     func setSourceProperty(for sourceId: String, property: String, value: Any) throws
     func setSourceProperties(for sourceId: String, properties: [String: Any]) throws
+    func updateGeoJSONSource(withId id: String, geoJSON: GeoJSONObject) throws
 
     //swiftlint:disable function_parameter_count
     func addImage(_ image: UIImage,
@@ -166,6 +169,7 @@ public final class Style: StyleProtocol {
             switch value {
             case Optional<Any>.none where result.keys.contains(key):
                 result[key] = Style.layerPropertyDefaultValue(for: layer.type, property: key).value
+            // swiftlint:disable syntactic_sugar
             case Optional<Any>.some:
                 result[key] = value
             default: break
@@ -442,6 +446,8 @@ public final class Style: StyleProtocol {
     /// The ordered list of the current style layers' identifiers and types
     public var allLayerIdentifiers: [LayerInfo] {
         return _styleManager.getStyleLayers().compactMap { info in
+            if info.is3DPuckLayer { return nil }
+
             guard let layerType = LayerType(rawValue: info.type) else {
                 assertionFailure("Failed to create LayerType from \(info.type)")
                 return nil

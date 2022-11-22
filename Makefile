@@ -85,7 +85,8 @@ XCODE_BUILD_SIM_SDK = set -o pipefail && xcodebuild \
 	-scheme MapboxMaps \
 	-sdk iphonesimulator \
 	-configuration $(CONFIGURATION) \
-	-jobs $(JOBS)
+	-jobs $(JOBS) \
+	COMPILER_INDEX_STORE_ENABLE=NO
 
 .PHONY: build-sdk-for-simulator
 build-sdk-for-simulator:
@@ -100,7 +101,6 @@ build-sdk-for-testing-simulator:
 		-destination 'platform=iOS Simulator,OS=latest,name=iPhone 11' \
 		-enableCodeCoverage YES \
 		build-for-testing \
-		ENABLE_TESTABILITY=YES \
 		ONLY_ACTIVE_ARCH=YES
 
 .PHONY: test-sdk-without-building-simulator
@@ -125,7 +125,8 @@ build-app-for-simulator:
 		-configuration $(CONFIGURATION) \
 		-jobs $(JOBS) \
 		build \
-		ONLY_ACTIVE_ARCH=NO
+		ONLY_ACTIVE_ARCH=NO \
+		COMPILER_INDEX_STORE_ENABLE=NO
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Devices - SDK
@@ -138,7 +139,8 @@ XCODE_BUILD_DEVICE = xcodebuild \
 	-configuration $(CONFIGURATION) \
 	-derivedDataPath $(BUILD_DIR) \
 	-jobs $(JOBS) \
-	$(CODE_SIGNING)
+	$(CODE_SIGNING) \
+	COMPILER_INDEX_STORE_ENABLE=NO
 
 .PHONY: build-sdk-for-device
 build-sdk-for-device:
@@ -150,6 +152,8 @@ build-sdk-for-device:
 		-jobs $(JOBS) \
 		build \
 		ONLY_ACTIVE_ARCH=NO \
+		COMPILER_INDEX_STORE_ENABLE=NO \
+		ENABLE_TESTABILITY=YES \
 		$(CODE_SIGNING)
 
 $(XCODE_PROJECT_FILE): project.yml
@@ -164,11 +168,15 @@ XCODE_BUILD_DEVICE_APPS = xcodebuild \
 	-sdk iphoneos \
 	-configuration $(CONFIGURATION) \
 	-jobs $(JOBS) \
-	$(CODE_SIGNING)
+	$(CODE_SIGNING) \
+	COMPILER_INDEX_STORE_ENABLE=NO
 
 .PHONY: build-app-for-device
 build-app-for-device:
-	set -o pipefail && $(XCODE_BUILD_DEVICE_APPS) -scheme '$(SCHEME)' build
+	set -o pipefail && $(XCODE_BUILD_DEVICE_APPS) \
+	-scheme '$(SCHEME)' \
+	COMPILER_INDEX_STORE_ENABLE=NO \
+	build
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Symbolication
@@ -207,43 +215,8 @@ symbolicate:
 # Root directory in which to search for "profdata" coverage files, from which we generate
 # the lcov data (both lcov and json formats)
 COVERAGE_ROOT_DIR ?= $(BUILD_DIR)/Build/ProfileData
-COVERAGE_MAPBOX_MAPS ?= $(BUILD_DIR)/Build/Products/$(CONFIGURATION)-iphonesimulator/MapboxMaps.o
+COVERAGE_MAPBOX_MAPS ?= $(shell find $(BUILD_DIR)/Build/Products/ -name "MapboxMaps.o" | head -n 1)
 COVERAGE_ARCH ?= x86_64
-
-# .PHONY: update-codecov-with-profdata
-# update-codecov-with-profdata:
-# 	curl -sSfL --retry 5 --connect-timeout 5 https://codecov.io/bash > /tmp/codecov.sh
-# 	@PROF_DATA=`find $(COVERAGE_ROOT_DIR) -regex '.*\.profraw'` ; \
-# 	for RESULT in $${PROF_DATA[@]} ; \
-# 	do \
-# 		echo "Generating $${RESULT}.lcov" ; \
-# 		xcrun llvm-profdata merge -o $${RESULT}.profdata $${RESULT} ; \
-# 		xcrun llvm-cov export \
-# 			$(COVERAGE_MAPBOX_MAPS) \
-# 			-instr-profile=$${RESULT}.profdata \
-# 			-arch=$(COVERAGE_ARCH) \
-# 			-format=lcov > $${RESULT}.lcov ; \
-# 		echo "Uploading $${RESULT}.lcov to CodeCov.io" ; \
-# 		bash /tmp/codecov.sh \
-# 			-f $${RESULT}.lcov \
-# 			-t $(CODECOV_TOKEN) \
-# 			-J '^MapboxMaps$$' \
-# 			-n $${RESULT}.lcov \
-# 			-F "$$(echo '$(SCHEME)' | sed 's/[[:upper:]]/_&/g;s/^_//' | tr '[:upper:]' '[:lower:]')" ; \
-# 		echo "Generating lcov JSON" ; \
-# 		xcrun llvm-cov export \
-# 			$(COVERAGE_MAPBOX_MAPS) \
-# 			-instr-profile=$${RESULT}.profdata \
-# 			-arch=$(COVERAGE_ARCH) \
-# 			-format=text | python3 -m json.tool > $${RESULT}.json ; \
-# 		echo "Uploading to S3" ; \
-# 		python3 ./scripts/code-coverage/parse-code-coverage.py \
-# 			-g . \
-# 			-c MapboxMaps \
-# 			--scheme $(SCHEME) \
-# 			--report $${RESULT}.json ; \
-# 	done
-# 	@echo "Done"
 
 .PHONY: update-codecov-with-profdata
 update-codecov-with-profdata:

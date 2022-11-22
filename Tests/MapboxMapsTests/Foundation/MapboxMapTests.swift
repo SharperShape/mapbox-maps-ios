@@ -82,6 +82,18 @@ final class MapboxMapTests: XCTestCase {
         XCTAssertEqual(actualSize, CGSize(expectedSize))
     }
 
+    func testGetRenderWorldCopies() {
+        let renderWorldCopies = Bool.random()
+        mapboxMap.__testingMap.setRenderWorldCopiesForRenderWorldCopies(renderWorldCopies)
+        XCTAssertEqual(mapboxMap.shouldRenderWorldCopies, renderWorldCopies)
+    }
+
+    func testSetRenderWorldCopies() {
+        let renderWorldCopies = Bool.random()
+        mapboxMap.shouldRenderWorldCopies = renderWorldCopies
+        XCTAssertEqual(mapboxMap.__testingMap.getRenderWorldCopies(), renderWorldCopies)
+    }
+
     func testGetCameraOptions() {
         XCTAssertEqual(mapboxMap.cameraState, CameraState(mapboxMap.__testingMap.getCameraState()))
     }
@@ -236,6 +248,37 @@ final class MapboxMapTests: XCTestCase {
         XCTAssertEqual(mapboxObservable.unsubscribeStub.invocations.count, 1)
         XCTAssertIdentical(mapboxObservable.unsubscribeStub.invocations.first?.parameters.observer, observer)
         XCTAssertEqual(mapboxObservable.unsubscribeStub.invocations.first?.parameters.events, events)
+    }
+
+    func testLoadStyleHandlerIsInvokedExactlyOnce() throws {
+        let styleLoadEventOccurred = expectation(description: "style-loaded event occurred")
+        let mapLoadingErrorEventOccurred = expectation(description: "map-loading-error event occurred")
+        let completionIsCalledOnce = expectation(description: "loadStyle completion should be called once")
+        completionIsCalledOnce.assertForOverFulfill = true
+
+        let mapboxObservable = try XCTUnwrap(mapboxObservableProviderStub.invocations.first?.returnValue as? MockMapboxObservable)
+        mapboxObservable.onTypedNextStub.defaultSideEffect = { invocation in
+            guard invocation.parameters.eventName == "style-loaded" else { return }
+
+            let event = MapboxCoreMaps.Event(type: "style-loaded", data: NSNull())
+            invocation.parameters.handler(MapEvent<NoPayload>(event: event))
+            styleLoadEventOccurred.fulfill()
+        }
+        mapboxObservable.onTypedEveryStub.defaultSideEffect = { invocation in
+            guard invocation.parameters.eventName == "map-loading-error" else { return }
+
+            let event = MapboxCoreMaps.Event(
+                type: "source",
+                data: ["type": "source", "message": "Cannot load source", "source-id": "dummy-source-id"])
+            invocation.parameters.handler(MapEvent<MapLoadingErrorPayload>(event: event))
+            mapLoadingErrorEventOccurred.fulfill()
+        }
+
+        mapboxMap.loadStyleURI(.dark) { _ in
+            completionIsCalledOnce.fulfill()
+        }
+
+        waitForExpectations(timeout: 0.3)
     }
 
     @available(*, deprecated)

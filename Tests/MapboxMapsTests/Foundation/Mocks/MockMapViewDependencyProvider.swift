@@ -10,6 +10,7 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
 
     @Stubbed var cameraAnimatorsRunnerEnablable: MutableEnablableProtocol = Enablable()
 
+    // MARK: - Metal view
     struct MakeMetalViewParams {
         var frame: CGRect
         var device: MTLDevice?
@@ -20,6 +21,7 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
         return makeMetalViewStub.call(with: MakeMetalViewParams(frame: frame, device: device))!
     }
 
+    // MARK: - DispayLink
     struct MakeDisplayLinkParams {
         var window: UIWindow
         var target: Any
@@ -37,6 +39,7 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
                 selector: selector))
     }
 
+    // MARK: - Camera Animators
     let makeCameraAnimatorsRunnerStub = Stub<MapboxMapProtocol, CameraAnimatorsRunnerProtocol>(
         defaultReturnValue: MockCameraAnimatorsRunner())
     func makeCameraAnimatorsRunner(mapboxMap: MapboxMapProtocol) -> CameraAnimatorsRunnerProtocol {
@@ -49,6 +52,7 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
         MockCameraAnimationsManager()
     }
 
+    // MARK: - Gestures
     func makeGestureManager(
         view: UIView,
         mapboxMap: MapboxMapProtocol,
@@ -73,9 +77,19 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
         return GestureHandler(gestureRecognizer: UIGestureRecognizer())
     }
 
-    let makeLocationProducerStub = Stub<Bool, MockLocationProducer>(defaultReturnValue: MockLocationProducer())
-    func makeLocationProducer(mayRequestWhenInUseAuthorization: Bool) -> LocationProducerProtocol {
-        return makeLocationProducerStub.call(with: mayRequestWhenInUseAuthorization)
+    // MARK: - Location
+    struct MakeLocationProducerParameteres {
+        let mayRequestWhenInUseAuthorization: Bool
+        let userInterfaceOrientationView: UIView
+    }
+    let makeLocationProducerStub = Stub<MakeLocationProducerParameteres, MockLocationProducer>(defaultReturnValue: MockLocationProducer())
+    func makeLocationProducer(mayRequestWhenInUseAuthorization: Bool, userInterfaceOrientationView: UIView) -> MapboxMaps.LocationProducerProtocol {
+        return makeLocationProducerStub.call(with:
+                .init(
+                    mayRequestWhenInUseAuthorization: mayRequestWhenInUseAuthorization,
+                    userInterfaceOrientationView: userInterfaceOrientationView
+                )
+        )
     }
 
     func makeInterpolatedLocationProducer(locationProducer: LocationProducerProtocol,
@@ -94,6 +108,7 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
             puckManager: MockPuckManager())
     }
 
+    // MARK: - Viewport
     struct MakeViewportImplParams {
         var mapboxMap: MapboxMapProtocol
         var cameraAnimationsManager: CameraAnimationsManagerProtocol
@@ -113,5 +128,33 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
             anyTouchGestureRecognizer: anyTouchGestureRecognizer,
             doubleTapGestureRecognizer: doubleTapGestureRecognizer,
             doubleTouchGestureRecognizer: doubleTouchGestureRecognizer))
+    }
+
+    // MARK: - Annotations
+    struct MakeAnnotationOrchestratorImplParams {
+        let view: UIView
+        let mapboxMap: MapboxMapProtocol
+        let mapFeatureQueryable: MapFeatureQueryable
+        let style: StyleProtocol
+        let displayLinkCoordinator: DisplayLinkCoordinator
+    }
+    let makeAnnotationOrchestratorStub = Stub<MakeAnnotationOrchestratorImplParams, AnnotationOrchestratorImplProtocol>(defaultReturnValue: MockAnnotationOrchestatorImpl())
+    func makeAnnotationOrchestratorImpl(in view: UIView,
+                                        mapboxMap: MapboxMapProtocol,
+                                        mapFeatureQueryable: MapFeatureQueryable,
+                                        style: StyleProtocol,
+                                        displayLinkCoordinator: DisplayLinkCoordinator) -> AnnotationOrchestratorImplProtocol {
+        makeAnnotationOrchestratorStub.call(with: .init(
+            view: view,
+            mapboxMap: mapboxMap,
+            mapFeatureQueryable: mapFeatureQueryable,
+            style: style,
+            displayLinkCoordinator: displayLinkCoordinator))
+    }
+
+    // MARK: - Events Manager
+    let makeEventsManagerStub = Stub<String, EventsManagerProtocol>(defaultReturnValue: EventsManagerMock())
+    func makeEventsManager(accessToken: String) -> EventsManagerProtocol {
+        makeEventsManagerStub.call(with: accessToken)
     }
 }

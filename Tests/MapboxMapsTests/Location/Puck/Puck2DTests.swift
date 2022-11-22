@@ -16,7 +16,8 @@ final class Puck2DTests: XCTestCase {
             topImage: UIImage(),
             bearingImage: UIImage(),
             shadowImage: UIImage(),
-            scale: .constant(.random(in: 1..<10)))
+            scale: .constant(.random(in: 1..<10)),
+            opacity: .random(in: 0.0...1.0))
         style = MockStyle()
         interpolatedLocationProducer = MockInterpolatedLocationProducer()
         mapboxMap = MockMapboxMap()
@@ -242,6 +243,8 @@ final class Puck2DTests: XCTestCase {
         expectedPaintLayerProperties[.emphasisCircleRadiusTransition] = ["duration": 0, "delay": 0]
         expectedPaintLayerProperties[.bearingTransition] = ["duration": 0, "delay": 0]
         expectedPaintLayerProperties[.bearing] = 0
+        expectedPaintLayerProperties[.locationIndicatorOpacity] = configuration.opacity
+        expectedPaintLayerProperties[.locationIndicatorOpacityTransition] = ["duration": 0, "delay": 0]
 
         var expectedProperties = expectedLayoutLayerProperties
             .mapKeys(\.rawValue)
@@ -424,7 +427,19 @@ final class Puck2DTests: XCTestCase {
     }
 
     func testActivatingPuckWithReducedAccuracy() throws {
-        let location = updateLocation(with: .reducedAccuracy, heading: .random(in: 0..<360))
+        let coordinate: CLLocationCoordinate2D = .random()
+        let accuracy: CLLocationAccuracy = .random(in: 1_000..<20_000)
+        let zoomCutoffRange: ClosedRange<Double> = 4.0...7.5
+        let accuracyRange: ClosedRange<CLLocationDistance> = 1000...20_000
+        let cutoffZoomLevel = zoomCutoffRange.upperBound - (zoomCutoffRange.magnitude * (accuracy - accuracyRange.lowerBound) / accuracyRange.magnitude)
+        let minPuckRadiusInPoints = 11.0
+        let minPuckRadiusInMeters = minPuckRadiusInPoints * Projection.metersPerPoint(for: coordinate.latitude, zoom: cutoffZoomLevel)
+        let location = updateLocation(
+            with: .reducedAccuracy,
+            heading: .random(in: 0..<360),
+            coordinate: coordinate,
+            horizontalAccuracy: accuracy
+        )
         style.layerExistsStub.defaultReturnValue = false
 
         puck2D.isActive = true
@@ -441,14 +456,39 @@ final class Puck2DTests: XCTestCase {
             "interpolate",
             ["linear"],
             ["zoom"],
-            0,
-            400000,
-            4,
-            200000,
-            8,
-            5000]
-        expectedProperties["accuracy-radius-color"] = StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString
-        expectedProperties["accuracy-radius-border-color"] = StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString
+            cutoffZoomLevel,
+            minPuckRadiusInMeters,
+            cutoffZoomLevel + 1,
+            accuracy]
+        expectedProperties["accuracy-radius-color"] = [
+            "step",
+            ["zoom"],
+            StyleColor(UIColor.clear).rgbaString,
+            cutoffZoomLevel,
+            StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString
+        ]
+        expectedProperties["accuracy-radius-border-color"] = [
+            "step",
+            ["zoom"],
+            StyleColor(UIColor.clear).rgbaString,
+            cutoffZoomLevel,
+            StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString
+        ]
+        expectedProperties["emphasis-circle-color"] = [
+            "step",
+            ["zoom"],
+            StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString,
+            cutoffZoomLevel,
+            StyleColor(UIColor.clear).rgbaString
+        ]
+        expectedProperties["emphasis-circle-radius"] = 11
+        expectedProperties["emphasis-circle-color"] = [
+            "step",
+            ["zoom"],
+            StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString,
+            cutoffZoomLevel,
+            StyleColor(UIColor.clear).rgbaString
+        ]
         let actualProperties = try XCTUnwrap(style.addPersistentLayerWithPropertiesStub.invocations.first?.parameters.properties)
         XCTAssertEqual(actualProperties as NSDictionary, expectedProperties as NSDictionary)
     }
@@ -464,7 +504,19 @@ final class Puck2DTests: XCTestCase {
         // there are a bunch of properties that aren't used in "reduced" mode
         // and they should be reset to their default values if the layer already
         // existed
-        let location = updateLocation(with: .reducedAccuracy, heading: nil)
+        let coordinate: CLLocationCoordinate2D = .random()
+        let accuracy: CLLocationAccuracy = .random(in: 1_000..<20_000)
+        let zoomCutoffRange: ClosedRange<Double> = 4.0...7.5
+        let accuracyRange: ClosedRange<CLLocationDistance> = 1000...20_000
+        let cutoffZoomLevel = zoomCutoffRange.upperBound - (zoomCutoffRange.magnitude * (accuracy - accuracyRange.lowerBound) / accuracyRange.magnitude)
+        let minPuckRadiusInPoints = 11.0
+        let minPuckRadiusInMeters = minPuckRadiusInPoints * Projection.metersPerPoint(for: coordinate.latitude, zoom: cutoffZoomLevel)
+        let location = updateLocation(
+            with: .reducedAccuracy,
+            heading: nil,
+            coordinate: coordinate,
+            horizontalAccuracy: accuracy
+        )
 
         var expectedProperties = [String: Any]()
         expectedProperties["location"] = [
@@ -476,14 +528,39 @@ final class Puck2DTests: XCTestCase {
             "interpolate",
             ["linear"],
             ["zoom"],
-            0,
-            400000,
-            4,
-            200000,
-            8,
-            5000]
-        expectedProperties["accuracy-radius-color"] = StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString
-        expectedProperties["accuracy-radius-border-color"] = StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString
+            cutoffZoomLevel,
+            minPuckRadiusInMeters,
+            cutoffZoomLevel + 1,
+            accuracy]
+        expectedProperties["accuracy-radius-color"] = [
+            "step",
+            ["zoom"],
+            StyleColor(UIColor.clear).rgbaString,
+            cutoffZoomLevel,
+            StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString
+        ]
+        expectedProperties["accuracy-radius-border-color"] = [
+            "step",
+            ["zoom"],
+            StyleColor(UIColor.clear).rgbaString,
+            cutoffZoomLevel,
+            StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString
+        ]
+        expectedProperties["emphasis-circle-color"] = [
+            "step",
+            ["zoom"],
+            StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString,
+            cutoffZoomLevel,
+            StyleColor(UIColor.clear).rgbaString
+        ]
+        expectedProperties["emphasis-circle-radius"] = 11
+        expectedProperties["emphasis-circle-color"] = [
+            "step",
+            ["zoom"],
+            StyleColor(UIColor(red: 0.537, green: 0.812, blue: 0.941, alpha: 0.3)).rgbaString,
+            cutoffZoomLevel,
+            StyleColor(UIColor.clear).rgbaString
+        ]
         for key in originalKeys where expectedProperties[key] == nil {
             expectedProperties[key] = Style.layerPropertyDefaultValue(for: .locationIndicator, property: key).value
         }
