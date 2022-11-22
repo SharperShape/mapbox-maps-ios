@@ -29,7 +29,7 @@ executors:
   # Please keep them in sync if this structure changes.
   xcode-sdk-min:
     macos:
-      xcode: 13.0.0
+      xcode: 13.1.0
 
 ### Workflows
 
@@ -53,13 +53,13 @@ workflows:
           report_failure: true
           matrix:
             parameters:
-              xcode: ["13.0.0", "13.2.1"]
+              xcode: ["13.1.0", "13.2.1"]
       - unit-test-sdk:
           configuration: "Release"
           report_failure: true
           matrix:
             parameters:
-              xcode: ["13.0.0", "13.2.1"]
+              xcode: ["13.1.0", "13.2.1"]
       - build-tests:
           name: Build MapboxTestHost tests
       - run-tests:
@@ -77,7 +77,7 @@ workflows:
       - create-xcframework:
           create-xcframework-always-run: true
           report_failure: true
-          xcode: "13.0.0"
+          xcode: "13.1.0"
 
   optional-tests:
     unless: << pipeline.parameters.turf-revision >>
@@ -114,12 +114,6 @@ workflows:
             - Build Examples tests [non-main]
           devices: --device model=iphone8,version=14.7
 
-      - trigger-compatibility-verification?:
-          type: approval
-      - trigger-compatibility-verification:
-          requires:
-            - trigger-compatibility-verification?
-
   steve:
     unless: << pipeline.parameters.turf-revision >>
     jobs:
@@ -127,7 +121,7 @@ workflows:
       - depsvalidator:
           xcode: "13.3.0"
       - build-sdk:
-          xcode: "13.0.0"
+          xcode: "13.1.0"
           configuration: "Release"
 
       - build-sdk-for-api-compatibility-check
@@ -155,11 +149,11 @@ workflows:
       # Run unit tests on CI simulator
       - unit-test-sdk:
           name: "Run Unit tests"
-          xcode: "13.0.0"
+          xcode: "13.1.0"
 
       - unit-test-sdk:
           name: "Run Unit Tests with min Turf"
-          xcode: "13.0.0"
+          xcode: "13.1.0"
           turf-revision: v2.0.0
 
       # Build all tests with host application
@@ -189,6 +183,31 @@ workflows:
           filters:
             branches:
               only: main
+
+      # Notify internal CI about main and release branch updates
+      - trigger-internal-ci-sync:
+          filters:
+            branches:
+              only:
+                - main
+                - /^release/v10.*/
+
+      # Configure triggering end-to-end verification
+      - sdk-e2e-test:
+          filters:
+              branches:
+                  ignore:
+                      - main
+          name: run-sdk-e2e-test-devel
+      - sdk-e2e-test:
+          filters:
+              branches:
+                  only:
+                      - main
+              tags:
+                  only: /^v.*/
+          name: run-sdk-e2e-test-validation
+          validation: true
 
   release:
     jobs:
@@ -266,7 +285,7 @@ jobs:
     parameters:
       xcode:
         type: string
-        default: "13.0.0"
+        default: "13.1.0"
       create-xcframework-always-run:
         type: boolean
         default: false
@@ -432,21 +451,62 @@ jobs:
           report_failure: << parameters.report_failure >>
           message: "metrics"
 
-  trigger-compatibility-verification:
-    docker:
-      - image: cimg/python:3.10.4
-    steps:
-      - checkout
-      - run:
-          name: Install python depedencies
-          command: |
-            pip3 install PyYAML
-            pip3 install GitPython
-            pip3 install requests
-      - run:
-          name: Trigger compatibility test
-          command: |
-            python3 scripts/ci-trigger/ci-compatibility-start-pipeline.py --target-slug mapbox/mapbox-sdk --token ${CIRCLECI_API_TOKEN_MAPBOX_MAPS_IOS_INTERNAL} --config mapbox-maps-ios=${CIRCLE_SHA1} --origin-slug mapbox/mapbox-maps-ios --platform ios
+  sdk-e2e-test:
+      docker:
+        - image: "mbxci/linux-base:ebee268fbe3d078cdacefee679f09c609006cdf4"
+      resource_class: small
+      parameters:
+          validation:
+              default: false
+              type: boolean
+      steps:
+          - add_ssh_keys:
+              fingerprints:
+                  - 3b:cd:47:bf:57:9c:e5:36:b0:4d:5f:12:5e:d3:b3:3e
+          - checkout
+          - install-mbx-ci:
+              platform: linux
+          - run:
+              command: |
+                  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+                  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+                  sudo apt update && sudo apt install gh -y
+                  sudo pip3 install gitpython
+                  echo "export CIRCLE_API_TOKEN=$CIRCLECI_API_TOKEN_MAPBOX_MAPS_IOS_INTERNAL" >> $BASH_ENV
+                  source $BASH_ENV
+              name: Install dependency
+          - when:
+              condition:
+                  not: << parameters.validation >>
+              steps:
+                  - run:
+                      command: |
+                          E2E_TRIGGER=$(./scripts/ci-trigger/ci-e2e-job-trigger-checker.sh || echo -n "retval $?")
+                          if [[ $E2E_TRIGGER == *"retval 1"* ]]; then
+                              echo "E2E tests not requested, skipping."
+                              exit 0
+                          fi
+                          export GITHUB_TOKEN=$(mbx-ci github reader token)
+                          LABELS=$(gh pr view --repo $CIRCLE_REPOSITORY_URL $CIRCLE_PULL_REQUEST --json labels)
+                          if [[ $LABELS == *"e2e_trunk"* ]]; then
+                              export E2E_VERSION_CONFIG="trunk"
+                          elif [[ $LABELS == *"e2e_latest"* ]]; then
+                              export E2E_VERSION_CONFIG="latest"
+                          else
+                              export E2E_VERSION_CONFIG="default"
+                          fi
+                          echo "Run E2E tests with ${E2E_VERSION_CONFIG} config."
+                          scripts/ci-trigger/ci-e2e-compatibility-start-pipeline.py --config mapbox-maps-ios=${CIRCLE_SHA1} --platform all --versions ${E2E_VERSION_CONFIG}
+                      name: Trigger E2E SDK test devel pipeline
+          - when:
+              condition: << parameters.validation >>
+              steps:
+                  - run:
+                      command: |
+                          export E2E_VERSION_CONFIG="latest"
+                          echo "Run E2E tests with ${E2E_VERSION_CONFIG} config."
+                          scripts/ci-trigger/ci-e2e-compatibility-start-pipeline.py --config mapbox-maps-ios=${CIRCLE_SHA1} --platform all --versions ${E2E_VERSION_CONFIG}
+                      name: Trigger E2E SDK test validation pipeline
 
   unit-test-sdk:
     <<: *base-job
@@ -611,7 +671,7 @@ jobs:
             condition:
               not:
                 matches:
-                  pattern: "^13.0.*$"
+                  pattern: "^13.1.*$"
                   value: << parameters.xcode >>
             steps:
               - check-breaking-api:
@@ -625,7 +685,7 @@ jobs:
             condition:
               not:
                 matches:
-                  pattern: "^13.0.*$"
+                  pattern: "^13.1.*$"
                   value: << parameters.xcode >>
             steps:
               - check-breaking-api:
@@ -876,7 +936,7 @@ jobs:
         type: string
         default: ""
     macos:
-      xcode: "13.0.0"
+      xcode: "13.1.0"
     environment:
       HOMEBREW_NO_AUTO_UPDATE: 1
       HOMEBREW_NO_INSTALL_CLEANUP: 1
@@ -915,6 +975,24 @@ jobs:
           turf-revision: << parameters.turf-revision >>
       - turf-report-failure:
           turf-revision: << parameters.turf-revision >>
+
+  trigger-internal-ci-sync:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Notify maps internal CI about $CIRCLE_BRANCH branch update
+          command: |
+            curl -X POST "https://circleci.com/api/v2/project/github/mapbox/mapbox-maps-ios-private/pipeline" \
+                -H 'Content-Type: application/json' \
+                -H "Circle-Token: $CIRCLECI_API_TOKEN_MAPBOX_MAPS_IOS_INTERNAL" \
+                -d $'{
+                        "branch": "internal",
+                        "parameters": {
+                          "mapbox_sync_branch": "'$CIRCLE_BRANCH'"
+                        }
+                      }'
 
 # ==============================================================================
 # Reusable commands
@@ -985,8 +1063,8 @@ commands:
       - run:
           name: Install latest mbx-ci
           command: |
-            curl -Ls https://mapbox-release-engineering.s3.amazonaws.com/mbx-ci/<<parameters.version>>/mbx-ci-<<parameters.platform>>-<<parameters.arch>> > <<parameters.install_path>>/mbx-ci
-            chmod 755 <<parameters.install_path>>/mbx-ci
+            curl -Ls https://mapbox-release-engineering.s3.amazonaws.com/mbx-ci/<<parameters.version>>/mbx-ci-<<parameters.platform>>-<<parameters.arch>> | sudo tee <<parameters.install_path>>/mbx-ci >/dev/null
+            sudo chmod 755 <<parameters.install_path>>/mbx-ci
             mbx-ci aws setup
 
   ensure-text-exists-in-commit:

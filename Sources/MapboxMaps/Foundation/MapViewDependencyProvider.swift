@@ -19,7 +19,9 @@ internal protocol MapViewDependencyProviderProtocol: AnyObject {
                                           displayLinkCoordinator: DisplayLinkCoordinator) -> InterpolatedLocationProducerProtocol
     func makeLocationManager(locationProducer: LocationProducerProtocol,
                              interpolatedLocationProducer: InterpolatedLocationProducerProtocol,
-                             style: StyleProtocol) -> LocationManager
+                             style: StyleProtocol,
+                             mapboxMap: MapboxMapProtocol,
+                             displayLinkCoordinator: DisplayLinkCoordinator) -> LocationManager
     func makeViewportImpl(mapboxMap: MapboxMapProtocol,
                           cameraAnimationsManager: CameraAnimationsManagerProtocol,
                           anyTouchGestureRecognizer: UIGestureRecognizer,
@@ -37,7 +39,7 @@ internal final class MapViewDependencyProvider: MapViewDependencyProviderProtoco
 
     internal let cameraAnimatorsRunnerEnablable: MutableEnablableProtocol = Enablable()
     private let gesturesCameraAnimatorsRunnerEnablable = Enablable()
-    private let mainQueue = MainQueue()
+    private let mainQueue: MainQueueProtocol = MainQueueWrapper()
 
     internal func makeMetalView(frame: CGRect, device: MTLDevice?) -> MTKView {
         MTKView(frame: frame, device: device)
@@ -244,13 +246,21 @@ internal final class MapViewDependencyProvider: MapViewDependencyProviderProtoco
 
     internal func makeLocationManager(locationProducer: LocationProducerProtocol,
                                       interpolatedLocationProducer: InterpolatedLocationProducerProtocol,
-                                      style: StyleProtocol) -> LocationManager {
+                                      style: StyleProtocol,
+                                      mapboxMap: MapboxMapProtocol,
+                                      displayLinkCoordinator: DisplayLinkCoordinator) -> LocationManager {
         let puckManager = PuckManager(
-            puck2DProvider: { configuration in
-                Puck2D(
+            puck2DProvider: { [weak displayLinkCoordinator] configuration in
+                guard let displayLinkCoordinator = displayLinkCoordinator else {
+                    fatalError("DisplayLinkCoordinator must be present when creating a 2D puck")
+                }
+                return Puck2D(
                     configuration: configuration,
                     style: style,
-                    interpolatedLocationProducer: interpolatedLocationProducer)
+                    interpolatedLocationProducer: interpolatedLocationProducer,
+                    mapboxMap: mapboxMap,
+                    displayLinkCoordinator: displayLinkCoordinator,
+                    timeProvider: DefaultTimeProvider())
             },
             puck3DProvider: { configuration in
                 Puck3D(
@@ -258,7 +268,6 @@ internal final class MapViewDependencyProvider: MapViewDependencyProviderProtoco
                     style: style,
                     interpolatedLocationProducer: interpolatedLocationProducer)
             })
-
         return LocationManager(
             locationProducer: locationProducer,
             interpolatedLocationProducer: interpolatedLocationProducer,

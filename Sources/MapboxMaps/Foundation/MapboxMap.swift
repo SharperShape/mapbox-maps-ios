@@ -35,9 +35,9 @@ internal protocol MapboxMapProtocol: AnyObject {
 // swiftlint:disable type_body_length
 
 /// MapboxMap provides access to the map model, including the camera, style, observable map events,
-/// and querying rendered features. Obtain the MapboxMap instance for a MapView via MapView.mapboxMap.
+/// and querying rendered features. Obtain the MapboxMap instance for a `MapView` via MapView.mapboxMap.
 ///
-/// Note: MapboxMap should only be used from the main thread.
+/// - Important: MapboxMap should only be used from the main thread.
 public final class MapboxMap: MapboxMapProtocol {
     /// The underlying renderer object responsible for rendering the map
     private let __map: Map
@@ -79,11 +79,11 @@ public final class MapboxMap: MapboxMapProtocol {
     // MARK: - Style loading
 
     private func observeStyleLoad(_ completion: @escaping (Result<Style, Error>) -> Void) {
-        onNext(event: .styleLoaded) { _ in
-            if !self.style.isLoaded {
+        onNext(event: .styleLoaded) { [style] _ in
+            if !style.isLoaded {
                 Log.warning(forMessage: "style.isLoaded == false, was this an empty style?", category: "Style")
             }
-            completion(.success(self.style))
+            completion(.success(style))
         }
 
         onNext(event: .mapLoadingError) { event in
@@ -91,7 +91,7 @@ public final class MapboxMap: MapboxMapProtocol {
         }
     }
 
-    /// Loads a style from a StyleURI, calling a completion closure when the
+    /// Loads a `style` from a StyleURI, calling a completion closure when the
     /// style is fully loaded or there has been an error during load.
     ///
     /// - Parameters:
@@ -106,7 +106,7 @@ public final class MapboxMap: MapboxMapProtocol {
         __map.setStyleURIForUri(styleURI.rawValue)
     }
 
-    /// Loads a style from a JSON string, calling a completion closure when the
+    /// Loads a `style` from a JSON string, calling a completion closure when the
     /// style is fully loaded or there has been an error during load.
     ///
     /// - Parameters:
@@ -158,6 +158,18 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Parameter memoryBudget: The memory budget hint to be used by the Map.
     @_spi(Experimental) public func setMemoryBudget(_ memoryBudget: MapMemoryBudget?) {
         __map.__setMemoryBudgetFor(memoryBudget)
+    }
+
+    /// Enables or disables the experimental render cache feature.
+    ///
+    /// Render cache is an experimental feature aiming to reduce resource usage of map rendering
+    /// by caching intermediate rendering results of tiles into specific cache textures for reuse between frames.
+    /// Performance benefit of the cache depends on the style as not all layers are cacheable due to e.g. viewport aligned features.
+    /// Render cache always prefers quality over performance.
+    ///
+    /// - Parameter cacheOptions: The cache options to be set to the Map.
+    @_spi(Experimental) public func setRenderCache(_ cacheOptions: RenderCacheOptions) {
+        __map.setRenderCacheOptionsFor(cacheOptions)
     }
 
     /// Gets the resource options for the map.
@@ -489,11 +501,13 @@ public final class MapboxMap: MapboxMapProtocol {
     /// This API isn't supported by Globe projection.
     ///
     /// - Parameter coordinates: The coordinate to convert.
-    /// - Returns: An array of `CGPoint` relative to the `UIView`.
+    /// - Returns: An array of `CGPoint` relative to the `UIView.
+    /// If a coordinate's point is outside of map view's bounds, it will be `(-1, -1)`
     public func points(for coordinates: [CLLocationCoordinate2D]) -> [CGPoint] {
+        let bounds = CGRect(origin: .zero, size: size)
         let locations = coordinates.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
         let screenCoords = __map.pixelsForCoordinates(forCoordinates: locations)
-        return screenCoords.map { $0.point }
+        return screenCoords.map { bounds.contains($0.point) ? $0.point : CGPoint(x: -1.0, y: -1.0) }
     }
 
     /// Converts points in the mapView's coordinate system to geographic coordinates.
@@ -1111,8 +1125,11 @@ extension MapboxMap {
 }
 
 // MARK: - Map Recorder
+
 extension MapboxMap {
-    internal func makeRecorder() -> MapRecorder {
+
+    // swiftlint:disable:next missing_docs
+    @_spi(Internal) public final func makeRecorder() -> MapRecorder {
         MapRecorder(mapView: __map)
     }
 }

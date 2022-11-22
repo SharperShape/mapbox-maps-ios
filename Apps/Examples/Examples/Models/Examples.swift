@@ -55,10 +55,6 @@ struct Examples {
         ],
         [   "title": "Globe and Atmosphere",
             "examples": globeAndAtmosphere
-        ],
-        [
-            "title": "Experimental",
-            "examples": experimentalExamples
         ]
     ]
 
@@ -93,10 +89,7 @@ struct Examples {
                 type: BuildingExtrusionsExample.self),
         Example(title: "Add a sky layer",
                 description: "Add a customizable sky layer to simulate natural lighting with a Terrain layer.",
-                type: SkyLayerExample.self),
-        Example(title: "Display a 3D model in a model layer",
-                description: "Showcase the usage of a 3D model layer.",
-                type: ModelLayerExample.self)
+                type: SkyLayerExample.self)
     ]
 
     // Examples that focus on annotations.
@@ -145,7 +138,7 @@ struct Examples {
                 type: ViewAnnotationMarkerExample.self)
     ]
 
-    // Examples that focus on setting, animating, or otherwise changing the map's camera.
+    // Examples that focus on setting, animating, or otherwise changing the map's camera and viewport.
     static let cameraExamples = [
             Example(title: "Use custom camera animations",
                 description: """
@@ -155,6 +148,12 @@ struct Examples {
         Example(title: "Use camera animations",
                 description: "Use ease(to:) to animate updates to the camera's position.",
                 type: CameraAnimationExample.self),
+        Example(title: "Viewport",
+                description: "Viewport camera showcase",
+                type: ViewportExample.self),
+        Example(title: "Advanced Viewport Gestures",
+                description: "Viewport configured to allow gestures",
+                type: AdvancedViewportGesturesExample.self),
 
     ]
 
@@ -162,16 +161,22 @@ struct Examples {
     public static let labExamples = [
         Example(title: "Resizable image",
                 description: "Add a resizable image with cap insets to a style.",
-                type: ResizableImageExample.self)
+                type: ResizableImageExample.self),
+        Example(title: "Geojson performance",
+                description: "Display long route as large geojson",
+                type: LargeGeoJSONPerformanceExample.self)
     ]
 
-    // Examples focused on displaying the user's location.
+    // Examples that focus on displaying the user's location.
     public static let locationExamples = [
         Example(title: "Display the user's location",
                 description: "Display the user's location on a map with the default user location puck.",
                 type: TrackingModeExample.self),
+        Example(title: "Basic pulsing circle",
+                description: "Display sonar-like animation radiating from the location puck.",
+                type: BasicLocationPulsingExample.self),
         Example(title: "Customize the location puck",
-                description: "Use a different asset to represent the puck.",
+                description: "Customized the location puck on the map",
                 type: Custom2DPuckExample.self),
         Example(title: "Use a 3D model to show the user's location",
                 description: "A 3D model is used to represent the user's location.",
@@ -293,6 +298,7 @@ struct Examples {
                 type: SymbolClusteringExample.self),
     ]
 
+    // Examples that show map accessibility features
     static let accessibilityExamples = [
         Example(title: "Access map features using VoiceOver",
                 description: "Use VoiceOver to highlight annotations and hear their associated features.",
@@ -313,15 +319,5 @@ struct Examples {
         Example(title: "Visualize data as a heatmap",
                 description: "Display your heatmap using the globe projection.",
                 type: HeatmapLayerGlobeExample.self)
-    ]
-
-    // Examples that uses experimental APIs
-    static let experimentalExamples = [
-        Example(title: "Viewport",
-                description: "Viewport camera showcase",
-                type: ViewportExample.self),
-        Example(title: "Advanced Viewport Gestures",
-                description: "Viewport configured to allow gestures",
-                type: AdvancedViewportGesturesExample.self),
     ]
 }

@@ -104,7 +104,6 @@ internal final class Puck3D: Puck {
             modelLayer.modelScale = modelScale
             modelLayer.modelType = .constant(.locationIndicator)
             modelLayer.modelRotation = configuration.modelRotation
-            modelLayer.modelCastShadows = configuration.modelCastShadows
             try! style.addPersistentLayer(modelLayer, layerPosition: nil)
         } else if needsUpdateModelScale {
             try? style.setLayerProperty(
@@ -133,7 +132,7 @@ internal final class Puck3D: Puck {
     }
 
     private var modelScale: Value<[Double]>? {
-        switch configuration.modelScale {
+        switch configuration.modelScale ?? .constant([1, 1, 1]) {
         case .constant(let scales):
             let maxZoom = 22.0
             let minZoom = 0.5
@@ -160,7 +159,7 @@ internal final class Puck3D: Puck {
                 }
             )
 
-        default: return configuration.modelScale
+        case .expression: return configuration.modelScale
         }
     }
 }

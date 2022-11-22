@@ -14,6 +14,7 @@ internal protocol StyleProtocol: AnyObject {
     func addSource(_ source: Source, id: String) throws
     func removeSource(withId id: String) throws
     func sourceExists(withId id: String) -> Bool
+    func setSourceProperty(for sourceId: String, property: String, value: Any) throws
     func setSourceProperties(for sourceId: String, properties: [String: Any]) throws
 
     //swiftlint:disable function_parameter_count
@@ -23,7 +24,15 @@ internal protocol StyleProtocol: AnyObject {
                   stretchX: [ImageStretches],
                   stretchY: [ImageStretches],
                   content: ImageContent?) throws
+    func addImage(_ image: UIImage, id: String, sdf: Bool, contentInsets: UIEdgeInsets) throws
     func removeImage(withId id: String) throws
+    func imageExists(withId id: String) -> Bool
+}
+
+internal extension StyleProtocol {
+    func addImage(_ image: UIImage, id: String, sdf: Bool = false, contentInsets: UIEdgeInsets = .zero) throws {
+        try addImage(image, id: id, sdf: sdf, contentInsets: contentInsets)
+    }
 }
 
 // swiftlint:disable type_body_length
@@ -32,16 +41,22 @@ internal protocol StyleProtocol: AnyObject {
 /// to read and write layers, sources, and images. Obtain the Style instance for a MapView
 /// via MapView.mapboxMap.style.
 ///
-/// Note: Style should only be used from the main thread.
+/// - Important: Style should only be used from the main thread.
 public final class Style: StyleProtocol {
 
+    private let sourceManager: StyleSourceManagerProtocol
     private let _styleManager: StyleManagerProtocol
     public weak var styleManager: StyleManager! {
         _styleManager.asStyleManager()
     }
 
-    internal init(with styleManager: StyleManagerProtocol) {
+    internal convenience init(with styleManager: StyleManagerProtocol) {
+        self.init(with: styleManager, sourceManager: StyleSourceManager(styleManager: styleManager))
+    }
+
+    internal init(with styleManager: StyleManagerProtocol, sourceManager: StyleSourceManagerProtocol) {
         self._styleManager = styleManager
+        self.sourceManager = sourceManager
 
         if let uri = StyleURI(rawValue: styleManager.getStyleURI()) {
             self.uri = uri
@@ -54,33 +69,33 @@ public final class Style: StyleProtocol {
     ///
     /// - Parameters:
     ///   - layer: The layer to apply on the map
-    ///   - layerPosition: Position at which to add the map.
+    ///   - layerPosition: Position to add the layer in the stack of layers on the map. Defaults to the top layer.
     ///
-    /// - Throws: StyleError or type conversion errors
+    /// - Throws: ``StyleError`` if there is a problem adding the given `layer` at the given `position`.
     public func addLayer(_ layer: Layer, layerPosition: LayerPosition? = nil) throws {
-        // Attempt to encode the provided layer into JSON and apply it to the map
-        let layerJSON = try layer.jsonObject()
-        try addLayer(with: layerJSON, layerPosition: layerPosition)
+        // Attempt to encode the provided layer into a dictionary and apply it to the map.
+        let layerProperties = try layer.allStyleProperties()
+        try addLayer(with: layerProperties, layerPosition: layerPosition)
     }
 
-    /// Adds a  persistent `layer` to the map
-    /// Persistent layers are valid across style changes.
+    /// Adds a  persistent `layer` to the map.
+    /// Persistent layers are valid across `style` changes.
     ///
     /// - Parameters:
     ///   - layer: The layer to apply on the map
-    ///   - layerPosition: Position at which to add the map.
+    ///   - layerPosition: Position to add the layer in the stack of layers on the map. Defaults to the top layer.
     ///
-    /// - Throws: StyleError or type conversion errors
+    /// - Throws: ``StyleError`` if there is a problem adding the persistent layer.
     public func addPersistentLayer(_ layer: Layer, layerPosition: LayerPosition? = nil) throws {
-        // Attempt to encode the provided layer into JSON and apply it to the map
-        let layerJSON = try layer.jsonObject()
-        try addPersistentLayer(with: layerJSON, layerPosition: layerPosition)
+        // Attempt to encode the provided layer into a dictionary and apply it to the map.
+        let layerProperties = try layer.allStyleProperties()
+        try addPersistentLayer(with: layerProperties, layerPosition: layerPosition)
     }
 
     /**
      Moves a `layer` to a new layer position in the style.
      - Parameter layerId: The layer to move
-     - Parameter position: The new position to move the layer to
+     - Parameter position: Position to move the layer in the stack of layers on the map. Defaults to the top layer.
 
      - Throws: `StyleError` on failure, or `NSError` with a _domain of "com.mapbox.bindgen"
      */
@@ -96,7 +111,8 @@ public final class Style: StyleProtocol {
      - Parameter type: The type of the layer that will be fetched
 
      - Returns: The fully formed `layer` object of type equal to `type`
-     - Throws: StyleError or type conversion errors
+     - Throws: ``StyleError`` if there is a problem getting the layer data.
+     - Throws: ``TypeConversionError`` is there is a problem decoding the layer data to the given `type`.
      */
     public func layer<T>(withId id: String, type: T.Type) throws -> T where T: Layer {
         let properties = try layerProperties(for: id)
@@ -126,78 +142,91 @@ public final class Style: StyleProtocol {
         return try type.layerType.init(jsonObject: properties)
     }
 
-    /// Updates a layer that exists in the style already
+    /// Updates a `layer` that exists in the `style` already
     ///
     /// - Parameters:
     ///   - id: identifier of layer to update
     ///   - type: Type of the layer
     ///   - update: Closure that mutates a layer passed to it
     ///
-    /// - Throws: StyleError or type conversion errors
+    /// - Throws: ``TypeConversionError`` if there is a problem getting a layer data.
+    /// - Throws: ``StyleError`` if there is a problem updating the layer.
+    /// - Throws: An error when executing `update` block.
     public func updateLayer<T>(withId id: String,
                                type: T.Type,
                                update: (inout T) throws -> Void) throws where T: Layer {
-        var layer = try self.layer(withId: id, type: T.self)
+        let oldLayerProperties = try layerProperties(for: id)
+        var layer = try T(jsonObject: oldLayerProperties)
 
         // Call closure to update the retrieved layer
         try update(&layer)
-        let value = try layer.jsonObject()
+
+        let reduceStrategy: (inout [String: Any], Dictionary<String, Any>.Element) -> Void = { result, element in
+            let (key, value) = element
+            switch value {
+            case Optional<Any>.none where result.keys.contains(key):
+                result[key] = Style.layerPropertyDefaultValue(for: layer.type, property: key).value
+            case Optional<Any>.some:
+                result[key] = value
+            default: break
+            }
+        }
+        let layerProperties: [String: Any] = try layer
+            .allStyleProperties(userInfo: [:], shouldEncodeNilValues: true)
+            .reduce(into: oldLayerProperties, { result, element in
+                if let dictionary = element.value as? [String: Any] {
+                    result[element.key] = dictionary.reduce(
+                        into: oldLayerProperties[element.key] as? [String: Any] ?? [:],
+                        reduceStrategy
+                    )
+                } else {
+                    reduceStrategy(&result, element)
+                }
+            })
 
         // Apply the changes to the layer properties to the style
-        try setLayerProperties(for: id, properties: value)
+        try setLayerProperties(for: id, properties: layerProperties)
     }
 
     // MARK: - Sources
 
     /**
-     Adds a source to the map
+     Adds a `source` to the map
      - Parameter source: The source to add to the map.
      - Parameter identifier: A unique source identifier.
 
-     - Throws: StyleError or type conversion errors
+     - Throws: ``StyleError`` if there is a problem adding the `source`.
      */
     public func addSource(_ source: Source, id: String) throws {
-        let sourceDictionary = try source.jsonObject(userInfo: [.nonVolatilePropertiesOnly: true])
-        try addSource(withId: id, properties: sourceDictionary)
-
-        // volatile properties have to be set after the source has been added to the style
-        let volatileProperties = try source.jsonObject(userInfo: [.volatilePropertiesOnly: true])
-
-        try setSourceProperties(for: id, properties: volatileProperties)
+        try sourceManager.addSource(source, id: id)
     }
 
     /**
-     Retrieves a source from the map
+     Retrieves a `source` from the map
      - Parameter id: The id of the source to retrieve
      - Parameter type: The type of the source
 
      - Returns: The fully formed `source` object of type equal to `type`.
-     - Throws: StyleError or type conversion errors
+     - Throws: ``StyleError`` if there is a problem getting the source data.
+     - Throws: ``TypeConversionError`` if there is a problem decoding the source data to the given `type`.
      */
     public func source<T>(withId id: String, type: T.Type) throws -> T where T: Source {
-        let sourceProps = try sourceProperties(for: id)
-        return try type.init(jsonObject: sourceProps)
+        try sourceManager.source(withId: id, type: type)
     }
 
     /**
-     Retrieves a source from the map
+     Retrieves a `source` from the map
 
      This function is useful if you do not know the concrete type of the source
      you are fetching, or don't need to know for your situation.
 
-     - Parameter id: The id of the source to retrieve.
+     - Parameter id: The id of the `source` to retrieve.
      - Returns: The fully formed `source` object.
-     - Throws: Type conversion errors.
+     - Throws: ``StyleError`` if there is a problem getting the source data.
+     - Throws: ``TypeConversionError`` if there is a problem decoding the source of given `id`.
      */
     public func source(withId id: String) throws -> Source {
-        // Get the source properties for a given identifier
-        let sourceProps = try sourceProperties(for: id)
-
-        guard let typeString = sourceProps["type"] as? String,
-              let type = SourceType(rawValue: typeString) else {
-            throw TypeConversionError.invalidObject
-        }
-        return try type.sourceType.init(jsonObject: sourceProps)
+        try sourceManager.source(withId: id)
     }
 
     /// Updates the `data` property of a given `GeoJSONSource` with a new value
@@ -208,19 +237,15 @@ public final class Style: StyleProtocol {
     ///   - geoJSON: The new GeoJSON to be associated with the source data. i.e.
     ///   a feature or feature collection.
     ///
-    /// - Throws: StyleError or type conversion errors
+    /// - Throws: ``StyleError`` if there is a problem when updating GeoJSON source.
     ///
     /// - Attention: This method is only effective with sources of `GeoJSONSource`
     /// type, and cannot be used to update other source types.
     public func updateGeoJSONSource(withId id: String, geoJSON: GeoJSONObject) throws {
-        guard let sourceInfo = allSourceIdentifiers.first(where: { $0.id == id }),
-              sourceInfo.type == .geoJson else {
-            fatalError("updateGeoJSONSource: Source with id '\(id)' is not a GeoJSONSource.")
-        }
-        try setSourceProperty(for: id, property: "data", value: geoJSON.toJSON())
+        try sourceManager.updateGeoJSONSource(withId: id, geoJSON: geoJSON)
     }
 
-    /// `true` if and only if the style JSON contents, the style specified sprite
+    /// `true` if and only if the style JSON contents, the style specified sprite,
     /// and sources are all loaded, otherwise returns `false`.
     public var isLoaded: Bool {
         return _styleManager.isStyleLoaded()
@@ -269,20 +294,20 @@ public final class Style: StyleProtocol {
         }
     }
 
-    /// The map style's default camera, if any, or a default camera otherwise.
-    /// The map style default camera is defined as follows:
+    /// The map `style`'s default camera, if any, or a default camera otherwise.
+    /// The map `style` default camera is defined as follows:
     ///
     /// - [center](https://docs.mapbox.com/mapbox-gl-js/style-spec/#root-center)
     /// - [zoom](https://docs.mapbox.com/mapbox-gl-js/style-spec/#root-zoom)
     /// - [bearing](https://docs.mapbox.com/mapbox-gl-js/style-spec/#root-bearing)
     /// - [pitch](https://docs.mapbox.com/mapbox-gl-js/style-spec/#root-pitch)
     ///
-    /// The style default camera is re-evaluated when a new style is loaded.
+    /// The `style` default camera is re-evaluated when a new `style` is loaded. Values default to 0.0 if they are not defined in the `style`.
     public var defaultCamera: CameraOptions {
         return CameraOptions(_styleManager.getStyleDefaultCamera())
     }
 
-    /// Get or set the map style's transition options.
+    /// Get or set the map `style`'s transition options.
     ///
     /// By default, the style parser will attempt to read the style default
     /// transition, if any, falling back to a 0.3 s transition otherwise.
@@ -314,8 +339,7 @@ public final class Style: StyleProtocol {
     ///
     /// - Parameters:
     ///   - properties: A JSON dictionary of style layer properties.
-    ///   - layerPosition: If not empty, the new layer will be positioned according
-    ///         to `LayerPosition` parameters.
+    ///   - layerPosition: Position to add the layer in the stack of layers on the map. Defaults to the top layer.
     ///
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
@@ -331,8 +355,7 @@ public final class Style: StyleProtocol {
     ///
     /// - Parameters:
     ///   - properties: A JSON dictionary of style layer properties
-    ///   - layerPosition: If not empty, the new layer will be positioned according
-    ///         to `LayerPosition` parameters.
+    ///   - layerPosition: Position to add the layer in the stack of layers on the map. Defaults to the top layer.
     ///
     /// - Throws:
     ///     An error describing why the operation was unsuccessful
@@ -359,8 +382,7 @@ public final class Style: StyleProtocol {
     /// - Parameters:
     ///   - id: Style layer id.
     ///   - layerHost: Style custom layer host.
-    ///   - layerPosition: If not empty, the new layer will be positioned according
-    ///         to `LayerPosition` parameters.
+    ///   - layerPosition: Position to add the layer in the stack of layers on the map. Defaults to the top layer.
     ///
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
@@ -380,8 +402,7 @@ public final class Style: StyleProtocol {
     /// - Parameters:
     ///   - id: Style layer id.
     ///   - layerHost: Style custom layer host.
-    ///   - layerPosition: If not empty, the new layer will be positioned according
-    ///         to `LayerPosition` parameters.
+    ///   - layerPosition: Position to add the layer in the stack of layers on the map. Defaults to the top layer.
     ///
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
@@ -532,9 +553,7 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func addSource(withId id: String, properties: [String: Any]) throws {
-        try handleExpected {
-            return _styleManager.addStyleSource(forSourceId: id, properties: properties)
-        }
+        try sourceManager.addSource(withId: id, properties: properties)
     }
 
     /// Removes an existing style source.
@@ -544,9 +563,7 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func removeSource(withId id: String) throws {
-        try handleExpected {
-            return _styleManager.removeStyleSource(forSourceId: id)
-        }
+        try sourceManager.removeSource(withId: id)
     }
 
     /// Checks whether a given style source exists.
@@ -555,19 +572,13 @@ public final class Style: StyleProtocol {
     ///
     /// - Returns: `true` if the given source exists, `false` otherwise.
     public func sourceExists(withId id: String) -> Bool {
-        return _styleManager.styleSourceExists(forSourceId: id)
+        return sourceManager.sourceExists(withId: id)
     }
 
     /// The ordered list of the current style sources' identifiers and types. Identifiers for custom vector
     /// sources will not be included
     public var allSourceIdentifiers: [SourceInfo] {
-        return _styleManager.getStyleSources().compactMap { info in
-            guard let sourceType = SourceType(rawValue: info.type) else {
-                Log.error(forMessage: "Failed to create SourceType from \(info.type)", category: "Example")
-                return nil
-            }
-            return SourceInfo(id: info.id, type: sourceType)
-        }
+        return sourceManager.allSourceIdentifiers
     }
 
     // MARK: - Source properties
@@ -580,7 +591,7 @@ public final class Style: StyleProtocol {
     ///
     /// - Returns: The value of the property in the source with sourceId.
     public func sourceProperty(for sourceId: String, property: String) -> StylePropertyValue {
-        return _styleManager.getStyleSourceProperty(forSourceId: sourceId, property: property)
+        return sourceManager.sourceProperty(for: sourceId, property: property)
     }
 
     /// Sets a value to a style source property.
@@ -593,9 +604,7 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func setSourceProperty(for sourceId: String, property: String, value: Any) throws {
-        try handleExpected {
-            return _styleManager.setStyleSourcePropertyForSourceId(sourceId, property: property, value: value)
-        }
+        try sourceManager.setSourceProperty(for: sourceId, property: property, value: value)
     }
 
     /// Gets style source properties.
@@ -608,9 +617,7 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func sourceProperties(for sourceId: String) throws -> [String: Any] {
-        return try handleExpected {
-            return _styleManager.getStyleSourceProperties(forSourceId: sourceId)
-        }
+        return try sourceManager.sourceProperties(for: sourceId)
     }
 
     /// Sets style source properties.
@@ -628,9 +635,7 @@ public final class Style: StyleProtocol {
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
     public func setSourceProperties(for sourceId: String, properties: [String: Any]) throws {
-        try handleExpected {
-            return _styleManager.setStyleSourcePropertiesForSourceId(sourceId, properties: properties)
-        }
+        try sourceManager.setSourceProperties(for: sourceId, properties: properties)
     }
 
     /// Gets the default value of style source property.
@@ -642,7 +647,7 @@ public final class Style: StyleProtocol {
     /// - Returns:
     ///     The default value for the named property for the sources with type sourceType.
     public static func sourcePropertyDefaultValue(for sourceType: String, property: String) -> StylePropertyValue {
-        return StyleManager.getStyleSourcePropertyDefaultValue(forSourceType: sourceType, property: property)
+        return StyleSourceManager.sourcePropertyDefaultValue(for: sourceType, property: property)
     }
 
     // MARK: - Image source
@@ -987,42 +992,6 @@ public final class Style: StyleProtocol {
         return styleManager.getStyleAtmosphereProperty(forProperty: property)
     }
 
-    // MARK: - Models
-
-    /// Adds a `model` to the map
-    ///
-    /// - Parameters:
-    ///   - model: The model to add to the map.
-    ///   - Parameter identifier: A unique source identifier.
-    ///
-    /// - Throws: StyleError or type conversion errors
-    @_spi(Experimental) public func addModel(withId id: String, modelURI: String) throws {
-        try handleExpected {
-            styleManager.addStyleModel(forModelId: id, modelUri: modelURI)
-        }
-    }
-
-    /// Removes an existing style model.
-    ///
-    /// - Parameter id: Identifier of the style model to remove.
-    ///
-    /// - Throws:
-    ///     An error describing why the operation was unsuccessful.
-    @_spi(Experimental) public func removeModel(withId id: String) throws {
-        try handleExpected {
-            styleManager.removeStyleModel(forModelId: id)
-        }
-    }
-
-    /// Checks whether a given style model exists.
-    ///
-    /// - Parameter id: Style model identifier.
-    ///
-    /// - Returns: `true` if the given model exists, `false` otherwise.
-    @_spi(Experimental) public func modelExists(withId id: String) -> Bool {
-        styleManager.hasStyleModel(forModelId: id)
-    }
-
     // MARK: - Custom geometry
 
     /// Adds a custom geometry to be used in the style.
@@ -1085,35 +1054,35 @@ public final class Style: StyleProtocol {
             return _styleManager.invalidateStyleCustomGeometrySourceRegion(forSourceId: sourceId, bounds: bounds)
         }
     }
+}
 
-    // MARK: - Conversion helpers
+// MARK: - Conversion helpers
 
-    private func handleExpected<Value, Error>(closure: () -> (Expected<Value, Error>)) throws {
-        let expected = closure()
+internal func handleExpected<Value, Error>(closure: () -> (Expected<Value, Error>)) throws {
+    let expected = closure()
 
-        if expected.isError() {
-            // swiftlint:disable force_cast
-            throw StyleError(message: expected.error as! String)
-            // swiftlint:enable force_cast
-        }
+    if expected.isError() {
+        // swiftlint:disable force_cast
+        throw StyleError(message: expected.error as! String)
+        // swiftlint:enable force_cast
+    }
+}
+
+internal func handleExpected<Value, Error, ReturnType>(closure: () -> (Expected<Value, Error>)) throws -> ReturnType {
+    let expected = closure()
+
+    if expected.isError() {
+        // swiftlint:disable force_cast
+        throw StyleError(message: expected.error as! String)
+        // swiftlint:enable force_cast
     }
 
-    private func handleExpected<Value, Error, ReturnType>(closure: () -> (Expected<Value, Error>)) throws -> ReturnType {
-        let expected = closure()
-
-        if expected.isError() {
-            // swiftlint:disable force_cast
-            throw StyleError(message: expected.error as! String)
-            // swiftlint:enable force_cast
-        }
-
-        guard let result = expected.value as? ReturnType else {
-            assertionFailure("Unexpected type mismatch. Type: \(String(describing: expected.value)) expect \(ReturnType.self)")
-            throw TypeConversionError.unexpectedType
-        }
-
-        return result
+    guard let result = expected.value as? ReturnType else {
+        assertionFailure("Unexpected type mismatch. Type: \(String(describing: expected.value)) expect \(ReturnType.self)")
+        throw TypeConversionError.unexpectedType
     }
+
+    return result
 }
 
 // swiftlint:enable type_body_length
@@ -1136,7 +1105,7 @@ extension Style {
     /// - Parameter projection: The ``StyleProjection`` to apply to the style.
     /// - Throws: ``StyleError`` if the projection could not be applied.
     public func setProjection(_ projection: StyleProjection) throws {
-        let expected = styleManager.setStyleProjectionPropertyForProperty(
+        let expected = _styleManager.setStyleProjectionPropertyForProperty(
             StyleProjection.CodingKeys.name.rawValue,
             value: projection.name.rawValue)
         if expected.isError() {
@@ -1146,7 +1115,7 @@ extension Style {
 
     /// The current projection.
     public var projection: StyleProjection {
-        let projectionName = styleManager.getStyleProjectionProperty(
+        let projectionName = _styleManager.getStyleProjectionProperty(
             forProperty: StyleProjection.CodingKeys.name.rawValue)
         if projectionName.kind == .undefined {
             return StyleProjection(name: .mercator)
