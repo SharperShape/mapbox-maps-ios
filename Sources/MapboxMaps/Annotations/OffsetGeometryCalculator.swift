@@ -16,7 +16,7 @@ internal struct OffsetPointCalculator: OffsetGeometryCalculator {
     func geometry(for translation: CGPoint, from geometry: Point) -> Point? {
         let point = geometry.coordinates
 
-        let pointScreenCoordinate = mapboxMap.point(for: point)
+        let pointScreenCoordinate = mapboxMap.point(for: point.coordinate2D)
 
         let targetCoordinates = mapboxMap.coordinate(for: CGPoint(
             x: pointScreenCoordinate.x - translation.x,
@@ -62,7 +62,7 @@ internal struct OffsetLineStringCalculator: OffsetGeometryCalculator {
 
         let centerPoint = Point(averageCoordinates)
 
-        let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates)
+        let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates.coordinate2D)
 
         let targetCoordinates =  mapboxMap.coordinate(for: CGPoint(
             x: centerScreenCoordinate.x - translation.x,
@@ -99,8 +99,8 @@ internal struct OffsetPolygonCalculator: OffsetGeometryCalculator {
     }
 
     func geometry(for translation: CGPoint, from geometry: Polygon) -> Polygon? {
-        var outerRing = [CLLocationCoordinate2D]()
-        var innerRing: [CLLocationCoordinate2D]?
+        var outerRing = [LocationCoordinate2D]()
+        var innerRing: [LocationCoordinate2D]?
         let startPoints = geometry.outerRing.coordinates
         if startPoints.isEmpty {
             return nil
@@ -115,7 +115,7 @@ internal struct OffsetPolygonCalculator: OffsetGeometryCalculator {
 
         let centerPoint = Point(averageCoordinates)
 
-        let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates)
+        let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates.coordinate2D)
 
         let targetCoordinates =  mapboxMap.coordinate(for: CGPoint(
             x: centerScreenCoordinate.x - translation.x,
@@ -164,7 +164,7 @@ internal struct OffsetPolygonCalculator: OffsetGeometryCalculator {
 
                 let centerPoint = Point(averageCoordinates)
 
-                let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates)
+                let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates.coordinate2D)
 
                 let targetCoordinates =  mapboxMap.coordinate(for: CGPoint(
                     x: centerScreenCoordinate.x - translation.x,
