@@ -63,9 +63,9 @@ final class Custom3DPuckExample: UIViewController, ExampleProtocol, LocationCons
             }
         }
 
-        let configuration = Puck3DConfiguration(model: myModel, modelScale: .expression(scalingExpression))
+        let configuration = Puck3DConfiguration(model: myModel, modelScale: .expression(scalingExpression), modelOpacity: .constant(0.5))
         mapView.location.options.puckType = .puck3D(configuration)
-        mapView.location.options.puckBearingSource = .course
+        mapView.location.options.puckBearing = .course
 
         mapView.location.addLocationConsumer(newConsumer: self)
     }

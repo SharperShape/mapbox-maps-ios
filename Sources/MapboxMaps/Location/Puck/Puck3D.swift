@@ -1,6 +1,8 @@
 @_implementationOnly import MapboxCommon_Private
 
 internal final class Puck3D: Puck {
+    private static let sourceID = "puck-model-source"
+    internal static let layerID = "puck-model-layer"
 
     internal var isActive = false {
         didSet {
@@ -27,7 +29,7 @@ internal final class Puck3D: Puck {
         }
     }
 
-    internal var puckBearingSource: PuckBearingSource = .heading {
+    internal var puckBearing: PuckBearing = .heading {
         didSet {
             updateSourceAndLayer()
         }
@@ -41,9 +43,6 @@ internal final class Puck3D: Puck {
     private let interpolatedLocationProducer: InterpolatedLocationProducerProtocol
 
     private let cancelables = CancelableContainer()
-
-    private static let sourceID = "puck-model-source"
-    private static let layerID = "puck-model-layer"
 
     internal init(configuration: Puck3DConfiguration,
                   style: StyleProtocol,
@@ -73,7 +72,7 @@ internal final class Puck3D: Puck {
             } ?? [0, 0, 0]
 
         if puckBearingEnabled {
-            switch puckBearingSource {
+            switch puckBearing {
             case .heading:
                 if let validHeadingDirection = location.heading {
                     model.orientation?[2] += validHeadingDirection
@@ -104,6 +103,7 @@ internal final class Puck3D: Puck {
             modelLayer.modelScale = modelScale
             modelLayer.modelType = .constant(.locationIndicator)
             modelLayer.modelRotation = configuration.modelRotation
+            modelLayer.modelOpacity = configuration.modelOpacity
             try! style.addPersistentLayer(modelLayer, layerPosition: nil)
         } else if needsUpdateModelScale {
             try? style.setLayerProperty(

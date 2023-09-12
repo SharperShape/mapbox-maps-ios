@@ -24,31 +24,9 @@ struct MetricsCommand: ParsableCommand {
     })
     var outputPath: String?
 
-    @Option(name: [.customLong("single-run-test-ids")], help: "Pass test id in format 'TestSuite/testExample()' to ignore all but last run measurements")
+    /// Deprecated
+    @Option(name: [.customLong("single-run-test-ids")], help: "DERPECATED. Pass test id in format 'TestSuite/testExample()' to ignore all but last run measurements")
     var listOfSingleRunTests: [String] = []
-
-    struct BaselineList: Decodable {
-        // swiftlint:disable nesting
-        struct Record: Decodable {
-            let testName: String
-            let metrics: [String: String]
-        }
-
-        let records: [Record]
-
-        func record(forTestName testName: String) -> BaselineList.Record? {
-            records.first(where: { $0.testName == testName })
-        }
-    }
-
-    @Option(name: [.short, .long], help: "Path to baselines JSON file", transform: { path in
-        let path = (path as NSString).expandingTildeInPath
-        let baselineData = try Data(contentsOf: URL(fileURLWithPath: path))
-        let decoder = JSONDecoder()
-        let baselines = try decoder.decode(Array<BaselineList.Record>.self, from: baselineData)
-        return BaselineList(records: baselines)
-    })
-    var baseline: BaselineList
 
     func run() throws {
         let resultFile = XCResultFile(url: pathToXCResult)
@@ -88,11 +66,12 @@ struct MetricsCommand: ParsableCommand {
                             for actionRecord: ActionRecord,
                             shouldProcessOnlyLastRun: Bool) -> PerformanceTest? {
             guard
+                let testName = test.name,
                 let testSummaryRef = test.summaryRef,
                 let actionTestSummary = resultFile.getActionTestSummary(id: testSummaryRef.id)
             else { return nil }
 
-            return PerformanceTest(testName: refineTestFunctionName(test.name),
+            return PerformanceTest(testName: refineTestFunctionName(testName),
                                    metrics: actionTestSummary.performanceMetrics,
                                    actionRecord: actionRecord,
                                    shouldProcessOnlyLastRun: shouldProcessOnlyLastRun)
@@ -113,11 +92,13 @@ struct MetricsCommand: ParsableCommand {
                 .subtestGroups[0]
 
             return testTargetResults.subtestGroups.flatMap { testSuit in
-                testSuit.subtests.compactMap({
-                    PerformanceTest.metrics(from: $0,
-                                            in: resultFile,
-                                            for: actionOnConcreteDevice,
-                                            shouldProcessOnlyLastRun: listOfSingleRunTests.contains($0.identifier))
+                testSuit.subtests.compactMap({ subtest in
+                    guard let identifier = subtest.identifier else { return nil }
+
+                    return PerformanceTest.metrics(from: subtest,
+                                                   in: resultFile,
+                                                   for: actionOnConcreteDevice,
+                                                   shouldProcessOnlyLastRun: listOfSingleRunTests.contains(identifier))
                 })
             }
         }
@@ -134,43 +115,44 @@ struct MetricsCommand: ParsableCommand {
 
     func generateOutputContent(tests: [PerformanceTest]) throws -> String {
         return try tests
-            .map(generateTestReport)
+            .flatMap(generateTestReport)
             .map(convertToString)
             .joined(separator: "\n")
     }
 
-    func generateTestReport(test: PerformanceTest) -> [String: Any] {
+    func generateTestReport(test: PerformanceTest) -> [[String: Any]] {
         let testName = refineTestFunctionName(test.testName)
-        let baseline = baseline.record(forTestName: testName)
+        let createdDate = ISO8601DateFormatter.string(from: Date(), timeZone: .current, formatOptions: [.withInternetDateTime])
+        let testUUID = UUID()
 
-        let counters = test.metrics.reduce(into: [:]) { partialResult, metric in
-            let value: Double
-            if test.shouldProcessOnlyLastRun {
-                value = metric.measurements.last ?? 0
-            } else {
-                value = metric.measurements.reduce(0, +) / Double(metric.measurements.count)
+        let numberOfRuns = test.metrics.map({ $0.measurements.count }).max() ?? 0
+
+        return (0..<numberOfRuns).map { runIndex in
+            let counters = test.metrics.reduce(into: [:]) { partialResult, metric in
+                guard metric.measurements.indices.contains(runIndex) else { return }
+
+                let value = metric.measurements[runIndex]
+                let metricName = metric.displayName.replacingOccurrences(of: " ", with: "")
+
+                partialResult[metricName] = MetricsCommand.decimalValueFormatter.string(from: value as NSNumber)
+                partialResult[metricName+"_units"] = metric.unitOfMeasurement
             }
-            let metricName = metric.displayName.replacingOccurrences(of: " ", with: "")
 
-            partialResult[metricName] = MetricsCommand.decimalValueFormatter.string(from: value as NSNumber)
-            partialResult[metricName+"_units"] = metric.unitOfMeasurement
-
-            if let baselineMetric = baseline?.metrics[metricName] {
-                partialResult[metricName + "_baseline"] = baselineMetric
-            }
+            let report: [String: Any] = [
+                "name": "ios-maps-v2",
+                "version": 3,
+                "created": createdDate,
+                "counters": counters,
+                "attributes": [
+                    "test_name": testName,
+                    "run_index": runIndex,
+                    "test_id": testUUID.uuidString
+                ],
+                "metadata": deviceMetadata(actionRecord: test.actionRecord),
+                "build": buildMetadata()
+            ]
+            return report
         }
-
-        return [
-            "name": "ios-maps-v2",
-            "version": 3,
-            "created": ISO8601DateFormatter.string(from: Date(), timeZone: .current, formatOptions: [.withInternetDateTime]),
-            "counters": counters,
-            "attributes": [
-                "test_name": testName
-            ],
-            "metadata": deviceMetadata(actionRecord: test.actionRecord),
-            "build": buildMetadata()
-        ]
     }
 
     func deviceMetadata(actionRecord: ActionRecord) -> [String: Any] {

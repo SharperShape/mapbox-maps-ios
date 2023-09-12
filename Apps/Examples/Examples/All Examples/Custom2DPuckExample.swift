@@ -30,9 +30,9 @@ public class Custom2DPuckExample: UIViewController, ExampleProtocol {
         }
     }
 
-    private var bearingSource: PuckBearingSource = .course {
+    private var puckBearing: PuckBearing = .heading {
         didSet {
-            mapView.location.options.puckBearingSource = bearingSource
+            mapView.location.options.puckBearing = puckBearing
         }
     }
 
@@ -45,6 +45,21 @@ public class Custom2DPuckExample: UIViewController, ExampleProtocol {
     private var projection: StyleProjectionName = .mercator {
         didSet {
             updateProjection()
+        }
+    }
+
+    private var puckOpacity: PuckOpaticy = .opaque {
+        didSet {
+            updatePuckUI()
+        }
+    }
+
+    private enum PuckOpaticy: Double {
+        case opaque = 1
+        case semiTransparent = 0.5
+
+        mutating func toggle() {
+            self = self == .opaque ? .semiTransparent : .opaque
         }
     }
 
@@ -150,7 +165,7 @@ public class Custom2DPuckExample: UIViewController, ExampleProtocol {
 
         // Granularly configure the location puck with a `Puck2DConfiguration`
         mapView.location.options.puckType = .puck2D(puckConfiguration)
-        mapView.location.options.puckBearingSource = .course
+        mapView.location.options.puckBearing = .heading
 
         // Center map over the user's current location
         mapView.mapboxMap.onNext(event: .mapLoaded, handler: { [weak self] _ in
@@ -193,9 +208,14 @@ public class Custom2DPuckExample: UIViewController, ExampleProtocol {
         let alert = UIAlertController(title: "Toggle Puck Options",
                                       message: "Select an options to toggle.",
                                       preferredStyle: .actionSheet)
+        alert.popoverPresentationController?.sourceView = sender
 
         alert.addAction(UIAlertAction(title: "Toggle Puck visibility", style: .default) { _ in
             self.showsPuck.toggle()
+        })
+
+        alert.addAction(UIAlertAction(title: "Toggle Puck opacity", style: .default) { _ in
+            self.puckOpacity.toggle()
         })
 
         alert.addAction(UIAlertAction(title: "Toggle Puck image", style: .default) { _ in
@@ -211,7 +231,7 @@ public class Custom2DPuckExample: UIViewController, ExampleProtocol {
         })
 
         alert.addAction(UIAlertAction(title: "Toggle bearing source", style: .default) { _ in
-            self.bearingSource.toggle()
+            self.puckBearing.toggle()
         })
 
         alert.addAction(UIAlertAction(title: "Toggle Map Style", style: .default) { _ in
@@ -231,7 +251,7 @@ public class Custom2DPuckExample: UIViewController, ExampleProtocol {
         puckConfiguration = Puck2DConfiguration.makeDefault(showBearing: showsBearing.isVisible)
         puckConfiguration.showsAccuracyRing = showsAccuracyRing.isVisible
         puckConfiguration.topImage = puckImage.image
-
+        puckConfiguration.opacity = puckOpacity.rawValue
         switch showsPuck {
         case .isVisible:
             mapView.location.options.puckType = .puck2D(puckConfiguration)
@@ -249,7 +269,7 @@ public class Custom2DPuckExample: UIViewController, ExampleProtocol {
     }
 }
 
-extension PuckBearingSource {
+extension PuckBearing {
     mutating func toggle() {
         self = self == .heading ? .course : .heading
     }

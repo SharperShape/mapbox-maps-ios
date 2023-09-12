@@ -11,7 +11,9 @@ final class ViewAnnotationManagerTests: XCTestCase {
         super.setUp()
         container = UIView()
         mapboxMap = MockMapboxMap()
-        manager = ViewAnnotationManager(containerView: container, mapboxMap: mapboxMap)
+        manager = ViewAnnotationManager(
+            containerView: container,
+            mapboxMap: mapboxMap)
     }
 
     override func tearDown() {
@@ -31,6 +33,7 @@ final class ViewAnnotationManagerTests: XCTestCase {
         XCTAssertEqual(mapboxMap.addViewAnnotationStub.invocations.last?.parameters, .init(id: "test-id", options: options))
         XCTAssertEqual(testView.superview, container)
         XCTAssertEqual(container.subviews.count, 1)
+        XCTAssertNotNil(manager.annotations[testView])
 
         XCTAssertNoThrow(try manager.add(UIView(), options: options))
         XCTAssertNotNil(UUID(uuidString: mapboxMap.addViewAnnotationStub.invocations.last!.parameters.id), "Generated annotation view ID must be a valid UUID")
@@ -71,12 +74,14 @@ final class ViewAnnotationManagerTests: XCTestCase {
         let annotationView = addTestAnnotationView()
         let expectedId = mapboxMap.addViewAnnotationStub.invocations.last!.parameters.id
         XCTAssertEqual(container.subviews.count, 1)
+        XCTAssertNotNil(manager.annotations[annotationView])
 
         manager.remove(annotationView)
 
         XCTAssertEqual(mapboxMap.removeViewAnnotationStub.invocations.count, 1)
         XCTAssertEqual(mapboxMap.removeViewAnnotationStub.invocations.first?.parameters, expectedId)
         XCTAssertEqual(container.subviews.count, 0)
+        XCTAssertNil(manager.annotations[annotationView])
     }
 
     func testRemoveNoAnnotationViews() {
@@ -98,6 +103,7 @@ final class ViewAnnotationManagerTests: XCTestCase {
 
         XCTAssertEqual(Set(mapboxMap.removeViewAnnotationStub.invocations.map(\.parameters)), Set(viewIds))
         XCTAssertTrue(container.subviews.isEmpty)
+        XCTAssertTrue(manager.annotations.isEmpty)
     }
 
     func testRemoveAllNoAnnotationViews() {
@@ -222,6 +228,9 @@ final class ViewAnnotationManagerTests: XCTestCase {
         let annotationView = addTestAnnotationView()
         let id = mapboxMap.addViewAnnotationStub.invocations.last!.parameters.id
 
+        // Annotation is correctly hidden when first added to map
+        XCTAssertTrue(annotationView.isHidden)
+
         // Position update should also call validation
         triggerPositionUpdate(forId: id)
         XCTAssertEqual(mapboxMap.removeViewAnnotationStub.invocations.count, 0)
@@ -288,14 +297,35 @@ final class ViewAnnotationManagerTests: XCTestCase {
         XCTAssertEqual(annotationView.frame, CGRect(x: 150.0, y: 200.0, width: 100.0, height: 50.0))
     }
 
+    func testAnnotationPlacementZOrder() {
+        let annotationViewA = addTestAnnotationView(id: "test-id")
+        let annotationViewB = addTestAnnotationView(id: "test-id2")
+
+        XCTAssertEqual(container.subviews, [annotationViewA, annotationViewB])
+
+        manager.onViewAnnotationPositionsUpdate(forPositions: [ViewAnnotationPositionDescriptor(
+            identifier: "test-id2",
+            width: 100,
+            height: 50,
+            leftTopCoordinate: CGPoint(x: 150.0, y: 200.0)
+        ), ViewAnnotationPositionDescriptor(
+            identifier: "test-id",
+            width: 100,
+            height: 50,
+            leftTopCoordinate: CGPoint(x: 150.0, y: 200.0)
+        )])
+
+        XCTAssertEqual(container.subviews, [annotationViewB, annotationViewA])
+    }
+
     func testPlacementHideMissingAnnotations() {
         let annotationViewA = addTestAnnotationView(id: "test-id")
         let annotationViewB = addTestAnnotationView()
         let annotationViewC = addTestAnnotationView()
 
-        XCTAssertFalse(annotationViewA.isHidden)
-        XCTAssertFalse(annotationViewB.isHidden)
-        XCTAssertFalse(annotationViewC.isHidden)
+        XCTAssertTrue(annotationViewA.isHidden)
+        XCTAssertTrue(annotationViewB.isHidden)
+        XCTAssertTrue(annotationViewC.isHidden)
 
         manager.onViewAnnotationPositionsUpdate(forPositions: [ViewAnnotationPositionDescriptor(
             identifier: "test-id",
@@ -307,6 +337,17 @@ final class ViewAnnotationManagerTests: XCTestCase {
         XCTAssertFalse(annotationViewA.isHidden)
         XCTAssertTrue(annotationViewB.isHidden)
         XCTAssertTrue(annotationViewC.isHidden)
+    }
+
+    func testViewAnnotationUpdateDoesNotUnhideHiddenViews() throws {
+        let annotationView = addTestAnnotationView()
+        let id = try XCTUnwrap(mapboxMap.addViewAnnotationStub.invocations.last?.parameters.id)
+
+        manager.onViewAnnotationPositionsUpdate(forPositions: [])
+
+        try manager.update(annotationView, options: ViewAnnotationOptions())
+
+        XCTAssertTrue(annotationView.isHidden)
     }
 
     func testViewAnnotationUpdateObserverNotifiedAboutUpdatedFrames() throws {
@@ -333,7 +374,7 @@ final class ViewAnnotationManagerTests: XCTestCase {
         XCTAssertTrue(observer.framesDidChangeStub.invocations.isEmpty)
     }
 
-    func testViewAnnotationUpdateObserverNotifiedAboutNewlyHiddenViews() {
+    func testViewAnnotationUpdateObserverConfirmsNewlyAddedViewsAreHidden() {
         let annotationView = addTestAnnotationView()
         let observer = MockViewAnnotationUpdateObserver()
         manager.addViewAnnotationUpdateObserver(observer)
@@ -341,7 +382,7 @@ final class ViewAnnotationManagerTests: XCTestCase {
         manager.onViewAnnotationPositionsUpdate(forPositions: [])
 
         XCTAssertTrue(annotationView.isHidden)
-        XCTAssertEqual(observer.visibilityDidChangeStub.invocations.first?.parameters, [annotationView])
+        XCTAssertTrue(observer.visibilityDidChangeStub.invocations.isEmpty)
     }
 
     func testViewAnnotationUpdateObserverNotifiedAboutNewlyVisibleViews() {
@@ -373,6 +414,49 @@ final class ViewAnnotationManagerTests: XCTestCase {
         XCTAssertTrue(observer.visibilityDidChangeStub.invocations.isEmpty)
     }
 
+    func testCameraForAnnotations() throws {
+        // For annotation that has not been added or has incorrect geometry (must be a single Point)
+        // we will not calculate camera.
+        XCTAssertNil(manager.camera(forAnnotations: ["dummy"]))
+
+        // Annotations that have been added and are valid.
+        let points = Array.random(withLength: 10, generator: CLLocationCoordinate2D.random)
+        let boundingBox = try XCTUnwrap(BoundingBox(from: points))
+
+        for (index, point) in points.enumerated() {
+            let options = ViewAnnotationOptions(geometry: Point(point).geometry, width: .random(in: 40...100), height: .random(in: 40...100))
+            try manager.add(UIView(), id: "\(index)", options: options)
+            mapboxMap.optionsForViewAnnotationWithIdStub.returnValueQueue.insert(options, at: 0)
+        }
+
+        mapboxMap.cameraForCoordinateBoundsStub.defaultSideEffect = { [mapboxMap] invocation in
+            let camera = MapboxMaps.CameraOptions(
+                center: invocation.parameters.coordinateBounds.center,
+                padding: invocation.parameters.padding,
+                zoom: .random(in: 0...5),
+                bearing: invocation.parameters.bearing,
+                pitch: CGFloat(invocation.parameters.pitch ?? 0)
+            )
+            mapboxMap?.cameraForCoordinateBoundsStub.defaultReturnValue = camera
+        }
+
+        let padding = UIEdgeInsets.random()
+        let bearing = CGFloat.random(in: -180...180)
+        let pitch = CGFloat.random(in: 0...90)
+        _ = manager.camera(forAnnotations: ["0", "1", "2", "3"], padding: padding, bearing: bearing, pitch: pitch)
+
+        let parameters = try XCTUnwrap(mapboxMap.cameraForCoordinateBoundsStub.invocations.last).parameters
+        XCTAssertEqual(parameters.bearing, bearing)
+        XCTAssertEqual(parameters.pitch, pitch)
+
+        // Coordinate bounds from all annotation's points.
+        let bounds = CoordinateBounds(southwest: boundingBox.southWest, northeast: boundingBox.northEast)
+        // Final camera's inner bounds.
+        let innerBounds = parameters.coordinateBounds
+
+        XCTAssertTrue(bounds.contains(forArea: innerBounds, wrappedCoordinates: true))
+    }
+
     // MARK: - Helper functions
 
     private func addTestAnnotationView(id: String? = nil, featureId: String? = nil) -> UIView {
@@ -392,5 +476,4 @@ final class ViewAnnotationManagerTests: XCTestCase {
             leftTopCoordinate: CGPoint(x: 150.0, y: 200.0)
         )])
     }
-
 }

@@ -14,6 +14,7 @@ final class GestureManagerTests: XCTestCase {
     var quickZoomGestureHandler: MockFocusableGestureHandler!
     var singleTapGestureHandler: GestureHandler!
     var anyTouchGestureHandler: GestureHandler!
+    var interruptDecelerationGestureHandler: GestureHandler!
     var gestureManager: GestureManager!
     // swiftlint:disable:next weak_delegate
     var delegate: MockGestureManagerDelegate!
@@ -35,6 +36,7 @@ final class GestureManagerTests: XCTestCase {
         quickZoomGestureHandler = MockFocusableGestureHandler(gestureRecognizer: MockGestureRecognizer())
         singleTapGestureHandler = makeGestureHandler()
         anyTouchGestureHandler = makeGestureHandler()
+        interruptDecelerationGestureHandler = makeGestureHandler()
         gestureManager = GestureManager(
             panGestureHandler: panGestureHandler,
             pinchGestureHandler: pinchGestureHandler,
@@ -45,6 +47,7 @@ final class GestureManagerTests: XCTestCase {
             quickZoomGestureHandler: quickZoomGestureHandler,
             singleTapGestureHandler: singleTapGestureHandler,
             anyTouchGestureHandler: anyTouchGestureHandler,
+            interruptDecelerationGestureHandler: interruptDecelerationGestureHandler,
             mapboxMap: mapboxMap)
         delegate = MockGestureManagerDelegate()
         gestureManager.delegate = delegate
@@ -138,14 +141,6 @@ final class GestureManagerTests: XCTestCase {
 
     func testQuickZoomGestureHandlerDelegate() {
         XCTAssertTrue(quickZoomGestureHandler.delegate === gestureManager)
-    }
-
-    func testPinchGestureRecognizerRequiresPanGestureRecognizerToFail() throws {
-        let pinchGestureRecognizer = try XCTUnwrap(pinchGestureHandler.gestureRecognizer as? MockGestureRecognizer)
-
-        XCTAssertEqual(pinchGestureRecognizer.requireToFailStub.invocations.count, 1)
-        XCTAssertTrue(pinchGestureRecognizer.requireToFailStub.invocations.first?.parameters
-                        === panGestureHandler.gestureRecognizer)
     }
 
     func testPitchGestureRecognizerRequiresPanGestureRecognizerToFail() throws {
@@ -548,11 +543,5 @@ final class GestureManagerTests: XCTestCase {
         gestureManager.gestureEnded(for: .pinch, willAnimate: false)
         gestureManager.gestureEnded(for: .pinch, willAnimate: false)
         XCTAssertEqual(delegate.gestureDidEndStub.invocations.count, 1)
-    }
-
-    func testRotationUpdateScheduledAfterPinchUpdate() {
-        gestureManager.pinchGestureHandlerDidUpdateGesture(pinchGestureHandler)
-
-        XCTAssertEqual(rotateGestureHandler.scheduleRotationUpdateIfNeededStub.invocations.count, 1)
     }
 }

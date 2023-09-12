@@ -136,8 +136,8 @@ class AttributionDialogTests: XCTestCase {
         XCTAssertEqual(alert.title, alertTitle)
         XCTAssertNil(alert.message)
 
-        guard alert.actions.count == 2 else {
-            XCTFail("Telemetry alert should have 2 actions")
+        guard alert.actions.count == 3 else {
+            XCTFail("Telemetry alert should have 3 actions")
             return
         }
 
@@ -147,12 +147,14 @@ class AttributionDialogTests: XCTestCase {
                                                comment: "")
         XCTAssertEqual(alert.actions[0].title, telemetryTitle)
 
+        XCTAssertEqual(alert.actions[1].title, Attribution.makePrivacyPolicyAttribution().title)
+
         let cancelTitle = NSLocalizedString("CANCEL",
                                             tableName: Ornaments.localizableTableName,
                                             bundle: bundle,
                                             value: "Cancel",
                                             comment: "")
-        XCTAssertEqual(alert.actions[1].title, cancelTitle)
+        XCTAssertEqual(alert.actions[2].title, cancelTitle)
     }
 
     func testShowAttributionDialogSingleNonActionableAttribution() throws {
@@ -161,7 +163,9 @@ class AttributionDialogTests: XCTestCase {
         let attribution = Attribution(title: String.randomASCII(withLength: 10), url: nil)
         window.rootViewController = viewController
         window.makeKeyAndVisible()
-        mockDataSource.attributionsStub.defaultReturnValue = [attribution]
+        mockDataSource.loadAttributionsStub.defaultSideEffect = { invocation in
+            invocation.parameters([attribution])
+        }
         mockDelegate.viewControllerForPresentingStub.defaultReturnValue = viewController
 
         attributionDialogManager.didTap(InfoButtonOrnament())
@@ -177,8 +181,8 @@ class AttributionDialogTests: XCTestCase {
         XCTAssertEqual(alert.title, alertTitle)
         XCTAssertEqual(alert.message, attribution.title)
 
-        guard alert.actions.count == 2 else {
-            XCTFail("Telemetry alert should have 2 actions")
+        guard alert.actions.count == 3 else {
+            XCTFail("Telemetry alert should have 3 actions")
             return
         }
     }
@@ -191,7 +195,9 @@ class AttributionDialogTests: XCTestCase {
 
         window.rootViewController = viewController
         window.makeKeyAndVisible()
-        mockDataSource.attributionsStub.defaultReturnValue = [attribution0, attribution1]
+        mockDataSource.loadAttributionsStub.defaultSideEffect = { invocation in
+            invocation.parameters([attribution0, attribution1])
+        }
         mockDelegate.viewControllerForPresentingStub.defaultReturnValue = viewController
 
         attributionDialogManager.didTap(InfoButtonOrnament())
@@ -206,8 +212,8 @@ class AttributionDialogTests: XCTestCase {
         XCTAssertNil(alert.message)
 
         // Single, non-actionable attributions should be displayed as alert's actions along the telemetry and cancel actions
-        guard alert.actions.count == 4 else {
-            XCTFail("Telemetry alert should have 4 actions")
+        guard alert.actions.count == 5 else {
+            XCTFail("Telemetry alert should have 5 actions")
             return
         }
 

@@ -20,7 +20,7 @@ VERBOSE_LOGGER=${VERBOSE_LOGGER:-/dev/null}
 main() {
     step "Checkout source code at $VERSION"
     local worktree_path="$TMP_ROOT/.docs-source-code"
-    local worktree_script_dir="$worktree_path/scripts/doc-generation"
+    local worktree_script_dir="$worktree_path/mapbox-maps-ios/scripts/doc-generation"
     checkout_source_code "$worktree_path" "$VERSION"
 
 
@@ -31,7 +31,7 @@ main() {
 
     info "Build and parse"
     local jazzy_config_path="$worktree_script_dir/.jazzy.yaml"
-    run_jazzy "$gemfile_path" "$jazzy_config_path" "$worktree_path" "$DOCS_OUTPUT"
+    run_jazzy "$gemfile_path" "$jazzy_config_path" "$worktree_path/mapbox-maps-ios" "$DOCS_OUTPUT"
 
 
     step "Patch documentation to include external references"
@@ -78,7 +78,7 @@ checkout_source_code() {
         git worktree add "$new_worktree_path" "$git_ref"
         # shellcheck disable=SC2064
         trap "git worktree remove $new_worktree_path --force" INT TERM HUP EXIT
-        git -C "$new_worktree_path" submodule update --init
+        git -C "$new_worktree_path" submodule update --init mapbox-maps-ios/scripts/doc-generation/jazzy-theme
     } &> "$VERBOSE_LOGGER"
 }
 

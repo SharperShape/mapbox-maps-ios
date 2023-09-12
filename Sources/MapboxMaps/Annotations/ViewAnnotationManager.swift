@@ -1,6 +1,8 @@
+// swiftlint:disable file_length
 import UIKit
 @_implementationOnly import MapboxCommon_Private
 @_implementationOnly import MapboxCoreMaps_Private
+import Turf
 
 public enum ViewAnnotationManagerError: Error {
     case viewIsAlreadyAdded
@@ -59,6 +61,13 @@ public final class ViewAnnotationManager {
     /// the SDK prints a warning and reverts the changes, as the view is still considered for layout calculation.
     /// The default value is true, and setting this value to false will disable the validation.
     public var validatesViews = true
+
+    /// The complete list of annotations associated with the receiver.
+    public var annotations: [UIView: ViewAnnotationOptions] {
+        idsByView.compactMapValues { [mapboxMap] id in
+            try? mapboxMap.options(forViewAnnotationWithId: id)
+        }
+    }
 
     internal init(containerView: UIView, mapboxMap: MapboxMapProtocol) {
         self.containerView = containerView
@@ -149,12 +158,13 @@ public final class ViewAnnotationManager {
         }
 
         view.translatesAutoresizingMaskIntoConstraints = false
+        view.isHidden = true
 
         let id = id ?? UUID().uuidString
         try mapboxMap.addViewAnnotation(withId: id, options: creationOptions)
         viewsById[id] = view
         idsByView[view] = id
-        expectedHiddenByView[view] = !(creationOptions.visible ?? true)
+        expectedHiddenByView[view] = true
         if let featureId = creationOptions.associatedFeatureId {
             viewsByFeatureIds[featureId] = view
         }
@@ -218,9 +228,12 @@ public final class ViewAnnotationManager {
         }
         let currentFeatureId = try? mapboxMap.options(forViewAnnotationWithId: id).associatedFeatureId
         try mapboxMap.updateViewAnnotation(withId: id, options: options)
-        let isHidden = !(options.visible ?? true)
-        expectedHiddenByView[view] = isHidden
-        viewsById[id]?.isHidden = isHidden
+
+        if options.visible == false {
+            expectedHiddenByView[view] = true
+            view.isHidden = true
+        }
+
         if let id = currentFeatureId, let updatedId = options.associatedFeatureId, id != updatedId {
             viewsByFeatureIds[id] = nil
         }
@@ -283,6 +296,36 @@ public final class ViewAnnotationManager {
         observers.removeValue(forKey: ObjectIdentifier(observer))
     }
 
+    // MARK: Framing
+
+    /// Calculates ``CameraOptions`` to fit the list of view annotations.
+    ///
+    /// - Important: This API isn't supported by Globe projection.
+    ///
+    /// - Parameter ids: The list of annotations ids to be framed.
+    /// - Parameter padding: See ``CameraOptions/padding``.
+    /// - Parameter bearing: See ``CameraOptions/bearing``.
+    /// - Parameter pitch: See ``CameraOptions/pitch``.
+    public func camera(
+        forAnnotations identifiers: [String],
+        padding: UIEdgeInsets = .zero,
+        bearing: CGFloat? = nil,
+        pitch: CGFloat? = nil
+    ) -> CameraOptions? {
+
+        let corners: [CoordinateBoundsCorner] = identifiers.compactMap {
+            guard let options = try? mapboxMap.options(forViewAnnotationWithId: $0), case .point(let point) = options.geometry else {
+                return nil
+            }
+            return CoordinateBoundsCorner(id: $0, anchorPoint: point.coordinates, frame: options.frame)
+        }
+        guard !corners.isEmpty else { return nil }
+
+        // Calculate initial camera assuming annotations with edging coordinate being the bounds's corners.
+        let initialCamera = camera(forCorners: corners, zoom: nil, padding: padding, bearing: bearing, pitch: pitch)
+        return camera(forCorners: corners, zoom: initialCamera.zoom, padding: padding, bearing: bearing, pitch: pitch)
+    }
+
     // MARK: - Private functions
 
     private func placeAnnotations(positions: [ViewAnnotationPositionDescriptor]) {
@@ -310,6 +353,7 @@ public final class ViewAnnotationManager {
             view.isHidden = false
             expectedHiddenByView[view] = false
             visibleAnnotationIds.insert(position.identifier)
+            containerView.bringSubviewToFront(view)
         }
 
         defer {
@@ -369,11 +413,94 @@ extension ViewAnnotationManager: DelegatingViewAnnotationPositionsUpdateListener
     internal func onViewAnnotationPositionsUpdate(forPositions positions: [ViewAnnotationPositionDescriptor]) {
         placeAnnotations(positions: positions)
     }
-
 }
 
 private extension ViewAnnotationPositionDescriptor {
     var frame: CGRect {
         CGRect(origin: leftTopCoordinate.point, size: CGSize(width: CGFloat(width), height: CGFloat(height)))
+    }
+}
+
+extension ViewAnnotationManager {
+    private struct CoordinateBoundsCorner {
+        let id: String
+        let anchorPoint: LocationCoordinate2D
+        let frame: CGRect
+    }
+
+    /// Calculates ``CameraOptions`` by corners with its bounds calculated with given `zoom`.
+    /// - Returns: The camera with zoom adjusted, so that the cooridnate bounds for annotations
+    /// at top, left, bottom , right at this adjusted zoom would fit into the projection (defined by padding, bearing and pitch).
+    private func camera(
+        forCorners corners: [CoordinateBoundsCorner],
+        zoom: CGFloat?,
+        padding: UIEdgeInsets,
+        bearing: CGFloat?,
+        pitch: CGFloat?
+    ) -> CameraOptions {
+
+        var north, east, south, west: CoordinateBoundsCorner!
+
+        for corner in corners {
+            let annotationBounds = coordinateBounds(for: corner, zoom: zoom)
+            if north == nil || coordinateBounds(for: north, zoom: zoom).north < annotationBounds.north {
+                north = corner
+            }
+            if east == nil || coordinateBounds(for: east, zoom: zoom).east < annotationBounds.east {
+                east = corner
+            }
+            if south == nil || coordinateBounds(for: south, zoom: zoom).south > annotationBounds.south {
+                south = corner
+            }
+            if west == nil || coordinateBounds(for: west, zoom: zoom).west > annotationBounds.west {
+                west = corner
+            }
+        }
+
+        let innerBounds = CoordinateBounds(
+            southwest: .init(latitude: south.anchorPoint.latitude, longitude: west.anchorPoint.longitude),
+            northeast: .init(latitude: north.anchorPoint.latitude, longitude: east.anchorPoint.longitude))
+
+        var padding = padding
+        padding.top += abs(north.frame.minY)
+        padding.left += abs(west.frame.minX)
+        // In case the view is completely above its anchor (maxY is negative), then bottom padding should be zero.
+        padding.bottom += max(0, south.frame.maxY)
+        // In case the view is completely on the left side of its anchor (max X is negative), then right padding should be zero.
+        padding.right += max(0, east.frame.maxX)
+
+        return mapboxMap.camera(
+            for: innerBounds,
+            padding: padding,
+            bearing: bearing.map(Double.init),
+            pitch: pitch.map(Double.init))
+    }
+
+    /// Calculates the ``CoordinateBounds`` of an annotation at the given `zoom` level.
+    ///
+    /// - Parameter corner: The annotation to calculate coordinate bounds.
+    /// - Parameter zoom: The zoom level to calculate coordinate bounds.
+    /// - Returns: The ``CoordinateBounds`` of the `corner` at the given `zoom` if presented. else returns the ``CoordinateBounds``consisting of a single point at corner's anchor.
+    private func coordinateBounds(for corner: CoordinateBoundsCorner, zoom: CGFloat?) -> CoordinateBounds {
+        guard let zoom = zoom else { return CoordinateBounds.__singleton(forPoint: corner.anchorPoint) }
+
+        let anchorPoint = corner.anchorPoint, frame = corner.frame
+        // Calculates distance for anchor's coordinate in meters.
+        let anchorProjectedMeters = Projection.projectedMeters(for: anchorPoint)
+        let metersPerPoint = Projection.metersPerPoint(for: anchorPoint.latitude, zoom: zoom)
+
+        // Shift anchor's projected meters by distance of frame's minY to anchor.
+        // Because screen coordinate system is having y-axis in opposite direction of Sperical Mercator coordinate system,
+        // thus we need to negate the value of frame's minY to get correct result for northing.
+        let northing = anchorProjectedMeters.northing - frame.minY * metersPerPoint
+        // Shift anchor's projected meters by distance of frame's minX to anchor.
+        let easting = anchorProjectedMeters.easting + frame.maxX * metersPerPoint
+        let southing = northing - frame.height * metersPerPoint
+        let westing = easting - frame.width * metersPerPoint
+
+        let northeast = Projection.coordinate(for: ProjectedMeters(northing: northing, easting: easting))
+        let southwest = Projection.coordinate(for: ProjectedMeters(northing: southing, easting: westing))
+
+        return CoordinateBounds(southwest: southwest, northeast: northeast, infiniteBounds: false)
     }
 }

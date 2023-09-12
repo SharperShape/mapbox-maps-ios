@@ -23,8 +23,8 @@ public class LayerPositionExample: UIViewController, ExampleProtocol {
         view.addSubview(mapView)
 
         // Allows the view controller to receive information about map events.
-        mapView.mapboxMap.onNext(event: .mapLoaded) { _ in
-            self.setupExample()
+        mapView.mapboxMap.onNext(event: .mapLoaded) { [weak self] _ in
+            self?.setupExample()
         }
 
         // Add a button to change the position of layer
@@ -55,6 +55,7 @@ public class LayerPositionExample: UIViewController, ExampleProtocol {
         let alert = UIAlertController(title: "Polygon Layer",
                                       message: "Please select the position of polygon layer.",
                                       preferredStyle: .actionSheet)
+        alert.popoverPresentationController?.sourceView = sender
 
         alert.addAction(UIAlertAction(title: "Above state label", style: .default, handler: { [weak self] _ in
             guard let self = self else { return }

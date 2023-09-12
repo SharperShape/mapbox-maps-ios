@@ -39,6 +39,11 @@ final class MockMapboxMap: MapboxMapProtocol {
         setCameraStub.call(with: cameraOptions)
     }
 
+    let coordinateForPointStub = Stub<CGPoint, CLLocationCoordinate2D>(defaultReturnValue: .random())
+    func coordinate(for point: CGPoint) -> CLLocationCoordinate2D {
+        coordinateForPointStub.call(with: point)
+    }
+
     let dragStartStub = Stub<CGPoint, Void>()
     func dragStart(for point: CGPoint) {
         dragStartStub.call(with: point)
@@ -140,6 +145,17 @@ final class MockMapboxMap: MapboxMapProtocol {
             padding: padding,
             bearing: bearing,
             pitch: pitch))
+    }
+
+    struct CameraForCoordinateBoundsParams {
+        var coordinateBounds: CoordinateBounds
+        var padding: UIEdgeInsets
+        var bearing: Double?
+        var pitch: Double?
+    }
+    let cameraForCoordinateBoundsStub = Stub<CameraForCoordinateBoundsParams, MapboxMaps.CameraOptions>(defaultReturnValue: .random())
+    func camera(for coordinateBounds: CoordinateBounds, padding: UIEdgeInsets, bearing: Double?, pitch: Double?) -> MapboxMaps.CameraOptions {
+        cameraForCoordinateBoundsStub.call(with: .init(coordinateBounds: coordinateBounds, padding: padding, bearing: bearing, pitch: pitch))
     }
 
     let pointStub = Stub<CLLocationCoordinate2D, CGPoint>(defaultReturnValue: .random())

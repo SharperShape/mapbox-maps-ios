@@ -1,29 +1,18 @@
-// https://github.com/mapbox/mapbox-maps-ios/pull/1183
-Constructor MapView.init(frame:mapInitOptions:orientationProvider:urlOpener:) has been added as a designated initializer to an open class
-Constructor MapView.init(frame:mapInitOptions:urlOpener:) has been added as a designated initializer to an open class
+// Converted parametreless constructors into a parametrized one
+Constructor GestureOptions.init() has been removed
+Constructor LocationOptions.init() has been removed
 
-// This has moved to MapboxCommon
-Constructor DownloadStatus.init(downloadId:state:error:totalBytes:receivedBytes:transferredBytes:downloadOptions:httpResult:) has been removed
-Constructor DownloadStatus.init(error:totalBytes:downloadOptions:httpResult:) has been removed
-Constructor HttpResponse.init(request:result:) has been removed
-Var DownloadError.errorDescription has been removed
-Var DownloadStatus.httpResult has been removed
-Var DownloadStatus.totalBytes has been removed
-Var HttpRequestError.errorDescription has been removed
-Var HttpResponse.result has been removed
+// Annotation initializers changed to incorporate isSelected and isDraggable
+Constructor CircleAnnotation.init(id:centerCoordinate:) has been removed
+Constructor CircleAnnotation.init(id:point:) has been removed
+Constructor PointAnnotation.init(id:coordinate:) has been removed
+Constructor PointAnnotation.init(id:point:) has been removed
+Constructor PolygonAnnotation.init(id:polygon:) has been removed
+Constructor PolylineAnnotation.init(id:lineCoordinates:) has been removed
+Constructor PolylineAnnotation.init(id:lineString:) has been removed
 
-// Experimental projections API got moved to Style
-Enum MapProjection has been removed
-Enum MapProjectionError has been removed
-Enum MapboxMap.MapProjectionError has been removed
-Func MapboxMap.mapProjection() has been removed
-Func MapboxMap.setMapProjection(_:) has been removed
-Struct GlobeMapProjection has been removed
-Struct MercatorMapProjection has been removed
-
-// Removed deprecated animationDuration parameter from FollowPuckViewportStateOptions
-Constructor FollowPuckViewportStateOptions.init(padding:zoom:bearing:pitch:animationDuration:) has been removed
-Var FollowPuckViewportStateOptions.animationDuration has been removed
-
-// Added a new parameter with a default value to Puck2DConfiguration constructor(non-source breaking change)
-Constructor Puck2DConfiguration.init(topImage:bearingImage:shadowImage:scale:showsAccuracyRing:) has been removed
+// Allow filtering sourceDataLoaded events by dataID
+Func Style.addSource(_:id:) has been renamed to Func addSource(_:id:dataId:)
+Func Style.updateGeoJSONSource(withId:geoJSON:) has been renamed to Func updateGeoJSONSource(withId:geoJSON:dataId:)
+// Add renamed flag for PuckBearingSource
+Constructor LocationOptions.init(distanceFilter:desiredAccuracy:activityType:puckType:puckBearingSource:puckBearingEnabled:) has removed default argument from parameter 4

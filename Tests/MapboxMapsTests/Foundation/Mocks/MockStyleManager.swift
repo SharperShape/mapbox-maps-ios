@@ -2,7 +2,7 @@ import Foundation
 @testable import MapboxMaps
 @_implementationOnly import MapboxCommon_Private
 
-final class MockStyleManager: StyleManagerProtocol {
+class MockStyleManager: StyleManagerProtocol {
 
     func asStyleManager() -> StyleManager {
         fatalError()
@@ -453,6 +453,37 @@ final class MockStyleManager: StyleManagerProtocol {
     ) -> Expected<NSNull, NSString> {
 
         invalidateStyleCustomGeometrySourceRegionStub.call(with: .init(sourceId: sourceId, bounds: bounds))
+    }
+
+    struct SetStyleGeoJSONSourceDataForSourceIdParams {
+        let sourceId: String
+        let data: MapboxCoreMaps.GeoJSONSourceData
+    }
+    let setStyleGeoJSONSourceDataForSourceIdStub = Stub<SetStyleGeoJSONSourceDataForSourceIdParams, Expected<NSNull, NSString>>(
+        defaultReturnValue: .init(value: .init())
+    )
+    func __setStyleGeoJSONSourceDataForSourceId(_ sourceId: String, data: MapboxCoreMaps.GeoJSONSourceData) -> Expected<NSNull, NSString> {
+        setStyleGeoJSONSourceDataForSourceIdStub.call(with: .init(sourceId: sourceId, data: data))
+    }
+
+    struct SetStyleGeoJSONSourceDataForSourceIdDataIDParams {
+        let sourceId: String
+        let dataId: String
+        let data: MapboxCoreMaps.GeoJSONSourceData
+    }
+    let setStyleGeoJSONSourceDataForSourceIdDataIDStub = Stub<SetStyleGeoJSONSourceDataForSourceIdDataIDParams, Expected<NSNull, NSString>>(
+        defaultReturnValue: .init(value: .init())
+    )
+    func __setStyleGeoJSONSourceDataForSourceId(_ sourceId: String, dataId: String, data: MapboxCoreMaps.GeoJSONSourceData) -> Expected<NSNull, NSString> {
+        setStyleGeoJSONSourceDataForSourceIdDataIDStub.call(with: .init(sourceId: sourceId, dataId: dataId, data: data))
+    }
+
+    struct AddStyleModelParams {
+        let modelId, modelUri: String
+    }
+    let addStyleModelStub = Stub<AddStyleModelParams, Expected<NSNull, NSString>>(defaultReturnValue: .init(value: NSNull()))
+    func addStyleModel(forModelId modelId: String, modelUri: String) -> Expected<NSNull, NSString> {
+        addStyleModelStub.call(with: AddStyleModelParams(modelId: modelId, modelUri: modelUri))
     }
 }
 

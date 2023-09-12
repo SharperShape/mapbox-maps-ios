@@ -120,6 +120,13 @@ final class StyleTests: XCTestCase {
         })
     }
 
+    func testGetAllLayerIdentifiersDoesNotTriggerAssertFor3DPuckLayer() {
+        styleManager.getStyleLayersStub.defaultReturnValue = [StyleObjectInfo(id: Puck3D.layerID, type: "model")]
+
+        // test should fail in debug configuration because of an assertion being triggered in `allLayerIdentifiers`
+        XCTAssertTrue(style.allLayerIdentifiers.allSatisfy { $0.id != Puck3D.layerID })
+    }
+
     func testStyleCanAddLayer() {
         XCTAssertThrowsError(try style.addLayer(NonEncodableLayer()))
 
@@ -253,6 +260,20 @@ final class StyleTests: XCTestCase {
         let params = try XCTUnwrap(sourceManager.updateGeoJSONSourceStub.invocations.first?.parameters)
         XCTAssertEqual(params.id, id)
         XCTAssertEqual(params.geoJSON, geoJSONObject)
+    }
+
+    func testUpdateGeoJSONSourceWithDataID() throws {
+        let id = "TestSourceID"
+        let geoJSONObject = GeoJSONObject.featureCollection(FeatureCollection(features: []))
+        let dataId = "TestdataId"
+
+        try style.updateGeoJSONSource(withId: id, geoJSON: geoJSONObject, dataId: dataId)
+
+        XCTAssertEqual(sourceManager.updateGeoJSONSourceStub.invocations.count, 1)
+        let params = try XCTUnwrap(sourceManager.updateGeoJSONSourceStub.invocations.first?.parameters)
+        XCTAssertEqual(params.id, id)
+        XCTAssertEqual(params.geoJSON, geoJSONObject)
+        XCTAssertEqual(params.dataId, dataId)
     }
 
     func testGetSourceProperty() throws {
@@ -421,5 +442,45 @@ final class StyleTests: XCTestCase {
 
         let layoutProperties = try XCTUnwrap(rootProperties["layout"] as? [String: Any])
         XCTAssertEqual(layoutProperties["visibility"] as? String, "visible", "visibility is not reset and should keep old value")
+    }
+
+    func testAddImageWithStretches() throws {
+        let image = UIImage.empty
+        let id = UUID().uuidString
+        let sdf = Bool.random()
+        let stretchX = [ImageStretches(first: .random(in: 1...100), second: .random(in: 1...100))]
+        let stretchY = [ImageStretches(first: .random(in: 1...100), second: .random(in: 1...100))]
+        let content = ImageContent(
+            left: .random(in: 1...100),
+            top: .random(in: 1...100),
+            right: .random(in: 1...100),
+            bottom: .random(in: 1...100)
+        )
+
+        try style.addImage(image, id: id, sdf: sdf, stretchX: stretchX, stretchY: stretchY, content: content)
+
+        XCTAssertEqual(styleManager.addStyleImageStub.invocations.count, 1)
+        let params = try XCTUnwrap(styleManager.addStyleImageStub.invocations.first?.parameters)
+        XCTAssertEqual(params.imageId, id)
+        XCTAssertEqual(params.sdf, sdf)
+        XCTAssertEqual(params.stretchX, stretchX)
+        XCTAssertEqual(params.stretchY, stretchY)
+        XCTAssertEqual(params.content, content)
+    }
+
+    func testAddImageWithInsets() throws {
+        let image = UIImage.empty
+        let id = UUID().uuidString
+        let sdf = Bool.random()
+        let insets = UIEdgeInsets(top: 10, left: 20, bottom: 10, right: 2)
+
+        try style.addImage(image, id: id, sdf: sdf, contentInsets: insets)
+
+        XCTAssertEqual(styleManager.addStyleImageStub.invocations.count, 1)
+        let params = try XCTUnwrap(styleManager.addStyleImageStub.invocations.first?.parameters)
+        XCTAssertEqual(params.imageId, id)
+        XCTAssertEqual(params.sdf, sdf)
+        XCTAssertEqual(params.stretchX, [ImageStretches(first: 0, second: 1)])
+        XCTAssertEqual(params.stretchY, [ImageStretches(first: 0, second: 1)])
     }
 }

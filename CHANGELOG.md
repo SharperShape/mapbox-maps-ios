@@ -4,11 +4,186 @@ Mapbox welcomes participation and contributions from everyone.
 
 ## main
 
+## 10.16.0 - September 6, 2023
+
+* Update MapboxCoreMaps to 10.16.0 and MapboxCommon to 23.8.0.
+* Expose a method to remove tile region with a completion: `TileStore.removeTileRegion(forId:completion:)`.
+
+## 10.16.0-rc.1 - August 23, 2023
+
+* Add privacy policy attribution dialog action.
+* Update MapboxCoreMaps to 10.16.0-rc.2 and MapboxCommon to 23.8.0-rc.2.
+
+## 10.16.0-beta.1 - August 9, 2023
+
+* Update MapboxCoreMaps to 10.16.0-beta.1 and MapboxCommon to 23.8.0-beta.1.
+
+## 10.15.0-rc.1 - July 13, 2023
+
+* Update MapboxCoreMaps to 10.15.0-rc.1 and MapboxCommon to 23.7.0-rc.1.
+
+## 10.15.0-beta.1 - June 29, 2023
+
+* Remove unneeded synthesized initializers
+* Update MapboxCoreMaps to 10.15.0-beta.1 and MapboxCommon to 23.7.0-beta.1.
+## 10.15.0 - July 27, 2023
+
+* Update MapboxCoreMaps to 10.15.0 and MapboxCommon to 23.7.0.
+* Fixed an issue when `MapboxMap.point(for:)` could return false negative result.
+
+## 10.15.0-rc.1 - July 13, 2023
+
+* Update MapboxCoreMaps to 10.15.0-rc.1 and MapboxCommon to 23.7.0-rc.1.
+* Fixed an issue when `MapboxMap.point(for:)` could return false negative result.
+
+## 10.15.0-beta.1 - June 29, 2023
+
+* Remove unneeded synthesized initializers
+* Update MapboxCoreMaps to 10.15.0-beta.1 and MapboxCommon to 23.7.0-beta.1.
+
+## 10.14.0 - June 14, 2023
+
+* Added experimental `tileCover` method to the `Snapshotter` that returns tile ids covering the map.
+* Update MapboxCoreMaps to 10.14.0 and MapboxCommon to 23.6.0.
+
+## 10.14.0-rc.1 - May 31, 2023
+
+* Fix the issue with simultaneous zooming/panning during the pitch gesture.
+* Fix the issue with black MapView when transparent style is used.
+* Update MapboxCoreMaps to 10.14.0-rc.1 and MapboxCommon to 23.6.0-rc.1.
+
+## 10.14.0-beta.1 - May 17, 2023
+
+* Add a renamed flag to `PuckBearingSource` and related APIs.
+* Update MapboxCoreMaps to 10.14.0-beta.1 and MapboxCommon to 23.6.0-beta.1.
+
+## 10.13.1 - May 5, 2023
+
+* Remove XCFramework binary dependency on MapboxMobileEvents.
+* Update MapboxCoreMaps to 10.13.1 and MapboxCommon to 23.5.0
+* [CarPlay] Fix display link is not correctly paused/resumed when map is added to a CarPlay dashboard scene.
+
+## 10.13.0-rc.1 - April 19, 2023
+
+* Update MapboxCoreMaps to 10.13.0-rc.1 and MapboxCommon to 23.5.0-rc.1.
+
+## 10.13.0-beta.1 - April 5, 2023
+
+* Remove unnecessary check before updating a geo json source.
+* Enable zoom during a drag gesture.
+* Fix bearing value is fluctuating between initial value and correct value during a rotation gesture.
+* Allows animation during any ongoing gestures.
+* Sync map size to the size of the metal view.
+* Fix visual jitter when an annotation dragging ends.
+* Fix missing feature properties for `nil`/`null` values.
+* Added experimental `tileCover` method to `MapboxMap` that returns tile ids covering the map.
+* Update MapboxCoreMaps to 10.13.0-beta.1 and MapboxCommon to 23.5.0-beta.1.
+
+## 10.12.1 - March 29, 2023
+
+* Bump MapboxCoreMaps to 10.12.1
+
+## 10.12.0 - March 22, 2023
+
+* Deprecate `Snapshotter.tileMode`.
+* Bump MapboxCoreMaps to 10.12.0 and MapboxCommon to 23.4.0
+
+## 10.12.0-rc.1 - March 8, 2023
+
+* Correct user-agent fragment sent to events/telemetry service.
+* Bump MapboxCoreMaps to 10.12.0-rc.1 and MapboxCommon to 23.4.0-rc.1.
+* Change annotation end-of-drag delay to 0.125 to minimize lagging.
+
+## 10.12.0-beta.1 - February 22, 2023
+
+* Added basic signposts for performance profiling. To enable them, use `MAPBOX_MAPS_SIGNPOSTS_ENABLED` environment variable. ([#1818](https://github.com/mapbox/mapbox-maps-ios/pull/1818))
+* Fix build erros appearing when SDK distributed as a static library through Cocoapods. ([#1888](https://github.com/mapbox/mapbox-maps-ios/pull/1888))
+* Update MapboxCoreMaps to `v10.12.0-beta.1` and MapboxCommon to `v23.4.0-beta.1`
+* Fix app extension support. ([#1916](https://github.com/mapbox/mapbox-maps-ios/pull/1916))
+* Allow pass `dataId` to `sourceDataLoaded` event.
+* Add a dedicated GestureRecognizer (and Handler) to interrupt deceleration animation on tap on the map.
+
+## 10.11.0 - February 8, 2023
+* Update to MapboxCoreMaps 10.11.1 and MapboxCommon 23.3.1. ([#1899](https://github.com/mapbox/mapbox-maps-ios/pull/1899))
+
+## 10.11.0-rc.1 - January 26, 2023
+
+* Improve stability of attribution parsing. ([#1849](https://github.com/mapbox/mapbox-maps-ios/pull/1849))
+* Enable `Expression` to be created without an operator so `clusterProperties` can support advanced use cases. ([#1855](https://github.com/mapbox/mapbox-maps-ios/pull/1855))
+* Update CoreMaps `10.11.0-rc.1` and CommonSDK `23.3.0-rc.1`. ([#1856](https://github.com/mapbox/mapbox-maps-ios/pull/1875))
+* Angle normalization function was improved to prevent map spinning on close angles. ([#1828](https://github.com/mapbox/mapbox-maps-ios/pull/1828))
+
+## 10.11.0-beta.1 - January 12, 2023
+
+* Reduce CPU usage/energy consumption whem map idling while showing user location. ([#1789](https://github.com/mapbox/mapbox-maps-ios/pull/1789))
+* Fix loading errors appearing when providing custom endpoint for `ResourceOptions.baseURL`. ([#1749](https://github.com/mapbox/mapbox-maps-ios/pull/1749))
+* Remove delegate requirement for annotation interaction. ([#1750](https://github.com/mapbox/mapbox-maps-ios/pull/1750))
+* Reset compass image to default one if `nil` was passed to the `MapboxCompassOrnamentView.updateImage(image:)`. ([#1766](https://github.com/mapbox/mapbox-maps-ios/pull/1766), [#1772](https://github.com/mapbox/mapbox-maps-ios/pull/1772))
+* Prevent `PointAnnotationManager` to remove images that are not owned by it from Style. ([#1775](https://github.com/mapbox/mapbox-maps-ios/pull/1775))
+* Use `sdf` parameter when adding a style image. ([#1803](https://github.com/mapbox/mapbox-maps-ios/pull/1803))
+* Fix scale bar grows beyond its maximum width at large zoom near north/south poles. ([#1802](https://github.com/mapbox/mapbox-maps-ios/pull/1802))
+* Improve GeoJSONSource add/update performance by passing `GeoJSONSourceData` directly. ([#1815](https://github.com/mapbox/mapbox-maps-ios/pull/1815))
+* Support `Expression` in `FormatOptions`. ([#1826](https://github.com/mapbox/mapbox-maps-ios/pull/1826))
+* Update to MapboxCoreMaps 10.11.0-beta.1 and MapboxCommon 23.3.0-beta.1. ([#1842](https://github.com/mapbox/mapbox-maps-ios/pull/1842))
+
+## 10.10.1 - December 20, 2022
+
+* [CarPlay] Fix map view permanently pausing when moving to window on foreground ([#1808](https://github.com/mapbox/mapbox-maps-ios/pull/1808))
+
+## 10.10.0 - December 8, 2022
+
+* Update CoreMaps and CommonSDK. ([#1777](https://github.com/mapbox/mapbox-maps-ios/pull/1777))
+
+## 10.10.0-rc.1 - November 18, 2022
+
+* Fix memory leak when viewport is being deallocated while transition is running. ([#1691](https://github.com/mapbox/mapbox-maps-ios/pull/1691))
+* Fix issue with simultaneous recognition of tap gesture. ([#1712](https://github.com/mapbox/mapbox-maps-ios/pull/1712))
+* Fix label localization to properly handle Simplified and Traditional Chinese. ([#1687](https://github.com/mapbox/mapbox-maps-ios/pull/1687))
+* Allow simultaneous recognition of map- and annotation- handling gesture recognizers. ([#1737](https://github.com/mapbox/mapbox-maps-ios/pull/1737))
+* Update MapboxCommon to `v23.2.0-rc.3`. ([#1738](https://github.com/mapbox/mapbox-maps-ios/pull/1738))
+
+## 10.10.0-beta.1 - November 4, 2022
+
+* Animates to camera that fit a list of view annotations. ([#1634](https://github.com/mapbox/mapbox-maps-ios/pull/1634))
+* Prevent view annotation being shown erroneously after options update.([#1627](https://github.com/mapbox/mapbox-maps-ios/pull/1627))
+* Add an example animating a view annotation along a route line. ([#1639](https://github.com/mapbox/mapbox-maps-ios/pull/1639))
+* Enable clustering of point annotations, add example of feature. ([#1475](https://github.com/mapbox/mapbox-maps-ios/issues/1475))
+* Reduce location provider heading orientation update frequency. ([#1618](https://github.com/mapbox/mapbox-maps-ios/pull/1618))
+* Expose the list of added view annotations. ([#1621](https://github.com/mapbox/mapbox-maps-ios/pull/1621))
+* Fix `loadStyleURI/loadStyleJSON` completion being invoked more than once. ([#1665](https://github.com/mapbox/mapbox-maps-ios/pull/1665))
+* Remove ornament position deprecation. ([#1676](https://github.com/mapbox/mapbox-maps-ios/pull/1676))
+* Prevent map from being rendered on background. By aligning better with Scene lifecycle API, as well as, respecting scene/application activation status, rendering artifacts should no longer be an issue after app is coming from background.  ([#1675](https://github.com/mapbox/mapbox-maps-ios/pull/1675))
+* Support `isDraggable` and `isSelected` properties for annotations. ([#1659](https://github.com/mapbox/mapbox-maps-ios/pull/1659))
+* New API to load custom style JSON on the initilization of MapView. ([#1686](https://github.com/mapbox/mapbox-maps-ios/pull/1686))
+* Update MapboxCoreMaps to `v10.10.0-beta.1` and MapboxCommon to `v23.2.0-beta.1`. ([#1680](https://github.com/mapbox/mapbox-maps-ios/pull/1680))
+* Add API to enable/disable render of world copies. ([#1684](https://github.com/mapbox/mapbox-maps-ios/pull/1684))
+* Avoid triggering assertion for the 3D puck layer when returning `allLayerIdentifiers`. ([#1650](https://github.com/mapbox/mapbox-maps-ios/pull/1650))
+
+## 10.9.0 - October 19, 2022
+
+* Update to MapboxCoreMaps 10.9.0 and MapboxCommon 23.1.0. ([#1652](https://github.com/mapbox/mapbox-maps-ios/pull/1652))
+
+## 10.9.0-rc.1 - October 7, 2022
+
+* Fix accuracy ring radius jumping when zooming the map in/out with `.reducedAccuracy` location authorization.([#1625](https://github.com/mapbox/mapbox-maps-ios/pull/1625))
+* Fix behavior with initial view annotation placement.([#1604](https://github.com/mapbox/mapbox-maps-ios/pull/1604))
+* Fix behavior where selected view annotation is not moved to correct z-order.([#1607](https://github.com/mapbox/mapbox-maps-ios/pull/1607))
+* Update MapboxCoreMaps to `v10.9.0-rc.1`. ([#1630](https://github.com/mapbox/mapbox-maps-ios/pull/1630))
+* Update MapboxCommon to `v21.1.0-rc.2`. ([#1630](https://github.com/mapbox/mapbox-maps-ios/pull/1630))
+
+## 10.9.0-beta.2 - September 29, 2022
+
+* Replace MapboxMobileEvents dependency with CoreTelemetry (part of MapboxCommon). ([#1379](https://github.com/mapbox/mapbox-maps-ios/pull/1379))
+
+## 10.9.0-beta.1 - September 21, 2022
+
 * Expose `ResourceRequest` properties publicly. ([#1548](https://github.com/mapbox/mapbox-maps-ios/pull/1548))
 * Parse GeoJSON data on a background queue. ([#1576](https://github.com/mapbox/mapbox-maps-ios/pull/1576))
-* Fix block retain cycle in `MapboxMap/observeStyleLoad(_:)`. ([#1575](https://github.com/mapbox/mapbox-maps-ios/pull/1575))
 * Fix block retain cycle in `MapboxMap/observeStyleLoad(_:)`, from now on `loadStyleURI` and `loadStyleJSON` completion block will not be invoked when MapboxMap is deallocated. ([#1575](https://github.com/mapbox/mapbox-maps-ios/pull/1575))
 * Remove `DictionaryEncoder` enforce nil encoding for nested level of the dictionary. ([#1565](https://github.com/mapbox/mapbox-maps-ios/pull/1565))
+* Expose `distance-from-center` and `pitch` expressions. ([#1559](https://github.com/mapbox/mapbox-maps-ios/pull/1559))
+* Expose location puck opacity. ([#1585](https://github.com/mapbox/mapbox-maps-ios/pull/1585))
+* Update MapboxCoreMaps to v10.9.0-beta.1 and MapboxCommon to v23.1.0-beta.1. ([#1589](https://github.com/mapbox/mapbox-maps-ios/pull/1589))
 
 ## 10.8.1 - September 8, 2022
 
@@ -162,7 +337,7 @@ Mapbox welcomes participation and contributions from everyone.
 * Prevent rendering in background by pausing/resuming display link in response to application or scene lifecycle events. ([#1086](https://github.com/mapbox/mapbox-maps-ios/pull/1086))
 * Sync viewport and puck animations. ([#1090](https://github.com/mapbox/mapbox-maps-ios/pull/1090))
 * Add puckBearingEnabled property for location. ([#1107](https://github.com/mapbox/mapbox-maps-ios/pull/1107))
-* Fix camera change events being fired after map has stopped moving. ([#1118])(https://github.com/mapbox/mapbox-maps-ios/pull/1118))
+* Fix camera change events being fired after map has stopped moving. ([#1118](https://github.com/mapbox/mapbox-maps-ios/pull/1118))
 * Fix issue where single tap and double tap to zoom in gestures could recognize simultaneously. ([#1113](https://github.com/mapbox/mapbox-maps-ios/pull/1113))
 * Remove experimental GestureOptions.pinchBehavior property. ([#1125](https://github.com/mapbox/mapbox-maps-ios/pull/1125))
 * Update to MapboxCoreMaps 10.4.0-beta.1 and MapboxCommon 21.2.0-beta.1. ([#1126](https://github.com/mapbox/mapbox-maps-ios/pull/1126))

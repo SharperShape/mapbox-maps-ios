@@ -82,6 +82,18 @@ final class MapboxMapTests: XCTestCase {
         XCTAssertEqual(actualSize, CGSize(expectedSize))
     }
 
+    func testGetRenderWorldCopies() {
+        let renderWorldCopies = Bool.random()
+        mapboxMap.__testingMap.setRenderWorldCopiesForRenderWorldCopies(renderWorldCopies)
+        XCTAssertEqual(mapboxMap.shouldRenderWorldCopies, renderWorldCopies)
+    }
+
+    func testSetRenderWorldCopies() {
+        let renderWorldCopies = Bool.random()
+        mapboxMap.shouldRenderWorldCopies = renderWorldCopies
+        XCTAssertEqual(mapboxMap.__testingMap.getRenderWorldCopies(), renderWorldCopies)
+    }
+
     func testGetCameraOptions() {
         XCTAssertEqual(mapboxMap.cameraState, CameraState(mapboxMap.__testingMap.getCameraState()))
     }
@@ -238,6 +250,37 @@ final class MapboxMapTests: XCTestCase {
         XCTAssertEqual(mapboxObservable.unsubscribeStub.invocations.first?.parameters.events, events)
     }
 
+    func testLoadStyleHandlerIsInvokedExactlyOnce() throws {
+        let styleLoadEventOccurred = expectation(description: "style-loaded event occurred")
+        let mapLoadingErrorEventOccurred = expectation(description: "map-loading-error event occurred")
+        let completionIsCalledOnce = expectation(description: "loadStyle completion should be called once")
+        completionIsCalledOnce.assertForOverFulfill = true
+
+        let mapboxObservable = try XCTUnwrap(mapboxObservableProviderStub.invocations.first?.returnValue as? MockMapboxObservable)
+        mapboxObservable.onTypedNextStub.defaultSideEffect = { invocation in
+            guard invocation.parameters.eventName == "style-loaded" else { return }
+
+            let event = MapboxCoreMaps.Event(type: "style-loaded", data: NSNull())
+            invocation.parameters.handler(MapEvent<NoPayload>(event: event))
+            styleLoadEventOccurred.fulfill()
+        }
+        mapboxObservable.onTypedEveryStub.defaultSideEffect = { invocation in
+            guard invocation.parameters.eventName == "map-loading-error" else { return }
+
+            let event = MapboxCoreMaps.Event(
+                type: "source",
+                data: ["type": "source", "message": "Cannot load source", "source-id": "dummy-source-id"])
+            invocation.parameters.handler(MapEvent<MapLoadingErrorPayload>(event: event))
+            mapLoadingErrorEventOccurred.fulfill()
+        }
+
+        mapboxMap.loadStyleURI(.dark) { _ in
+            completionIsCalledOnce.fulfill()
+        }
+
+        waitForExpectations(timeout: 0.3)
+    }
+
     @available(*, deprecated)
     func testOnNext() throws {
         let handlerStub = Stub<Event, Void>()
@@ -372,5 +415,22 @@ final class MapboxMapTests: XCTestCase {
 
         XCTAssertEqual(mapboxObservable.performWithoutNotifyingInvocationCount, 1)
         XCTAssertEqual(blockStub.invocations.count, 1)
+    }
+
+    func testFittingPoint() {
+        let size = CGSize(width: 100, height: 100)
+
+        XCTAssertEqual(CGPoint(x: 1, y: 1).fit(to: size), CGPoint(x: 1, y: 1))
+        XCTAssertEqual(CGPoint(x: 0, y: 0).fit(to: size), CGPoint(x: 0, y: 0))
+        XCTAssertEqual(CGPoint(x: 100, y: 100).fit(to: size), CGPoint(x: 100, y: 100))
+        XCTAssertEqual(CGPoint(x: -0.1, y: 0.2).fit(to: size), CGPoint(x: 0, y: 0.2))
+        XCTAssertEqual(CGPoint(x: 1, y: -0.2).fit(to: size), CGPoint(x: 1, y: 0))
+        XCTAssertEqual(CGPoint(x: -0.3, y: -0.3).fit(to: size), CGPoint(x: 0, y: 0))
+        XCTAssertEqual(CGPoint(x: -0.5, y: -0.3).fit(to: size), CGPoint(x: -1, y: -1))
+        XCTAssertEqual(CGPoint(x: -0.3, y: -0.5).fit(to: size), CGPoint(x: -1, y: -1))
+        XCTAssertEqual(CGPoint(x: 100.1, y: 99.9).fit(to: size), CGPoint(x: 100, y: 99.9))
+        XCTAssertEqual(CGPoint(x: 99.9, y: 100.1).fit(to: size), CGPoint(x: 99.9, y: 100))
+        XCTAssertEqual(CGPoint(x: 102, y: 1).fit(to: size), CGPoint(x: -1, y: -1))
+        XCTAssertEqual(CGPoint(x: 1, y: 101).fit(to: size), CGPoint(x: -1, y: -1))
     }
 }

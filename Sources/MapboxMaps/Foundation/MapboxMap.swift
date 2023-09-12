@@ -28,6 +28,8 @@ internal protocol MapboxMapProtocol: AnyObject {
     func options(forViewAnnotationWithId id: String) throws -> ViewAnnotationOptions
     func pointIsAboveHorizon(_ point: CGPoint) -> Bool
     func camera(for geometry: Geometry, padding: UIEdgeInsets, bearing: CGFloat?, pitch: CGFloat?) -> CameraOptions
+    func camera(for coordinateBounds: CoordinateBounds, padding: UIEdgeInsets, bearing: Double?, pitch: Double?) -> CameraOptions
+    func coordinate(for point: CGPoint) -> CLLocationCoordinate2D
     func point(for coordinate: CLLocationCoordinate2D) -> CGPoint
     func performWithoutNotifying(_ block: () -> Void)
 }
@@ -79,16 +81,22 @@ public final class MapboxMap: MapboxMapProtocol {
     // MARK: - Style loading
 
     private func observeStyleLoad(_ completion: @escaping (Result<Style, Error>) -> Void) {
-        onNext(event: .styleLoaded) { [style] _ in
+        let cancellable = CompositeCancelable()
+
+        cancellable.add(onNext(event: .styleLoaded) { [style] _ in
             if !style.isLoaded {
                 Log.warning(forMessage: "style.isLoaded == false, was this an empty style?", category: "Style")
             }
             completion(.success(style))
-        }
+            cancellable.cancel()
+        })
 
-        onNext(event: .mapLoadingError) { event in
+        cancellable.add(onEvery(event: .mapLoadingError) { event in
+            guard case .style = event.payload.error else { return }
+
             completion(.failure(event.payload.error))
-        }
+            cancellable.cancel()
+        })
     }
 
     /// Loads a `style` from a StyleURI, calling a completion closure when the
@@ -170,6 +178,19 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Parameter cacheOptions: The cache options to be set to the Map.
     @_spi(Experimental) public func setRenderCache(_ cacheOptions: RenderCacheOptions) {
         __map.setRenderCacheOptionsFor(cacheOptions)
+    }
+
+    /// Defines whether multiple copies of the world will be rendered side by side beyond -180 and 180 degrees longitude.
+    ///
+    /// If disabled, when the map is zoomed out far enough that a single representation of the world does not fill the map's entire container,
+    /// there will be blank space beyond 180 and -180 degrees longitude.
+    /// In this case, features that cross 180 and -180 degrees longitude will be cut in two (with one portion on the right edge of the map
+    /// and the other on the left edge of the map) at every zoom level.
+    ///
+    /// By default, `shouldRenderWorldCopies` is set to `true`.
+    public var shouldRenderWorldCopies: Bool {
+        get { __map.getRenderWorldCopies() }
+        set { __map.setRenderWorldCopiesForRenderWorldCopies(newValue) }
     }
 
     /// Gets the resource options for the map.
@@ -492,8 +513,7 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Returns: A `CGPoint` relative to the `UIView`. If the point is outside of the bounds
     ///     of `MapView` the returned point contains `-1.0` for both coordinates.
     public func point(for coordinate: CLLocationCoordinate2D) -> CGPoint {
-        let point = __map.pixelForCoordinate(for: coordinate).point
-        return CGRect(origin: .zero, size: size).contains(point) ? point : CGPoint(x: -1.0, y: -1.0)
+        return __map.pixelForCoordinate(for: coordinate).point.fit(to: size)
     }
 
     /// Converts map coordinates to an array of `CGPoint`, relative to the `MapView`.
@@ -1023,9 +1043,8 @@ extension MapboxMap {
 // MARK: - Attribution
 
 extension MapboxMap: AttributionDataSource {
-    internal func attributions() -> [Attribution] {
-        let attributions = Attribution.parse(style.sourceAttributions())
-        return attributions
+    internal func loadAttributions(completion: @escaping ([Attribution]) -> Void) {
+        Attribution.parse(style.sourceAttributions(), completion: completion)
     }
 }
 
@@ -1124,6 +1143,22 @@ extension MapboxMap {
 
 }
 
+// MARK: - TileCover
+
+extension MapboxMap {
+
+    /// Returns array of tile identifiers that cover current map camera.
+    ///
+    /// - Parameters:
+    ///  - options: Options for the tile cover method.
+    @_spi(Experimental)
+    public func tileCover(for options: TileCoverOptions) -> [CanonicalTileID] {
+        __map.__tileCover(
+            for: MapboxCoreMaps.TileCoverOptions(options),
+            cameraOptions: nil)
+    }
+}
+
 // MARK: - Map Recorder
 
 extension MapboxMap {
@@ -1139,5 +1174,26 @@ extension MapboxMap {
 extension MapboxMap {
     internal var __testingMap: Map {
         return __map
+    }
+}
+
+extension CGPoint {
+    func fit(to boundingSize: CGSize) -> CGPoint {
+        var x = self.x
+        var y = self.y
+
+        // Round only when value is out of the bounding box
+        if x < 0 || x > boundingSize.width {
+            x.round(.toNearestOrAwayFromZero)
+        }
+        if y < 0 || y > boundingSize.height {
+            y.round(.toNearestOrAwayFromZero)
+        }
+
+        if (0...boundingSize.width).contains(x) && (0...boundingSize.height).contains(y) {
+            return CGPoint(x: x, y: y)
+        }
+
+        return CGPoint(x: -1, y: -1)
     }
 }

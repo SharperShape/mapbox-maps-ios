@@ -31,6 +31,8 @@ final class PolygonAnnotationExample: UIViewController, ExampleProtocol {
         // (`mapView.annotations`) until you explicitly destroy them
         // by calling `mapView.annotations.removeAnnotationManager(withId:)`
         let polygonAnnotationManager = mapView.annotations.makePolygonAnnotationManager()
+
+        // Set the delegate to receive callback if annotation is tapped or dragged
         polygonAnnotationManager.delegate = self
 
         // Create the polygon annotation
@@ -39,6 +41,9 @@ final class PolygonAnnotationExample: UIViewController, ExampleProtocol {
         // Style the polygon annotation
         polygonAnnotation.fillColor = StyleColor(.red)
         polygonAnnotation.fillOpacity = 0.8
+
+        // Enable the polygon annotation to be dragged
+        polygonAnnotation.isDraggable = true
 
         // Add the polygon annotation to the manager
         polygonAnnotationManager.annotations = [polygonAnnotation]

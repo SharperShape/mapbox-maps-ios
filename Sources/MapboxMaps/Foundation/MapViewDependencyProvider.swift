@@ -14,7 +14,8 @@ internal protocol MapViewDependencyProviderProtocol: AnyObject {
     func makeGestureManager(view: UIView,
                             mapboxMap: MapboxMapProtocol,
                             cameraAnimationsManager: CameraAnimationsManagerProtocol) -> GestureManager
-    func makeLocationProducer(mayRequestWhenInUseAuthorization: Bool) -> LocationProducerProtocol
+    func makeLocationProducer(mayRequestWhenInUseAuthorization: Bool,
+                              userInterfaceOrientationView: UIView) -> LocationProducerProtocol
     func makeInterpolatedLocationProducer(locationProducer: LocationProducerProtocol,
                                           displayLinkCoordinator: DisplayLinkCoordinator) -> InterpolatedLocationProducerProtocol
     func makeLocationManager(locationProducer: LocationProducerProtocol,
@@ -27,6 +28,13 @@ internal protocol MapViewDependencyProviderProtocol: AnyObject {
                           anyTouchGestureRecognizer: UIGestureRecognizer,
                           doubleTapGestureRecognizer: UIGestureRecognizer,
                           doubleTouchGestureRecognizer: UIGestureRecognizer) -> ViewportImplProtocol
+    func makeAnnotationOrchestratorImpl(in view: UIView,
+                                        mapboxMap: MapboxMapProtocol,
+                                        mapFeatureQueryable: MapFeatureQueryable,
+                                        style: StyleProtocol,
+                                        displayLinkCoordinator: DisplayLinkCoordinator) -> AnnotationOrchestratorImplProtocol
+
+    func makeEventsManager(accessToken: String) -> EventsManagerProtocol
 }
 
 // swiftlint:disable:next type_body_length
@@ -38,8 +46,12 @@ internal final class MapViewDependencyProvider: MapViewDependencyProviderProtoco
     internal let mapboxObservableProvider: (ObservableProtocol) -> MapboxObservableProtocol = MapboxObservable.init
 
     internal let cameraAnimatorsRunnerEnablable: MutableEnablableProtocol = Enablable()
-    private let gesturesCameraAnimatorsRunnerEnablable = Enablable()
     private let mainQueue: MainQueueProtocol = MainQueueWrapper()
+    private let interfaceOrientationProvider: InterfaceOrientationProvider
+
+    internal init(interfaceOrientationProvider: InterfaceOrientationProvider) {
+        self.interfaceOrientationProvider = interfaceOrientationProvider
+    }
 
     internal func makeMetalView(frame: CGRect, device: MTLDevice?) -> MTKView {
         MTKView(frame: frame, device: device)
@@ -52,10 +64,7 @@ internal final class MapViewDependencyProvider: MapViewDependencyProviderProtoco
     internal func makeCameraAnimatorsRunner(mapboxMap: MapboxMapProtocol) -> CameraAnimatorsRunnerProtocol {
         CameraAnimatorsRunner(
             mapboxMap: mapboxMap,
-            enablable: CompositeEnablable(
-                enablables: [
-                    cameraAnimatorsRunnerEnablable,
-                    gesturesCameraAnimatorsRunnerEnablable]))
+            enablable: cameraAnimatorsRunnerEnablable)
     }
 
     internal func makeCameraAnimationsManagerImpl(cameraViewContainerView: UIView,
@@ -165,7 +174,9 @@ internal final class MapViewDependencyProvider: MapViewDependencyProviderProtoco
             cameraAnimationsManager: cameraAnimationsManager)
     }
 
-    private func makeAnyTouchGestureHandler(view: UIView) -> GestureHandler {
+    private func makeAnyTouchGestureHandler(
+        view: UIView,
+        cameraAnimationsManager: CameraAnimationsManagerProtocol) -> GestureHandler {
         // 0.15 seconds is a sufficient delay to avoid interrupting animations
         // in between a rapid succession of double tap or double touch gestures.
         // It's also not so long as to feel unnatural when touching the map to
@@ -178,7 +189,18 @@ internal final class MapViewDependencyProvider: MapViewDependencyProviderProtoco
         view.addGestureRecognizer(gestureRecognizer)
         return AnyTouchGestureHandler(
             gestureRecognizer: gestureRecognizer,
-            cameraAnimatorsRunnerEnablable: gesturesCameraAnimatorsRunnerEnablable)
+            cameraAnimationsManager: cameraAnimationsManager)
+    }
+
+    private func makeInterruptDecelerationGestureHandler(view: UIView,
+                                                         cameraAnimationsManager: CameraAnimationsManagerProtocol) -> GestureHandler {
+        let gestureRecognizer = TouchBeganGestureRecognizer()
+        gestureRecognizer.cancelsTouchesInView = false
+        gestureRecognizer.delaysTouchesEnded = false
+        view.addGestureRecognizer(gestureRecognizer)
+
+        return InterruptDecelerationGestureHandler(gestureRecognizer: gestureRecognizer,
+                                                   cameraAnimationsManager: cameraAnimationsManager)
     }
 
     internal func makeGestureManager(view: UIView,
@@ -210,14 +232,49 @@ internal final class MapViewDependencyProvider: MapViewDependencyProviderProtoco
             singleTapGestureHandler: makeSingleTapGestureHandler(
                 view: view,
                 cameraAnimationsManager: cameraAnimationsManager),
-            anyTouchGestureHandler: makeAnyTouchGestureHandler(view: view),
+            anyTouchGestureHandler: makeAnyTouchGestureHandler(view: view,
+                                                               cameraAnimationsManager: cameraAnimationsManager),
+            interruptDecelerationGestureHandler: makeInterruptDecelerationGestureHandler(
+                view: view,
+                cameraAnimationsManager: cameraAnimationsManager),
             mapboxMap: mapboxMap)
     }
 
-    internal func makeLocationProducer(mayRequestWhenInUseAuthorization: Bool) -> LocationProducerProtocol {
+    internal func makeAnnotationOrchestratorImpl(in view: UIView,
+                                                 mapboxMap: MapboxMapProtocol,
+                                                 mapFeatureQueryable: MapFeatureQueryable,
+                                                 style: StyleProtocol,
+                                                 displayLinkCoordinator: DisplayLinkCoordinator) -> AnnotationOrchestratorImplProtocol {
+        let tapGetureRecognizer = UITapGestureRecognizer()
+        let longPressGestureRecognizer = MapboxLongPressGestureRecognizer()
+        view.addGestureRecognizer(tapGetureRecognizer)
+        view.addGestureRecognizer(longPressGestureRecognizer)
+
+        let offsetPointCalculator = OffsetPointCalculator(mapboxMap: mapboxMap)
+        let offsetLineStringCalculator = OffsetLineStringCalculator(mapboxMap: mapboxMap)
+        let offsetPolygonCalculator = OffsetPolygonCalculator(mapboxMap: mapboxMap)
+        let factory = AnnotationManagerFactory(
+            style: style,
+            displayLinkCoordinator: displayLinkCoordinator,
+            offsetPointCalculator: offsetPointCalculator,
+            offsetPolygonCalculator: offsetPolygonCalculator,
+            offsetLineStringCalculator: offsetLineStringCalculator)
+        return AnnotationOrchestratorImpl(
+            tapGestureRecognizer: tapGetureRecognizer,
+            longPressGestureRecognizer: longPressGestureRecognizer,
+            mapFeatureQueryable: mapFeatureQueryable,
+            factory: factory)
+    }
+
+    internal func makeLocationProducer(mayRequestWhenInUseAuthorization: Bool,
+                                       userInterfaceOrientationView: UIView) -> LocationProducerProtocol {
         let locationProvider = AppleLocationProvider()
         return LocationProducer(
             locationProvider: locationProvider,
+            interfaceOrientationProvider: interfaceOrientationProvider,
+            notificationCenter: notificationCenter,
+            userInterfaceOrientationView: userInterfaceOrientationView,
+            device: .current,
             mayRequestWhenInUseAuthorization: mayRequestWhenInUseAuthorization)
     }
 
@@ -303,5 +360,9 @@ internal final class MapViewDependencyProvider: MapViewDependencyProviderProtoco
             anyTouchGestureRecognizer: anyTouchGestureRecognizer,
             doubleTapGestureRecognizer: doubleTapGestureRecognizer,
             doubleTouchGestureRecognizer: doubleTouchGestureRecognizer)
+    }
+
+    func makeEventsManager(accessToken: String) -> EventsManagerProtocol {
+        return EventsManager(accessToken: accessToken)
     }
 }
