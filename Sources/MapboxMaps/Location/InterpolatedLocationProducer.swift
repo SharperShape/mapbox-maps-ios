@@ -98,20 +98,21 @@ internal final class InterpolatedLocationProducer: NSObject, InterpolatedLocatio
     // MARK: Interpolation.
 
     private func interpolatedLocation(with date: Date) -> InterpolatedLocation? {
-        guard let startDate = startDate,
-              let endDate = endDate,
-              let startLocation = startLocation,
-              let endLocation = endLocation else {
-                  return nil
-              }
-        let fraction = date.timeIntervalSince(startDate) / endDate.timeIntervalSince(startDate)
-        guard fraction < 1 else {
-            return endLocation
-        }
-        return locationInterpolator.interpolate(
-            from: startLocation,
-            to: endLocation,
-            fraction: fraction)
+        return endLocation
+//        guard let startDate = startDate,
+//              let endDate = endDate,
+//              let startLocation = startLocation,
+//              let endLocation = endLocation else {
+//                  return nil
+//              }
+//        let fraction = date.timeIntervalSince(startDate) / endDate.timeIntervalSince(startDate)
+//        guard fraction < 1 else {
+//            return endLocation
+//        }
+//        return locationInterpolator.interpolate(
+//            from: startLocation,
+//            to: endLocation,
+//            fraction: fraction)
     }
 }
 
