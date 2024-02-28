@@ -16,7 +16,7 @@ let package = Package(
         .package(name: "MapboxCoreMaps", url: "https://github.com/mapbox/mapbox-core-maps-ios.git", .exact("10.7.0-rc.1")),
         .package(name: "MapboxCommon", url: "https://github.com/mapbox/mapbox-common-ios.git", .exact("22.1.0-rc.1")),
         .package(name: "MapboxMobileEvents", url: "https://github.com/mapbox/mapbox-events-ios.git", .exact("1.0.8")),
-        .package(name: "Turf", url: "https://github.com/slozo/turf-swift.git", .branch("v2-new")),
+        .package(name: "Turf", url: "https://github.com/SharperShape/turf-swift.git", .branch("v2-new")),
         .package(name: "CocoaImageHashing", url: "https://github.com/ameingast/cocoaimagehashing", .exact("1.9.0"))
     ],
     targets: [
