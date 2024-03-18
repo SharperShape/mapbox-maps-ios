@@ -39,7 +39,7 @@
       },
       {
         "package": "Turf",
-        "repositoryURL": "https://github.com/slozo/turf-swift.git",
+        "repositoryURL": "https://github.com/SharperShape/turf-swift.git",
         "state": {
           "branch": "v2-new",
           "revision": "cbc4ed182fd41c8569adb1d3466b28a431faba41",
