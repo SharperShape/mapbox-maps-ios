@@ -1,4 +1,5 @@
 import XCTest
+import MetalKit
 @testable import MapboxMaps
 
 final class DelegatingMapClientTests: XCTestCase {
@@ -26,21 +27,9 @@ final class DelegatingMapClientTests: XCTestCase {
         XCTAssertEqual(delegate.scheduleRepaintStub.invocations.count, 1)
     }
 
-    func testScheduleTaskForwardsToDelegate() {
-        var invoked = false
-
-        delegatingMapClient.scheduleTask {
-            invoked = true
-        }
-        delegate.scheduleTaskStub.invocations.first?.parameters()
-
-        XCTAssertEqual(delegate.scheduleTaskStub.invocations.count, 1)
-        XCTAssertTrue(invoked)
-    }
-
     func testGetMetalViewForwardsToDelegate() {
         let expectedDevice = MTLCreateSystemDefaultDevice()
-        let expectedView = MTKView()
+        let expectedView = MetalView(frame: CGRect(x: 0, y: 0, width: 64, height: 64), device: nil)
         delegate.getMetalViewStub.defaultReturnValue = expectedView
 
         let actualView = delegatingMapClient.getMetalView(for: expectedDevice)
@@ -55,6 +44,6 @@ final class DelegatingMapClientTests: XCTestCase {
             XCTAssertNil(actualDevice)
             XCTAssertNil(expectedDevice)
         }
-        XCTAssertEqual(actualView, expectedView)
+        XCTAssertIdentical(actualView, expectedView)
     }
 }

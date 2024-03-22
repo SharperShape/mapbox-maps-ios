@@ -1,13 +1,14 @@
 import XCTest
 @testable import MapboxMaps
+@_implementationOnly import MapboxCommon_Private
 
 final class EventsManagerTests: XCTestCase {
 
-    var eventsManager: EventsManager!
+    var eventsManager: EventsManagerProtocol!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        eventsManager = try EventsManager.shared(withAccessToken: mapboxAccessToken())
+        eventsManager = EventsManager()
     }
 
     override func tearDown() {
@@ -31,17 +32,26 @@ final class EventsManagerTests: XCTestCase {
         XCTAssertEqual(UserDefaults.standard.MGLMapboxMetricsEnabled, false)
     }
 
-    func testMGLMapboxMetricsModifiesMMECollectionDisabled() {
+    func testCoreTelemetryMetricsEnabledToggle() {
+        let initialValue = UserDefaults.standard.MGLMapboxMetricsEnabled
+
+        UserDefaults.standard.MGLMapboxMetricsEnabled.toggle()
+
+        XCTAssertEqual(UserDefaults.standard.MGLMapboxMetricsEnabled, !initialValue)
+        XCTAssertEqual(TelemetryUtils.getEventsCollectionState(), !initialValue)
+    }
+
+    func testMGLMapboxMetricsModifiesTelemetryCollectionState() {
         UserDefaults.standard.MGLMapboxMetricsEnabled = false
 
-        // When 'MGLMapboxMetricsEnabled' assigned to 'true' 'MMECollectionDisabled' should became 'false'
-        let falseExpectation = keyValueObservingExpectation(for: UserDefaults.mme_configuration(), keyPath: "MMECollectionDisabled", expectedValue: false)
+        XCTAssertFalse(TelemetryUtils.getEventsCollectionState())
+
         UserDefaults.standard.MGLMapboxMetricsEnabled = true
-        wait(for: [falseExpectation], timeout: 1)
 
-        // When 'MGLMapboxMetricsEnabled' assigned to 'false' 'MMECollectionDisabled' should became 'true'
-        let trueExpectation = keyValueObservingExpectation(for: UserDefaults.mme_configuration(), keyPath: "MMECollectionDisabled", expectedValue: true)
+        XCTAssertTrue(TelemetryUtils.getEventsCollectionState())
+
         UserDefaults.standard.MGLMapboxMetricsEnabled = false
-        wait(for: [trueExpectation], timeout: 1)
+
+        XCTAssertFalse(TelemetryUtils.getEventsCollectionState())
     }
 }

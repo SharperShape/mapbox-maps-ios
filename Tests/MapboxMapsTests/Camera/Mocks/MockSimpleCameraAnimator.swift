@@ -1,9 +1,12 @@
 @testable import MapboxMaps
+import UIKit
 
 final class MockSimpleCameraAnimator: SimpleCameraAnimatorProtocol {
     @Stubbed var state: UIViewAnimatingState = .inactive
 
     @Stubbed var owner: AnimationOwner = .random()
+
+    @Stubbed var animationType: AnimationType = .unspecified
 
     @Stubbed var delegate: CameraAnimatorDelegate?
 

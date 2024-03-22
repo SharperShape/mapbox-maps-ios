@@ -1,5 +1,5 @@
 import Foundation
-import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 internal extension Double {
     static func testSourceValue() -> Double {
@@ -58,6 +58,12 @@ internal extension Dictionary where Key == String, Value == Expression {
     }
 }
 
+extension TileCacheBudgetSize {
+    static func testSourceValue(_ tileCacheBudget: TileCacheBudgetSize = .tiles(200)) -> TileCacheBudgetSize {
+        tileCacheBudget
+    }
+}
+
 internal extension Array where Element == [Double] {
     static func testSourceValue() -> [[Double]] {
         return [[30.0, 30.0], [0.0, 0.0], [30.0, 30.0], [0.0, 0.0]]
@@ -81,5 +87,11 @@ internal extension Bool {
 internal extension PromoteId {
     static func testSourceValue() -> PromoteId {
         return .string("test-promote-id")
+    }
+}
+
+internal extension Array where Element == RasterArraySource.RasterDataLayer {
+    static func testSourceValue() -> [RasterArraySource.RasterDataLayer] {
+        return [.init(layerId: "test-layer-id", bands: ["band_0", "band_1"])]
     }
 }

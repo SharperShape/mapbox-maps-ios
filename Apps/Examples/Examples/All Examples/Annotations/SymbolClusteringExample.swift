@@ -1,12 +1,11 @@
 import UIKit
 import MapboxMaps
 
-@objc(SymbolClusteringExample)
-class SymbolClusteringExample: UIViewController, ExampleProtocol {
+final class SymbolClusteringExample: UIViewController, ExampleProtocol {
+    private var mapView: MapView!
+    private var cancelables = Set<AnyCancelable>()
 
-    internal var mapView: MapView!
-
-    override public func viewDidLoad() {
+    override func viewDidLoad() {
         super.viewDidLoad()
 
         // Create a `MapView` centered over Washington, DC.
@@ -19,16 +18,19 @@ class SymbolClusteringExample: UIViewController, ExampleProtocol {
         view.addSubview(mapView)
 
         // Add the source and style layers once the map has loaded.
-        mapView.mapboxMap.onNext(event: .mapLoaded) { _ in
+        mapView.mapboxMap.onMapLoaded.observeNext { _ in
             self.addSymbolClusteringLayers()
-        }
+        }.store(in: &cancelables)
 
-        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap(gestureRecognizer:)))
-        mapView.addGestureRecognizer(tapGestureRecognizer)
+        // Add tap handers to and clustered and unclustered layers.
+        for layer in ["unclustered-point-layer", "clustered-circle-layer"] {
+            mapView.gestures.onLayerTap(layer) { [weak self] queriedFeature, _ in
+                return self?.handleTap(queriedFeature: queriedFeature) ?? false
+            }.store(in: &cancelables)
+        }
     }
 
     func addSymbolClusteringLayers() {
-        let style = mapView.mapboxMap.style
         // The image named `fire-station-11` is included in the app's Assets.xcassets bundle.
         // In order to recolor an image, you need to add a template image to the map's style.
         // The image's rendering mode can be set programmatically or in the asset catalogue.
@@ -37,45 +39,72 @@ class SymbolClusteringExample: UIViewController, ExampleProtocol {
         // Add the image tp the map's style. Set `sdf` to `true`. This allows the icon images to be recolored.
         // For more information about `SDF`, or Signed Distance Fields, see
         // https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/#what-are-signed-distance-fields-sdf
-        try! style.addImage(image, id: "fire-station-icon", sdf: true)
+        try! mapView.mapboxMap.addImage(image, id: "fire-station-icon", sdf: true)
 
         // Fire_Hydrants.geojson contains information about fire hydrants in the District of Columbia.
         // It was downloaded on 6/10/21 from https://opendata.dc.gov/datasets/DCGIS::fire-hydrants/about
         let url = Bundle.main.url(forResource: "Fire_Hydrants", withExtension: "geojson")!
 
         // Create a GeoJSONSource using the previously specified URL.
-        var source = GeoJSONSource()
+        var source = GeoJSONSource(id: "fire-hydrant-source")
         source.data = .url(url)
 
         // Enable clustering for this source.
         source.cluster = true
         source.clusterRadius = 75
-        let sourceID = "fire-hydrant-source"
 
-        var clusteredLayer = createClusteredLayer()
-        clusteredLayer.source = sourceID
+        // Create expression to identify the max flow rate of one hydrant in the cluster
+        // ["max", ["get", "FLOW"]]
+        let maxExpression = Exp(.max) {Exp(.get) { "FLOW" }}
 
-        var unclusteredLayer = createUnclusteredLayer()
-        unclusteredLayer.source = sourceID
+        // Create expression to determine if a hydrant with EngineID E-9 is in the cluster
+        // ["any", ["==", ["get", "ENGINEID"], "E-9"]]
+        let ine9Expression = Exp(.any) {
+            Exp(.eq) {
+                Exp(.get) { "ENGINEID" }
+                "E-9"
+            }
+        }
+
+        // Create expression to get the sum of all of the flow rates in the cluster
+        // [["+", ["accumulated"], ["get", "sum"]], ["get", "FLOW"]]
+        let sumExpression = Exp {
+            Exp(.sum) {
+                Exp(.accumulated)
+                Exp(.get) { "sum" }
+            }
+            Exp(.get) { "FLOW" }
+        }
+
+        // Add the expressions to the cluster as ClusterProperties so they can be accessed below
+        let clusterProperties: [String: Expression] = [
+            "max": maxExpression,
+            "in_e9": ine9Expression,
+            "sum": sumExpression
+        ]
+        source.clusterProperties = clusterProperties
+
+
+        let clusteredLayer = createClusteredLayer(source: source.id)
+        let unclusteredLayer = createUnclusteredLayer(source: source.id)
 
         // `clusterCountLayer` is a `SymbolLayer` that represents the point count within individual clusters.
-        var clusterCountLayer = createNumberLayer()
-        clusterCountLayer.source = sourceID
+        let clusterCountLayer = createNumberLayer(source: source.id)
 
         // Add the source and two layers to the map.
-        try! style.addSource(source, id: sourceID)
-        try! style.addLayer(clusteredLayer)
-        try! style.addLayer(unclusteredLayer, layerPosition: .below(clusteredLayer.id))
-        try! style.addLayer(clusterCountLayer)
+        try! mapView.mapboxMap.addSource(source)
+        try! mapView.mapboxMap.addLayer(clusteredLayer)
+        try! mapView.mapboxMap.addLayer(unclusteredLayer, layerPosition: .below(clusteredLayer.id))
+        try! mapView.mapboxMap.addLayer(clusterCountLayer)
 
         // This is used for internal testing purposes only and can be excluded
         // from your implementation.
         finish()
     }
 
-    func createClusteredLayer() -> CircleLayer {
+    func createClusteredLayer(source: String) -> CircleLayer {
         // Create a symbol layer to represent the clustered points.
-        var clusteredLayer = CircleLayer(id: "clustered-circle-layer")
+        var clusteredLayer = CircleLayer(id: "clustered-circle-layer", source: source)
 
         // Filter out unclustered features by checking for `point_count`. This
         // is added to clusters when the cluster is created. If your source
@@ -99,9 +128,9 @@ class SymbolClusteringExample: UIViewController, ExampleProtocol {
         return clusteredLayer
     }
 
-    func createUnclusteredLayer() -> SymbolLayer {
+    func createUnclusteredLayer(source: String) -> SymbolLayer {
         // Create a symbol layer to represent the points that aren't clustered.
-        var unclusteredLayer = SymbolLayer(id: "unclustered-point-layer")
+        var unclusteredLayer = SymbolLayer(id: "unclustered-point-layer", source: source)
 
         // Filter out clusters by checking for `point_count`.
         unclusteredLayer.filter = Exp(.not) {
@@ -121,8 +150,8 @@ class SymbolClusteringExample: UIViewController, ExampleProtocol {
         return unclusteredLayer
     }
 
-    func createNumberLayer() -> SymbolLayer {
-        var numberLayer = SymbolLayer(id: "cluster-count-layer")
+    func createNumberLayer(source: String) -> SymbolLayer {
+        var numberLayer = SymbolLayer(id: "cluster-count-layer", source: source)
 
         // check whether the point feature is clustered
         numberLayer.filter = Exp(.has) { "point_count" }
@@ -133,45 +162,28 @@ class SymbolClusteringExample: UIViewController, ExampleProtocol {
         return numberLayer
     }
 
-    @objc func handleTap(gestureRecognizer: UITapGestureRecognizer) {
-        let point = gestureRecognizer.location(in: mapView)
-
-        // Look for features at the tap location within the clustered and
-        // unclustered layers.
-        mapView.mapboxMap.queryRenderedFeatures(at: point,
-                                                options: RenderedQueryOptions(layerIds: ["unclustered-point-layer", "clustered-circle-layer"],
-                                                filter: nil)) { [weak self] result in
-            switch result {
-            case .success(let queriedFeatures):
-                // Return the first feature at that location, then pass attributes to the alert controller.
-                // Check whether the feature has values for `ASSETNUM` and `LOCATIONDETAIL`. These properties
-                // come from the fire hydrant dataset and indicate that the selected feature is not clustered.
-                if let selectedFeatureProperties = queriedFeatures.first?.feature.properties,
-                   case let .string(featureInformation) = selectedFeatureProperties["ASSETNUM"],
-                   case let .string(location) = selectedFeatureProperties["LOCATIONDETAIL"] {
-                    self?.showAlert(withTitle: "Hydrant \(featureInformation)", and: "\(location)")
-                // If the feature is a cluster, it will have `point_count` and `cluster_id` properties. These are assigned
-                // when the cluster is created.
-                } else if let selectedFeatureProperties = queriedFeatures.first?.feature.properties,
-                          case let .number(pointCount) = selectedFeatureProperties["point_count"],
-                          case let .number(clusterId) = selectedFeatureProperties["cluster_id"] {
-                    // If the tap landed on a cluster, pass the cluster ID and point count to the alert.
-                    self?.showAlert(withTitle: "Cluster ID \(Int(clusterId))", and: "There are \(Int(pointCount)) points in this cluster")
-                }
-            case .failure(let error):
-                self?.showAlert(withTitle: "An error occurred: \(error.localizedDescription)", and: "Please try another hydrant")
-            }
+    // Shows cluster or hydrant info. Returns false if couldn't parse data.
+    private func handleTap(queriedFeature: QueriedFeature) -> Bool {
+        if let selectedFeatureProperties = queriedFeature.feature.properties,
+           case let .string(featureInformation) = selectedFeatureProperties["ASSETNUM"],
+           case let .string(location) = selectedFeatureProperties["LOCATIONDETAIL"] {
+            showAlert(withTitle: "Hydrant \(featureInformation)", and: "\(location)")
+            // If the feature is a cluster, it will have `point_count` and `cluster_id` properties.
+            // These are assigned when the cluster is created.
+            return true
         }
-    }
 
-    // Present an alert with a given title and message.
-    func showAlert(withTitle title: String, and message: String) {
-        let alertController = UIAlertController(title: title,
-                                                message: message,
-                                                preferredStyle: .alert)
-
-        alertController.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-
-        present(alertController, animated: true, completion: nil)
+        if let selectedFeatureProperties = queriedFeature.feature.properties,
+           case let .number(pointCount) = selectedFeatureProperties["point_count"],
+           case let .number(clusterId) = selectedFeatureProperties["cluster_id"],
+           case let .number(maxFlow) = selectedFeatureProperties["max"],
+           case let .number(sum) = selectedFeatureProperties["sum"],
+           case let .boolean(in_e9) = selectedFeatureProperties["in_e9"] {
+            // If the tap landed on a cluster, pass the cluster ID and point count to the alert.
+            let inEngineNine = in_e9 ? "Some hydrants belong to Engine 9." : "No hydrants belong to Engine 9."
+            showAlert(withTitle: "Cluster ID \(Int(clusterId))", and: "There are \(Int(pointCount)) hydrants in this cluster. The highest water flow is \(Int(maxFlow)) and the collective flow is \(Int(sum)). \(inEngineNine)")
+            return true
+        }
+        return false
     }
 }

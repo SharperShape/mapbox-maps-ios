@@ -1,10 +1,18 @@
 import XCTest
 @testable import MapboxMaps
 
-//swiftlint:disable explicit_top_level_acl explicit_acl
 class StyleURITests: XCTestCase {
 
     // MARK: - Tests
+
+    private func getRealFileURL() throws -> String {
+        let path = try XCTUnwrap(Bundle.mapboxMapsTests.path(forResource: "empty-style-chicago", ofType: "json"))
+        if #available(iOS 16.0, *) {
+            return URL(filePath: path).absoluteString
+        } else {
+            return URL(fileURLWithPath: path).absoluteString
+        }
+    }
 
     func testCustomVersions() throws {
         checkCustomStyleURI(with: "mapbox://styles/mapbox/streets-v10")
@@ -13,15 +21,22 @@ class StyleURITests: XCTestCase {
         checkCustomStyleURI(with: "mapbox://styles/mapbox/dark-v9")
         checkCustomStyleURI(with: "mapbox://styles/mapbox/satellite-v8")
         checkCustomStyleURI(with: "mapbox://styles/mapbox/satellite-streets-v10")
+        checkCustomStyleURI(with: "mapbox://styles/mapbox/standard")
+        checkCustomStyleURI(with: "https://foo")
+        checkCustomStyleURI(with: "https://foo.bar/baz")
+        checkCustomStyleURI(with: "https://foo/baz")
+        checkCustomStyleURI(with: try getRealFileURL())
+        checkCustomStyleURI(with: "file:///root")
     }
 
     func testDefaultStyleURIs() throws {
-        checkDefaultStyleURI(with: "mapbox://styles/mapbox/streets-v11", expected: .streets)
-        checkDefaultStyleURI(with: "mapbox://styles/mapbox/outdoors-v11", expected: .outdoors)
-        checkDefaultStyleURI(with: "mapbox://styles/mapbox/light-v10", expected: .light)
-        checkDefaultStyleURI(with: "mapbox://styles/mapbox/dark-v10", expected: .dark)
+        checkDefaultStyleURI(with: "mapbox://styles/mapbox/streets-v12", expected: .streets)
+        checkDefaultStyleURI(with: "mapbox://styles/mapbox/outdoors-v12", expected: .outdoors)
+        checkDefaultStyleURI(with: "mapbox://styles/mapbox/light-v11", expected: .light)
+        checkDefaultStyleURI(with: "mapbox://styles/mapbox/dark-v11", expected: .dark)
         checkDefaultStyleURI(with: "mapbox://styles/mapbox/satellite-v9", expected: .satellite)
-        checkDefaultStyleURI(with: "mapbox://styles/mapbox/satellite-streets-v11", expected: .satelliteStreets)
+        checkDefaultStyleURI(with: "mapbox://styles/mapbox/satellite-streets-v12", expected: .satelliteStreets)
+        checkDefaultStyleURI(with: "mapbox://styles/mapbox/standard", expected: .standard)
     }
 
     func testInvalidStyleURIs() throws {

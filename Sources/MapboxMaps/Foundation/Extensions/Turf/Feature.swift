@@ -1,3 +1,4 @@
+/// An object representing a spatially bounded geometry.
 public typealias Feature = Turf.Feature
 
 extension Feature {
@@ -49,9 +50,10 @@ extension MapboxCommon.Feature {
         // The closest thing would be an empty GeometryCollection.
         let nonNullGeometry = feature.geometry ?? .geometryCollection(.init(geometries: []))
         let geometry = MapboxCommon.Geometry(nonNullGeometry)
+        let properties = feature.properties?.compactMapValues(\.?.rawValue) as? [String: NSObject]
 
         self.init(identifier: identifier,
                   geometry: geometry,
-                  properties: (feature.properties?.rawValue as? [String: NSObject]) ?? [:])
+                  properties: properties ?? [:])
     }
 }

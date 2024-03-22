@@ -25,7 +25,7 @@ public final class CameraAnimationsManager {
     // MARK: High-Level Animation APIs
 
     /// Moves the viewpoint to a different location using a transition animation that
-    /// evokes powered flight and an optional transition duration and timing function
+    /// evokes powered flight and an optional transition duration and timing function.
     /// It seamlessly incorporates zooming and panning to help
     /// the user find his or her bearings even after traversing a great distance.
     ///
@@ -34,13 +34,17 @@ public final class CameraAnimationsManager {
     ///         not be animated.
     ///   - duration: Duration of the animation, measured in seconds. If nil, a suitable calculated
     ///               duration is used.
+    ///   - curve: The easing curve for the animation
     ///   - completion: Completion handler called when the animation stops
     /// - Returns: An instance of `Cancelable` which can be canceled if necessary
     @discardableResult
-    public func fly(to: CameraOptions,
-                    duration: TimeInterval? = nil,
-                    completion: AnimationCompletion? = nil) -> Cancelable? {
-        return impl.fly(to: to, duration: duration, completion: completion)
+    public func fly(
+        to: CameraOptions,
+        duration: TimeInterval? = nil,
+        curve: TimingCurve = .easeOut,
+        completion: AnimationCompletion? = nil
+    ) -> Cancelable {
+        return impl.fly(to: to, duration: duration, curve: curve, completion: completion)
     }
 
     /// Ease the camera to a destination
@@ -54,10 +58,12 @@ public final class CameraAnimationsManager {
     ///   - completion: completion to be called after animation
     /// - Returns: An instance of `Cancelable` which can be canceled if necessary
     @discardableResult
-    public func ease(to: CameraOptions,
-                     duration: TimeInterval,
-                     curve: UIView.AnimationCurve = .easeOut,
-                     completion: AnimationCompletion? = nil) -> Cancelable? {
+    public func ease(
+        to: CameraOptions,
+        duration: TimeInterval,
+        curve: UIView.AnimationCurve = .easeOut,
+        completion: AnimationCompletion? = nil
+    ) -> Cancelable {
         return impl.ease(
             to: to,
             duration: duration,

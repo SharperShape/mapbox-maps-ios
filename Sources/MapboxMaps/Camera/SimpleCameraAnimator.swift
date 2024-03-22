@@ -12,7 +12,7 @@ internal protocol SimpleCameraAnimatorProtocol: CameraAnimatorProtocol {
 /// This animator has some overlap in functionality with ``BasicCameraAnimator``; however, since it
 /// uses direct interpolation rather than interpolation via ``CameraView``, it has a simpler implementation
 /// and enables more advanced use cases like dynamically updating ``SimpleCameraAnimator/to``.
-internal final class SimpleCameraAnimator: NSObject, SimpleCameraAnimatorProtocol {
+internal final class SimpleCameraAnimator: SimpleCameraAnimatorProtocol {
     private enum InternalState: Equatable {
         case initial
         case running(startDate: Date)
@@ -21,6 +21,9 @@ internal final class SimpleCameraAnimator: NSObject, SimpleCameraAnimatorProtoco
 
     /// The animator's owner
     internal let owner: AnimationOwner
+
+    /// Type of the embeded animation
+    internal let animationType: AnimationType
 
     private let from: CameraOptions
 
@@ -102,6 +105,7 @@ internal final class SimpleCameraAnimator: NSObject, SimpleCameraAnimatorProtoco
                   duration: TimeInterval,
                   curve: TimingCurve,
                   owner: AnimationOwner,
+                  type: AnimationType = .unspecified,
                   mapboxMap: MapboxMapProtocol,
                   mainQueue: MainQueueProtocol,
                   cameraOptionsInterpolator: CameraOptionsInterpolatorProtocol,
@@ -111,11 +115,11 @@ internal final class SimpleCameraAnimator: NSObject, SimpleCameraAnimatorProtoco
         self.duration = duration
         self.unitBezier = UnitBezier(p1: curve.p1, p2: curve.p2)
         self.owner = owner
+        self.animationType = type
         self.mapboxMap = mapboxMap
         self.mainQueue = mainQueue
         self.cameraOptionsInterpolator = cameraOptionsInterpolator
         self.dateProvider = dateProvider
-        super.init()
     }
 
     internal func startAnimation() {

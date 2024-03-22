@@ -14,9 +14,12 @@ final class GestureManagerTests: XCTestCase {
     var quickZoomGestureHandler: MockFocusableGestureHandler!
     var singleTapGestureHandler: GestureHandler!
     var anyTouchGestureHandler: GestureHandler!
+    var interruptDecelerationGestureHandler: GestureHandler!
     var gestureManager: GestureManager!
     // swiftlint:disable:next weak_delegate
     var delegate: MockGestureManagerDelegate!
+    var mapContentGestureManager: MockMapContentGestureManager!
+    var tokens = Set<AnyCancelable>()
 
     override func setUp() {
         super.setUp()
@@ -35,6 +38,8 @@ final class GestureManagerTests: XCTestCase {
         quickZoomGestureHandler = MockFocusableGestureHandler(gestureRecognizer: MockGestureRecognizer())
         singleTapGestureHandler = makeGestureHandler()
         anyTouchGestureHandler = makeGestureHandler()
+        interruptDecelerationGestureHandler = makeGestureHandler()
+        mapContentGestureManager = MockMapContentGestureManager()
         gestureManager = GestureManager(
             panGestureHandler: panGestureHandler,
             pinchGestureHandler: pinchGestureHandler,
@@ -45,12 +50,15 @@ final class GestureManagerTests: XCTestCase {
             quickZoomGestureHandler: quickZoomGestureHandler,
             singleTapGestureHandler: singleTapGestureHandler,
             anyTouchGestureHandler: anyTouchGestureHandler,
-            mapboxMap: mapboxMap)
+            interruptDecelerationGestureHandler: interruptDecelerationGestureHandler,
+            mapboxMap: mapboxMap,
+            mapContentGestureManager: mapContentGestureManager)
         delegate = MockGestureManagerDelegate()
         gestureManager.delegate = delegate
     }
 
     override func tearDown() {
+        tokens.removeAll()
         delegate = nil
         gestureManager = nil
         anyTouchGestureHandler = nil
@@ -63,6 +71,7 @@ final class GestureManagerTests: XCTestCase {
         panGestureHandler = nil
         cameraAnimationsManager = nil
         mapboxMap = nil
+        mapContentGestureManager = nil
         super.tearDown()
     }
 
@@ -140,20 +149,12 @@ final class GestureManagerTests: XCTestCase {
         XCTAssertTrue(quickZoomGestureHandler.delegate === gestureManager)
     }
 
-    func testPinchGestureRecognizerRequiresPanGestureRecognizerToFail() throws {
-        let pinchGestureRecognizer = try XCTUnwrap(pinchGestureHandler.gestureRecognizer as? MockGestureRecognizer)
+    func testPanGestureRecognizerRequiresPitchGestureRecognizerToFail() throws {
+        let panGestureRecognizer = try XCTUnwrap(panGestureHandler.gestureRecognizer as? MockGestureRecognizer)
 
-        XCTAssertEqual(pinchGestureRecognizer.requireToFailStub.invocations.count, 1)
-        XCTAssertTrue(pinchGestureRecognizer.requireToFailStub.invocations.first?.parameters
-                        === panGestureHandler.gestureRecognizer)
-    }
-
-    func testPitchGestureRecognizerRequiresPanGestureRecognizerToFail() throws {
-        let pitchGestureRecognizer = try XCTUnwrap(pitchGestureHandler.gestureRecognizer as? MockGestureRecognizer)
-
-        XCTAssertEqual(pitchGestureRecognizer.requireToFailStub.invocations.count, 1)
-        XCTAssertTrue(pitchGestureRecognizer.requireToFailStub.invocations.first?.parameters
-                        === panGestureHandler.gestureRecognizer)
+        XCTAssertEqual(panGestureRecognizer.requireToFailStub.invocations.count, 1)
+        XCTAssertTrue(panGestureRecognizer.requireToFailStub.invocations.first?.parameters
+                        === pitchGestureHandler.gestureRecognizer)
     }
 
     func testQuickZoomGestureRecognizerRequiresDoubleTapToZoomInGestureRecognizerToFail() throws {
@@ -180,7 +181,7 @@ final class GestureManagerTests: XCTestCase {
         XCTAssertEqual(delegate.gestureDidBeginStub.invocations.count, 1, "GestureBegan should have been invoked once. It was called \(delegate.gestureDidBeginStub.invocations.count) times.")
         XCTAssertTrue(delegate.gestureDidBeginStub.invocations.first?.parameters.gestureManager === gestureManager)
         XCTAssertEqual(delegate.gestureDidBeginStub.invocations.first?.parameters.gestureType, gestureType)
-        XCTAssertEqual(mapboxMap.beginGestureStub.invocations.count, 1)
+        XCTAssertEqual(mapboxMap.beginGestureStub.invocations.count, gestureType.isContinuous ? 1 : 0)
     }
 
     func testGestureEnded() throws {
@@ -194,7 +195,7 @@ final class GestureManagerTests: XCTestCase {
         XCTAssertEqual(delegate.gestureDidEndStub.invocations.first?.parameters.gestureType, gestureType)
         let willAnimateValue = try XCTUnwrap(delegate.gestureDidEndStub.invocations.first?.parameters.willAnimate)
         XCTAssertEqual(willAnimateValue, willAnimate)
-        XCTAssertEqual(mapboxMap.endGestureStub.invocations.count, 1)
+        XCTAssertEqual(mapboxMap.endGestureStub.invocations.count, (gestureType.isContinuous && !willAnimate) ? 1 : 0)
     }
 
     func testAnimationEnded() {
@@ -205,6 +206,7 @@ final class GestureManagerTests: XCTestCase {
         XCTAssertEqual(delegate.gestureDidEndAnimatingStub.invocations.count, 1, "animationEnded should have been invoked once. It was called \(delegate.gestureDidEndAnimatingStub.invocations.count) times.")
         XCTAssertTrue(delegate.gestureDidEndAnimatingStub.invocations.first?.parameters.gestureManager === gestureManager)
         XCTAssertEqual(delegate.gestureDidEndAnimatingStub.invocations.first?.parameters.gestureType, gestureType)
+        XCTAssertEqual(mapboxMap.endGestureStub.invocations.count, gestureType.isContinuous ? 1 : 0)
     }
 
     func testOptionsPanEnabled() {
@@ -458,27 +460,27 @@ final class GestureManagerTests: XCTestCase {
 
     func testOptionsPinchPanEnabled() {
         XCTAssertTrue(gestureManager.options.pinchPanEnabled)
-        XCTAssertTrue(pinchGestureHandler.panEnabled)
+        XCTAssertTrue(panGestureHandler.multiFingerPanEnabled)
 
         gestureManager.options.pinchPanEnabled = false
 
         XCTAssertFalse(gestureManager.options.pinchPanEnabled)
-        XCTAssertFalse(pinchGestureHandler.panEnabled)
+        XCTAssertFalse(panGestureHandler.multiFingerPanEnabled)
 
         gestureManager.options.pinchPanEnabled = true
 
         XCTAssertTrue(gestureManager.options.pinchPanEnabled)
-        XCTAssertTrue(pinchGestureHandler.panEnabled)
+        XCTAssertTrue(panGestureHandler.multiFingerPanEnabled)
 
-        pinchGestureHandler.panEnabled = false
+        panGestureHandler.multiFingerPanEnabled = false
 
         XCTAssertFalse(gestureManager.options.pinchPanEnabled)
-        XCTAssertFalse(pinchGestureHandler.panEnabled)
+        XCTAssertFalse(panGestureHandler.multiFingerPanEnabled)
 
-        pinchGestureHandler.panEnabled = true
+        panGestureHandler.multiFingerPanEnabled = true
 
         XCTAssertTrue(gestureManager.options.pinchPanEnabled)
-        XCTAssertTrue(pinchGestureHandler.panEnabled)
+        XCTAssertTrue(panGestureHandler.multiFingerPanEnabled)
     }
 
     func testOptionsFocalPoint() {
@@ -519,40 +521,92 @@ final class GestureManagerTests: XCTestCase {
         XCTAssertFalse(pinchGestureHandler.simultaneousRotateAndPinchZoomEnabled)
     }
 
-    func testBalancedConsecutivePinchDelegateEvents() {
-        gestureManager.gestureBegan(for: .pinch)
-        XCTAssertEqual(delegate.gestureDidBeginStub.invocations.count, 1)
+    func testPropagatesBeginGestureWhenGestureBegins() {
+        let gestureTypes = GestureType.allCases
 
-        gestureManager.gestureBegan(for: .pinch)
+        for type in gestureTypes {
+            mapboxMap.beginGestureStub.reset()
+            gestureManager.gestureBegan(for: type)
 
-        XCTAssertEqual(delegate.gestureDidBeginStub.invocations.count, 1)
-
-        gestureManager.gestureEnded(for: .pinch, willAnimate: false)
-        XCTAssertEqual(delegate.gestureDidEndStub.invocations.count, 0)
-
-        gestureManager.gestureEnded(for: .pinch, willAnimate: false)
-        XCTAssertEqual(delegate.gestureDidEndStub.invocations.count, 1)
+            XCTAssertEqual(mapboxMap.beginGestureStub.invocations.count, type.isContinuous ? 1 : 0)
+        }
     }
 
-    func testBalancedMixedPinchDelegateEvents() {
-        gestureManager.gestureBegan(for: .pinch)
-        gestureManager.gestureBegan(for: .pinch)
-        XCTAssertEqual(delegate.gestureDidBeginStub.invocations.count, 1)
+    func testPropagatesEndGestureWhenGestureEndsWithoutAnimation() {
+        let gestureTypes = GestureType.allCases
 
-        gestureManager.gestureEnded(for: .pinch, willAnimate: false)
-        XCTAssertEqual(delegate.gestureDidEndStub.invocations.count, 0)
+        for type in gestureTypes {
+            mapboxMap.endGestureStub.reset()
+            gestureManager.gestureEnded(for: type, willAnimate: false)
 
-        gestureManager.gestureBegan(for: .pinch)
-        XCTAssertEqual(delegate.gestureDidBeginStub.invocations.count, 1)
-
-        gestureManager.gestureEnded(for: .pinch, willAnimate: false)
-        gestureManager.gestureEnded(for: .pinch, willAnimate: false)
-        XCTAssertEqual(delegate.gestureDidEndStub.invocations.count, 1)
+            XCTAssertEqual(mapboxMap.endGestureStub.invocations.count, type.isContinuous ? 1 : 0)
+        }
     }
 
-    func testRotationUpdateScheduledAfterPinchUpdate() {
-        gestureManager.pinchGestureHandlerDidUpdateGesture(pinchGestureHandler)
+    func testDoesNotPropagateEndGestureWhenGestureEndsWithAnimation() {
+        let gestureTypes = GestureType.allCases
 
-        XCTAssertEqual(rotateGestureHandler.scheduleRotationUpdateIfNeededStub.invocations.count, 1)
+        for type in gestureTypes {
+            mapboxMap.endGestureStub.reset()
+            gestureManager.gestureEnded(for: type, willAnimate: true)
+
+            XCTAssertEqual(mapboxMap.endGestureStub.invocations.count, 0)
+        }
+    }
+
+    func testPropagatesEndGestureWhenGestureAnimationEnds() {
+        let gestureTypes = GestureType.allCases
+
+        for type in gestureTypes {
+            mapboxMap.endGestureStub.reset()
+            gestureManager.animationEnded(for: type)
+
+            XCTAssertEqual(mapboxMap.endGestureStub.invocations.count, type.isContinuous ? 1 : 0)
+        }
+    }
+
+    func testContentGestures() {
+        let onTapGesture = Stub<MapContentGestureContext, Void>()
+        let onLongPressGesture = Stub<MapContentGestureContext, Void>()
+        let onLayerTapGesture = Stub<(QueriedFeature, MapContentGestureContext), Bool>(defaultReturnValue: true)
+        let onLayerLongPressGesture = Stub<(QueriedFeature, MapContentGestureContext), Bool>(defaultReturnValue: true)
+
+        gestureManager.onMapTap.observe(onTapGesture.call(with:)).store(in: &tokens)
+        gestureManager.onMapLongPress.observe(onLongPressGesture.call(with:)).store(in: &tokens)
+        gestureManager.onLayerTap("layer1") {  onLayerTapGesture.call(with: ($0, $1)) }.store(in: &tokens)
+        gestureManager.onLayerLongPress("layer1") {  onLayerLongPressGesture.call(with: ($0, $1)) }.store(in: &tokens)
+
+        let point = CGPoint(x: 10, y: 20)
+        let coordinate = CLLocationCoordinate2D(latitude: 30, longitude: 40)
+        let context = MapContentGestureContext(point: point, coordinate: coordinate)
+
+        mapContentGestureManager.$onMapTap.send(context)
+        XCTAssertEqual(onTapGesture.invocations.count, 1)
+        XCTAssertEqual(onTapGesture.invocations.first?.parameters.point, point)
+        XCTAssertEqual(onTapGesture.invocations.first?.parameters.coordinate, coordinate)
+
+        mapContentGestureManager.$onMapLongPress.send(context)
+        XCTAssertEqual(onLongPressGesture.invocations.count, 1)
+        XCTAssertEqual(onLongPressGesture.invocations.first?.parameters.point, point)
+        XCTAssertEqual(onLongPressGesture.invocations.first?.parameters.coordinate, coordinate)
+
+        let feature = Feature(geometry: Point(coordinate))
+        let queriedFeature = QueriedFeature(
+            __feature: MapboxCommon.Feature(feature),
+            source: "src",
+            sourceLayer: "src-layer",
+            state: [String: Any]())
+
+        mapContentGestureManager.simulateLayerTap(layerId: "layer1", queriedFeature: queriedFeature, context: context)
+        XCTAssertEqual(onLayerTapGesture.invocations.count, 1)
+        XCTAssertEqual(onLayerTapGesture.invocations.first?.parameters.0, queriedFeature)
+        XCTAssertEqual(onLayerTapGesture.invocations.first?.parameters.1.point, point)
+        XCTAssertEqual(onLayerTapGesture.invocations.first?.parameters.1.coordinate, coordinate)
+
+        mapContentGestureManager.simulateLayerLongPress(layerId: "layer1", queriedFeature: queriedFeature, context: context)
+        XCTAssertEqual(onLayerLongPressGesture.invocations.count, 1)
+        XCTAssertEqual(onLayerLongPressGesture.invocations.first?.parameters.0, queriedFeature)
+        XCTAssertEqual(onLayerLongPressGesture.invocations.first?.parameters.1.point, point)
+        XCTAssertEqual(onLayerLongPressGesture.invocations.first?.parameters.1.coordinate, coordinate)
     }
 }

@@ -1,14 +1,11 @@
 import UIKit
 import MapboxMaps
 
-@objc(FeatureStateExample)
-public class FeatureStateExample: UIViewController, ExampleProtocol {
-
+final class FeatureStateExample: UIViewController, ExampleProtocol {
     private var mapView: MapView!
-    fileprivate var descriptionView: EarthquakeDescriptionView!
-    static let earthquakeSourceId: String = "earthquakes"
-    static let earthquakeLayerId: String = "earthquake-viz"
+    private var descriptionView: EarthquakeDescriptionView!
     private var previouslyTappedEarthquakeId: String = ""
+    private var cancelables = Set<AnyCancelable>()
 
     private lazy var dateFormatter: DateFormatter = {
         let dateFormatter = DateFormatter()
@@ -19,7 +16,7 @@ public class FeatureStateExample: UIViewController, ExampleProtocol {
         return dateFormatter
     }()
 
-    override public func viewDidLoad() {
+    override func viewDidLoad() {
         super.viewDidLoad()
 
         // Center the map over the United States.
@@ -42,23 +39,22 @@ public class FeatureStateExample: UIViewController, ExampleProtocol {
         descriptionView.widthAnchor.constraint(equalToConstant: 200).isActive = true
         descriptionView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 2.0).isActive = true
 
-        mapView.mapboxMap.onNext(event: .mapLoaded) { [weak self] _ in
-            guard let self = self else { return }
-
-            self.setupSourceAndLayer()
-
-            // Set up tap gesture
-            let tapGesture = UITapGestureRecognizer(target: self, action: #selector(self.findFeatures))
-            self.mapView.addGestureRecognizer(tapGesture)
+        mapView.mapboxMap.onMapLoaded.observeNext { [weak self] _ in
+            self?.setupSourceAndLayer()
 
             // The below lines are used for internal testing purposes only.
-            DispatchQueue.main.asyncAfter(deadline: .now()+3.0) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
                 self?.finish()
             }
-        }
+        }.store(in: &cancelables)
+
+        mapView.gestures.onLayerTap("earthquake-viz") { [weak self] queriedFeature, _ in
+            self?.handleTappedFeature(queriedFeature)
+            return true
+        }.store(in: &cancelables)
     }
 
-    public func setupSourceAndLayer() {
+    func setupSourceAndLayer() {
 
         // Create a new GeoJSON data source which gets its data from an external URL.
         guard let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) else {
@@ -75,19 +71,18 @@ public class FeatureStateExample: UIViewController, ExampleProtocol {
             preconditionFailure("URL is not valid")
         }
 
-        var earthquakeSource = GeoJSONSource()
+        var earthquakeSource = GeoJSONSource(id: Self.earthquakeSourceId)
         earthquakeSource.data = .url(earthquakeURL)
         earthquakeSource.generateId = true
 
         do {
-            try mapView.mapboxMap.style.addSource(earthquakeSource, id: Self.earthquakeSourceId)
+            try mapView.mapboxMap.addSource(earthquakeSource)
         } catch {
             print("Ran into an error adding a source: \(error)")
         }
 
         // Add earthquake-viz layer
-        var earthquakeVizLayer = CircleLayer(id: Self.earthquakeLayerId)
-        earthquakeVizLayer.source = Self.earthquakeSourceId
+        var earthquakeVizLayer = CircleLayer(id: Self.earthquakeLayerId, source: Self.earthquakeSourceId)
 
         // The feature-state dependent circle-radius expression will render
         // the radius size according to its magnitude when
@@ -168,56 +163,36 @@ public class FeatureStateExample: UIViewController, ExampleProtocol {
         earthquakeVizLayer.circleColorTransition = StyleTransition(duration: 0.5, delay: 0)
 
         do {
-            try mapView.mapboxMap.style.addLayer(earthquakeVizLayer)
+            try mapView.mapboxMap.addLayer(earthquakeVizLayer)
         } catch {
             print("Ran into an error adding a layer: \(error)")
         }
     }
 
-    /**
-     Use the tap point received from the gesture recognizer to query
-     the map for rendered features at the given point within the layer specified.
-     */
-    @objc public func findFeatures(_ sender: UITapGestureRecognizer) {
-        let tapPoint = sender.location(in: mapView)
+    private func handleTappedFeature(_ queriedFeature: QueriedFeature) {
+        let earthquakeFeature = queriedFeature.feature
+        if case .number(let earthquakeIdDouble) = earthquakeFeature.identifier,
+           case .point(let point) = earthquakeFeature.geometry,
+           case let .number(magnitude) = earthquakeFeature.properties?["mag"],
+           case let .string(place) = earthquakeFeature.properties?["place"],
+           case let .number(timestamp) = earthquakeFeature.properties?["time"] {
 
-        mapView.mapboxMap.queryRenderedFeatures(
-            at: tapPoint,
-            options: RenderedQueryOptions(layerIds: ["earthquake-viz"], filter: nil)) { [weak self] result in
+            let earthquakeId = Int(earthquakeIdDouble).description
 
-            guard let self = self else { return }
+            // Set the description of the earthquake from the `properties` object
+            self.setDescription(magnitude: magnitude, timeStamp: timestamp, location: place)
 
-            switch result {
-            case .success(let queriedfeatures):
+            // Set the earthquake to be "selected"
+            self.setSelectedState(earthquakeId: earthquakeId)
 
-                // Extract the earthquake feature from the queried features
-                if let earthquakeFeature = queriedfeatures.first?.feature,
-                   case .number(let earthquakeIdDouble) = earthquakeFeature.identifier,
-                   case .point(let point) = earthquakeFeature.geometry,
-                   case let .number(magnitude) = earthquakeFeature.properties?["mag"],
-                   case let .string(place) = earthquakeFeature.properties?["place"],
-                   case let .number(timestamp) = earthquakeFeature.properties?["time"] {
+            // Reset a previously tapped earthquake to be "unselected".
+            self.resetPreviouslySelectedStateIfNeeded(currentTappedEarthquakeId: earthquakeId)
 
-                    let earthquakeId = Int(earthquakeIdDouble).description
+            // Store the currently tapped earthquake so it can be reset when another earthquake is tapped.
+            self.previouslyTappedEarthquakeId = earthquakeId
 
-                    // Set the description of the earthquake from the `properties` object
-                    self.setDescription(magnitude: magnitude, timeStamp: timestamp, location: place)
-
-                    // Set the earthquake to be "selected"
-                    self.setSelectedState(earthquakeId: earthquakeId)
-
-                    // Reset a previously tapped earthquake to be "unselected".
-                    self.resetPreviouslySelectedStateIfNeeded(currentTappedEarthquakeId: earthquakeId)
-
-                    // Store the currently tapped earthquake so it can be reset when another earthquake is tapped.
-                    self.previouslyTappedEarthquakeId = earthquakeId
-
-                    // Center the selected earthquake on the screen
-                    self.mapView.camera.fly(to: CameraOptions(center: point.coordinates, zoom: 10))
-                }
-            case .failure(let error):
-                self.showAlert(with: "An error occurred: \(error.localizedDescription)")
-            }
+            // Center the selected earthquake on the screen
+            self.mapView.camera.fly(to: CameraOptions(center: point.coordinates, zoom: 10))
         }
     }
 
@@ -233,7 +208,14 @@ public class FeatureStateExample: UIViewController, ExampleProtocol {
         self.mapView.mapboxMap.setFeatureState(sourceId: Self.earthquakeSourceId,
                                                sourceLayerId: nil,
                                                featureId: earthquakeId,
-                                               state: ["selected": true])
+                                               state: ["selected": true]) { result in
+            switch result {
+            case .failure(let error):
+                print("Could not retrieve feature state: \(error).")
+            case .success(_):
+                print("Succesfully set feature state.")
+            }
+        }
     }
 
     // Resets the previously selected earthquake to be "unselected" if needed.
@@ -245,12 +227,19 @@ public class FeatureStateExample: UIViewController, ExampleProtocol {
             self.mapView.mapboxMap.setFeatureState(sourceId: Self.earthquakeSourceId,
                                                     sourceLayerId: nil,
                                                     featureId: self.previouslyTappedEarthquakeId,
-                                                    state: ["selected": false])
+                                                   state: ["selected": false]) { result in
+                switch result {
+                case .failure(let error):
+                    print("Could not retrieve feature state: \(error).")
+                case .success(_):
+                    print("Succesfully set feature state.")
+                }
+            }
         }
     }
 
     // Present an alert with a given title.
-    public func showAlert(with title: String) {
+    func showAlert(with title: String) {
         let alertController = UIAlertController(title: title,
                                                 message: nil,
                                                 preferredStyle: .alert)
@@ -318,4 +307,9 @@ private class EarthquakeDescriptionView: UIView {
         stackview.bottomAnchor.constraint(equalTo: self.bottomAnchor).isActive = true
 
     }
+}
+
+private extension FeatureStateExample {
+    static let earthquakeSourceId: String = "earthquakes"
+    static let earthquakeLayerId: String = "earthquake-viz"
 }

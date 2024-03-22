@@ -1,6 +1,8 @@
 import UIKit
 
 public protocol CameraAnimator: Cancelable {
+    /// The animation's owner.
+    var owner: AnimationOwner { get }
 
     /// Stops the animation and calls any provided completion. Does nothing if the animator has already
     /// completed.
@@ -12,8 +14,8 @@ public protocol CameraAnimator: Cancelable {
 
 /// Internal-facing protocol to represent camera animators
 internal protocol CameraAnimatorProtocol: CameraAnimator {
-    /// The animation's owner.
-    var owner: AnimationOwner { get }
+    /// Type of the embeded animation
+    var animationType: AnimationType { get }
 
     /// Implementations must use a weak reference.
     var delegate: CameraAnimatorDelegate? { get set }

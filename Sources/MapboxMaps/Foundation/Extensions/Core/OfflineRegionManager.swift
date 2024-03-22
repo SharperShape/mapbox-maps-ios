@@ -1,14 +1,6 @@
-@_implementationOnly import MapboxCoreMaps_Private
-
 /// :nodoc:
 @available(*, deprecated)
 extension OfflineRegionManager {
-
-    /// Construct a new offline manager.
-    /// - Parameter resourceOptions: The resource options of the manager.
-    public convenience init(resourceOptions: ResourceOptions) {
-        self.init(resourceOptions: MapboxCoreMaps.ResourceOptions(resourceOptions))
-    }
 
     /// Retrieve all regions in the offline database.
     ///

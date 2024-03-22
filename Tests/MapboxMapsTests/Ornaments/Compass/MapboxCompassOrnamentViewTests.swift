@@ -2,7 +2,6 @@ import CoreLocation
 import XCTest
 @testable import MapboxMaps
 
-//swiftlint:disable explicit_acl explicit_top_level_acl
 class MapboxCompassOrnamentViewTests: XCTestCase {
 
     func testCompassVisibilityVisible() {
@@ -94,5 +93,46 @@ class MapboxCompassOrnamentViewTests: XCTestCase {
         compass.visibility = .adaptive
         // Then
         XCTAssertFalse(compass.containerView.isHidden)
+    }
+
+    func testCustomCompassImage() {
+        // Given
+        let compass = MapboxCompassOrnamentView()
+        // When
+        let originalImage = compass.containerView.image
+        // Then
+        XCTAssertNotNil(originalImage)
+
+        // Given
+        let expectedImage = UIImage.emptyImage(with: CGSize(width: 25, height: 25))
+        // When
+        compass.updateImage(image: expectedImage)
+        // Then
+        XCTAssertTrue(compass.containerView.image!.isEqual(expectedImage))
+        // And
+        XCTAssertFalse(compass.containerView.image!.isEqual(originalImage))
+    }
+
+    func testReturningDefaultCompassImage() {
+        // Given
+        let compass = MapboxCompassOrnamentView()
+        let originalImageData = compass.containerView.image?.pngData()
+        let customImage = UIImage.emptyImage(with: CGSize(width: 25, height: 25))
+
+        // When
+        compass.updateImage(image: customImage)
+
+        // Then
+        XCTAssertEqual(compass.containerView.image, customImage)
+
+        // When
+        compass.updateImage(image: nil)
+
+        // Then
+        XCTAssertNotEqual(compass.containerView.image, customImage)
+        // And
+        XCTAssertNotNil(compass.containerView.image)
+        // And
+        XCTAssertEqual(compass.containerView.image?.pngData(), originalImageData)
     }
 }

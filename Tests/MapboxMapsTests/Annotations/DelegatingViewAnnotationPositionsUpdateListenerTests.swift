@@ -1,23 +1,20 @@
 import XCTest
 @testable import MapboxMaps
 
-final class DelegatingViewAnnotationPositionsUpdateListenerTests: XCTestCase {
+final class ViewAnnotationPositionsUpdateListenerImplTests: XCTestCase {
 
     func testOnViewAnnotationPositionsUpdate() {
-        let receiver = MockDelegatingViewAnnotationPositionsUpdateListenerDelegate()
-        let delegatingPositionsListener = DelegatingViewAnnotationPositionsUpdateListener()
-        delegatingPositionsListener.delegate = receiver
+        let stub = Stub<[ViewAnnotationPositionDescriptor], Void>()
+        let me = ViewAnnotationPositionsUpdateListenerImpl(callback: stub.call(with:))
 
         let descriptor = ViewAnnotationPositionDescriptor(
             identifier: "test",
-            width: 100,
-            height: 50,
-            leftTopCoordinate: CGPoint(x: 100.0, y: 100.0)
+            frame: .init(x: 100, y: 100, width: 100, height: 50)
         )
 
-        delegatingPositionsListener.onViewAnnotationPositionsUpdate(forPositions: [descriptor])
+        me.onViewAnnotationPositionsUpdate(forPositions: [descriptor])
 
-        XCTAssertEqual(receiver.onViewAnnotationPositionsUpdateStub.invocations.last?.parameters, [descriptor])
+        XCTAssertEqual(stub.invocations.last?.parameters, [descriptor])
     }
 
 }

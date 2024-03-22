@@ -7,6 +7,10 @@ CLA_SIGNED_GITHUB_EMAIL="it-admin+mapboxci@mapbox.com"
 
 TMP_ROOT=$(mktemp -d)
 WORKTREE_TO_REMOVE=""
+STAGING_ONLY=false
+EXTRA_EMPTY_COMMIT=false
+
+# shellcheck disable=SC2317
 cleanup() {
     if [[ -d $WORKTREE_TO_REMOVE ]]
     then
@@ -15,8 +19,9 @@ cleanup() {
 
     git -C "$SCRIPT_DIR" worktree prune
     rm -rf "$TMP_ROOT"
+    exit "$1"
 }
-trap cleanup INT TERM HUP EXIT
+trap 'cleanup $?' INT TERM HUP EXIT
 
 # shellcheck source=../utils.sh
 source "$UTILS_PATH"
@@ -25,13 +30,16 @@ main() {
     # Check that version env exists
     [ -n "$VERSION" ]
     brew_install_if_needed jq
+    git_configure_release_user
+    git config user.email "$CLA_SIGNED_GITHUB_EMAIL"
+
+    if [ "$STAGING_ONLY" = true ]; then
+        step "Update mapbox/maps-ios@publisher-staging"
+        maps_ios_upload_docs
+        exit 0
+    fi
+
     brew_install_if_needed gh
-
-    step "Update mapbox/maps-ios@publisher-staging"
-    maps_ios_upload_docs
-
-    step "Open mapbox/maps-ios@publisher-production PR"
-    maps_ios_production_docs_pr
 
     step "Update mapbox/ios-sdk"
     ios_sdk_update_versions
@@ -43,9 +51,10 @@ main() {
 }
 
 maps_ios_upload_docs() {
-    info "Checkout publisher-staging worktree"
+    STAGING_BRANCH_NAME="publisher-staging"
+    info "Checkout $STAGING_BRANCH_NAME worktree"
     local staging_docs_path="$TMP_ROOT/docs-staging"
-    git worktree add "$staging_docs_path" "publisher-staging" --quiet
+    git worktree add "$staging_docs_path" "$STAGING_BRANCH_NAME" --quiet
     WORKTREE_TO_REMOVE="$staging_docs_path"
 
     git -C "$staging_docs_path" reset --hard origin/publisher-production --quiet
@@ -64,28 +73,24 @@ maps_ios_upload_docs() {
     git commit -m "Add documentation for v$VERSION" --quiet
 
     info "Push"
-    git push --force --quiet
+    git push --force --verbose
 
-    VERSION_BRANCH_NAME="docs/$VERSION"
-    git checkout -b "$VERSION_BRANCH_NAME"
-    git push --set-upstream origin "$VERSION_BRANCH_NAME" --force --quiet
+    if [ "$STAGING_ONLY" = true ]; then
+        git push --force --verbose
+    else
+        VERSION_BRANCH_NAME="docs/$VERSION"
+        git checkout -b "$VERSION_BRANCH_NAME"
+        git push --set-upstream origin "$VERSION_BRANCH_NAME" --force --verbose
+    fi
+
+    if [ "$EXTRA_EMPTY_COMMIT" = true ]; then
+        info "Add empty commit to trigger CI"
+        sleep 10 # Avoid CI sometimes cancelling the "Trigger CI" build
+        git commit --allow-empty -m "Trigger CI" --quiet
+        git push --force --verbose
+    fi
 
     popd > /dev/null
-}
-
-maps_ios_production_docs_pr() {
-    local body="Update docs for v$VERSION
-[Staging version](https://docs.tilestream.net/ios/maps/api/$VERSION/)"
-
-    PRODUCTION_DOCS_PR_URL=$(GITHUB_TOKEN=$(mbx-ci github writer public token) \
-        gh pr create --repo mapbox/mapbox-maps-ios \
-            --head "$VERSION_BRANCH_NAME" --base "publisher-production" \
-            --draft \
-            --title "Production docs for \`v$VERSION\`" \
-            --body "$body" \
-            --label "docs :scroll:")
-
-    info "New PR: $PRODUCTION_DOCS_PR_URL"
 }
 
 should_update_version() {
@@ -108,7 +113,7 @@ ios_sdk_update_versions() {
     [[ -d $IOS_SDK_REPO_PATH ]] && rm -rf "$IOS_SDK_REPO_PATH"
     git clone "https://x-access-token:$(mbx-ci github writer private token)@github.com/mapbox/ios-sdk.git" "$IOS_SDK_REPO_PATH" --branch publisher-production --depth=1 --quiet
 
-    cd "$IOS_SDK_REPO_PATH" || exit 1
+    pushd "$IOS_SDK_REPO_PATH" || exit 1
 
     IOS_SDK_BRANCH_NAME="maps-sdk/ios/${VERSION}"
 
@@ -135,25 +140,36 @@ ios_sdk_update_versions() {
     git commit -m "Add Maps SDK for iOS ${VERSION} release" --quiet
 
     info "Push"
-    git push --set-upstream origin "${IOS_SDK_BRANCH_NAME}" --force --quiet
+    git push --set-upstream origin "${IOS_SDK_BRANCH_NAME}" --force
 }
 
 ios_sdk_open_pr() {
     local body="* Release ${VERSION} documentation — Maps SDK for iOS
     Staging URL: https://docs.tilestream.net/ios/maps/api/$VERSION/index.html"
+    GITHUB_TOKEN_WRITER=$(mbx-ci github writer private token)
 
-    iOS_DOCS_PR_URL=$(GITHUB_TOKEN=$(mbx-ci github writer private token) \
+    PR_URL=$(GITHUB_TOKEN=$GITHUB_TOKEN_WRITER \
         gh pr create \
             --repo mapbox/ios-sdk \
             --base publisher-production \
             --head "$IOS_SDK_BRANCH_NAME" \
-            --draft \
             --title "[maps] Update for v$VERSION" \
             --label "Maps SDK" \
             --label "update" \
             --body "$body")
+    GITHUB_TOKEN="$GITHUB_TOKEN_WRITER" gh pr merge --auto --squash "$PR_URL"
 
-    info "New PR: $iOS_DOCS_PR_URL"
+    repeat_command_until_it_fails "approve_pr" 15 20
+
+    info "New PR: $PR_URL"
+    pwd
+    popd
+    echo "$PR_URL" > "ios-sdk-pr.txt"
+}
+
+# shellcheck disable=SC2317
+approve_pr() {
+    GITHUB_TOKEN=$(mbx-ci github writer private token) gh pr review "$PR_URL" --approve
 }
 
 print_usage () {
@@ -162,22 +178,25 @@ Usage:
         $0 -p docs_path
 
     -p  Path to the generated docs to upload
+    -s  To upload docs to staging only
+    -e  Push an extra empty commit to trigger CI
 HELP_USAGE
 }
 
-while getopts 'p:' flag; do
+while getopts 'p:se' flag; do
 case "${flag}" in
     p)  DOCS_PATH="$OPTARG"
-        if [[ -d $DOCS_PATH ]]; then
-            main
+        if [[ ! -d $DOCS_PATH ]]; then
+            exit 1
         fi
+        ;;
+    s)  STAGING_ONLY=true
+        ;;
+    e)  EXTRA_EMPTY_COMMIT=true
         ;;
     *) print_usage ;;
 esac
 done
 
-if [ $OPTIND -eq 1 ]; then
-    print_usage
-fi
-
-exit 1
+set -x
+main

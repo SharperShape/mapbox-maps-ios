@@ -9,21 +9,17 @@ final class SymbolLayerIntegrationTests: MapViewIntegrationTestCase {
     }
 
     internal func testWaitForIdle() throws {
-        let style = try XCTUnwrap(self.style)
-
         let successfullyAddedLayerExpectation = XCTestExpectation(description: "Successfully added SymbolLayer to Map")
         successfullyAddedLayerExpectation.expectedFulfillmentCount = 1
 
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved SymbolLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        style.uri = .streets
+        mapView.mapboxMap.styleURI = .streets
 
-        didFinishLoadingStyle = { _ in
+        didFinishLoadingStyle = { mapView in
 
-            var layer = SymbolLayer(id: "test-id")
-            layer.source = "some-source"
-            layer.sourceLayer = nil
+            var layer = SymbolLayer(id: "test-id", source: "source")
             layer.minZoom = 10.0
             layer.maxZoom = 20.0
             layer.visibility = .constant(.visible)
@@ -43,6 +39,7 @@ final class SymbolLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.symbolPlacement = Value<SymbolPlacement>.testConstantValue()
             layer.symbolSortKey = Value<Double>.testConstantValue()
             layer.symbolSpacing = Value<Double>.testConstantValue()
+            layer.symbolZElevate = Value<Bool>.testConstantValue()
             layer.symbolZOrder = Value<SymbolZOrder>.testConstantValue()
             layer.textAllowOverlap = Value<Bool>.testConstantValue()
             layer.textAnchor = Value<TextAnchor>.testConstantValue()
@@ -68,18 +65,26 @@ final class SymbolLayerIntegrationTests: MapViewIntegrationTestCase {
 
             layer.iconColor = Value<StyleColor>.testConstantValue()
             layer.iconColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
+            layer.iconColorSaturation = Value<Double>.testConstantValue()
+            layer.iconColorSaturationTransition = StyleTransition(duration: 10.0, delay: 10.0)
+            layer.iconEmissiveStrength = Value<Double>.testConstantValue()
+            layer.iconEmissiveStrengthTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.iconHaloBlur = Value<Double>.testConstantValue()
             layer.iconHaloBlurTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.iconHaloColor = Value<StyleColor>.testConstantValue()
             layer.iconHaloColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.iconHaloWidth = Value<Double>.testConstantValue()
             layer.iconHaloWidthTransition = StyleTransition(duration: 10.0, delay: 10.0)
+            layer.iconImageCrossFade = Value<Double>.testConstantValue()
+            layer.iconImageCrossFadeTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.iconOpacity = Value<Double>.testConstantValue()
             layer.iconOpacityTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.iconTranslateTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.iconTranslateAnchor = Value<IconTranslateAnchor>.testConstantValue()
             layer.textColor = Value<StyleColor>.testConstantValue()
             layer.textColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
+            layer.textEmissiveStrength = Value<Double>.testConstantValue()
+            layer.textEmissiveStrengthTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.textHaloBlur = Value<Double>.testConstantValue()
             layer.textHaloBlurTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.textHaloColor = Value<StyleColor>.testConstantValue()
@@ -93,7 +98,7 @@ final class SymbolLayerIntegrationTests: MapViewIntegrationTestCase {
 
             // Add the layer
             do {
-                try style.addLayer(layer)
+                try mapView.mapboxMap.addLayer(layer)
                 successfullyAddedLayerExpectation.fulfill()
             } catch {
                 XCTFail("Failed to add SymbolLayer because of error: \(error)")
@@ -101,7 +106,7 @@ final class SymbolLayerIntegrationTests: MapViewIntegrationTestCase {
 
             // Retrieve the layer
             do {
-                _ = try style.layer(withId: "test-id", type: SymbolLayer.self)
+                _ = try mapView.mapboxMap.layer(withId: "test-id", type: SymbolLayer.self)
                 successfullyRetrievedLayerExpectation.fulfill()
             } catch {
                 XCTFail("Failed to retrieve SymbolLayer because of error: \(error)")

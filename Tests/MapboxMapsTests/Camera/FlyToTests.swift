@@ -21,7 +21,7 @@ internal class FlyToTests: XCTestCase {
     fileprivate func privateTestFlyTo(s0: CLLocationCoordinate2D, s2: CLLocationCoordinate2D) {
 
         let source = CameraState(
-            MapboxCoreMaps.CameraState(
+            CoreCameraState(
                 center: s0,
                 padding: .init(
                     top: 0,
@@ -80,7 +80,7 @@ internal class FlyToTests: XCTestCase {
             )
 
             let source = CameraState(
-                MapboxCoreMaps.CameraState(
+                CoreCameraState(
                     center: sourceCoord,
                     padding: .init(
                         top: 0,
@@ -129,5 +129,26 @@ internal class FlyToTests: XCTestCase {
                 XCTAssert(pitch <= dest.pitch!, "t=\(t) pitch=\(pitch)")
             }
         }
+    }
+
+    func testFlyToUnprojectLatitudeNaNUseCase() {
+        // given
+        let source = CameraState(
+            center: .init(latitude: 48.19267299999896, longitude: 11.57336700000414),
+            padding: .zero,
+            zoom: 19,
+            bearing: 0,
+            pitch: 0
+        )
+        let dest = CameraOptions(center: .init(latitude: 48.192673, longitude: 11.573367), zoom: 16.5)
+        let flyTo = FlyToInterpolator(
+            from: source,
+            to: dest,
+            cameraBounds: .default,
+            size: CGSize(width: 1920, height: 960)
+        )
+
+        // then
+        XCTAssertNoThrow(flyTo.coordinate(at: 0))
     }
 }

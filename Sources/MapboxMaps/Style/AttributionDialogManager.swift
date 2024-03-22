@@ -1,10 +1,10 @@
 import UIKit
 internal protocol AttributionDataSource: AnyObject {
-    func attributions() -> [Attribution]
+    func loadAttributions(completion: @escaping ([Attribution]) -> Void)
 }
 
 internal protocol AttributionDialogManagerDelegate: AnyObject {
-    func viewControllerForPresenting(_ attributionDialogManager: AttributionDialogManager) -> UIViewController
+    func viewControllerForPresenting(_ attributionDialogManager: AttributionDialogManager) -> UIViewController?
     func attributionDialogManager(_ attributionDialogManager: AttributionDialogManager, didTriggerActionFor attribution: Attribution)
 }
 
@@ -12,6 +12,7 @@ internal class AttributionDialogManager {
 
     private weak var dataSource: AttributionDataSource?
     private weak var delegate: AttributionDialogManagerDelegate?
+    private var inProcessOfParsingAttributions: Bool = false
 
     internal init(dataSource: AttributionDataSource, delegate: AttributionDialogManagerDelegate?) {
         self.dataSource = dataSource
@@ -27,7 +28,7 @@ internal class AttributionDialogManager {
         }
     }
 
-    //swiftlint:disable function_body_length
+    //swiftlint:disable:next function_body_length
     internal func showTelemetryAlertController(from viewController: UIViewController) {
         let alert: UIAlertController
         let bundle = Bundle.mapboxMaps
@@ -109,14 +110,22 @@ internal class AttributionDialogManager {
 // MARK: InfoButtonOrnamentDelegate Implementation
 extension AttributionDialogManager: InfoButtonOrnamentDelegate {
     func didTap(_ infoButtonOrnament: InfoButtonOrnament) {
+        guard inProcessOfParsingAttributions == false else { return }
+
+        inProcessOfParsingAttributions = true
+        dataSource?.loadAttributions { [weak self] attributions in
+            self?.showAttributionDialog(for: attributions)
+            self?.inProcessOfParsingAttributions = false
+        }
+    }
+
+    private func showAttributionDialog(for attributions: [Attribution]) {
         guard let viewController = delegate?.viewControllerForPresenting(self) else {
-            fatalError("No view controller found")
+            Log.error(forMessage: "Failed to present an attribution dialogue: no presenting view controller found.")
+            return
         }
 
-        let title = NSLocalizedString("SDK_NAME",
-                                      tableName: nil,
-                                      value: "Powered by Mapbox Maps",
-                                      comment: "Action sheet title")
+        let title = Bundle.mapboxMaps.localizedString(forKey: "SDK_NAME", value: "Powered by Mapbox", table: Ornaments.localizableTableName)
 
         let alert: UIAlertController
 
@@ -128,19 +137,16 @@ extension AttributionDialogManager: InfoButtonOrnamentDelegate {
 
         let bundle = Bundle.mapboxMaps
 
-        if let attributions = dataSource?.attributions() {
-
-            // Non actionable single item gets displayed as alert's message
-            if attributions.count == 1, let attribution = attributions.first, attribution.kind == .nonActionable {
-                alert.message = attribution.title
-            } else {
-                for attribution in attributions {
-                    let action = UIAlertAction(title: attribution.title, style: .default) { _ in
-                        self.delegate?.attributionDialogManager(self, didTriggerActionFor: attribution)
-                    }
-                    action.isEnabled = attribution.kind != .nonActionable
-                    alert.addAction(action)
+        // Non actionable single item gets displayed as alert's message
+        if attributions.count == 1, let attribution = attributions.first, attribution.kind == .nonActionable {
+            alert.message = attribution.localizedTitle
+        } else {
+            for attribution in attributions {
+                let action = UIAlertAction(title: attribution.localizedTitle, style: .default) { _ in
+                    self.delegate?.attributionDialogManager(self, didTriggerActionFor: attribution)
                 }
+                action.isEnabled = attribution.kind != .nonActionable
+                alert.addAction(action)
             }
         }
 
@@ -155,7 +161,14 @@ extension AttributionDialogManager: InfoButtonOrnamentDelegate {
 
         alert.addAction(telemetryAction)
 
-        let cancelTitle = NSLocalizedString("CANCEL",
+        let privacyPolicyAttribution = Attribution.makePrivacyPolicyAttribution()
+        let privacyPolicyAction = UIAlertAction(title: privacyPolicyAttribution.title, style: .default) { _ in
+            self.delegate?.attributionDialogManager(self, didTriggerActionFor: privacyPolicyAttribution)
+        }
+
+        alert.addAction(privacyPolicyAction)
+
+        let cancelTitle = NSLocalizedString("ATTRIBUTION_CANCEL",
                                             tableName: Ornaments.localizableTableName,
                                             bundle: bundle,
                                             value: "Cancel",
@@ -164,5 +177,17 @@ extension AttributionDialogManager: InfoButtonOrnamentDelegate {
         alert.addAction(UIAlertAction(title: cancelTitle, style: .cancel))
 
         viewController.present(alert, animated: true, completion: nil)
+    }
+}
+
+private extension Attribution {
+    var localizedTitle: String {
+        NSLocalizedString(
+            title,
+            tableName: Ornaments.localizableTableName,
+            bundle: .mapboxMaps,
+            value: title,
+            comment: "Attribution from sources."
+        )
     }
 }

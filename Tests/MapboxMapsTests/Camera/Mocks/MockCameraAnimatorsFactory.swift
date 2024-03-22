@@ -1,3 +1,4 @@
+import UIKit
 @testable import MapboxMaps
 
 final class MockCameraAnimatorsFactory: CameraAnimatorsFactoryProtocol {
@@ -9,8 +10,9 @@ final class MockCameraAnimatorsFactory: CameraAnimatorsFactoryProtocol {
     let makeFlyToAnimatorStub = Stub<MakeFlyToAnimatorParams, CameraAnimatorProtocol>(
         defaultReturnValue: MockCameraAnimator())
     func makeFlyToAnimator(toCamera: CameraOptions,
-                           animationOwner: AnimationOwner,
-                           duration: TimeInterval?) -> CameraAnimatorProtocol {
+                           duration: TimeInterval?,
+                           curve: TimingCurve,
+                           animationOwner: AnimationOwner) -> CameraAnimatorProtocol {
         makeFlyToAnimatorStub.call(with: .init(
             toCamera: toCamera,
             animationOwner: animationOwner,

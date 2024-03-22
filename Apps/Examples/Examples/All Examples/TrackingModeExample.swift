@@ -1,16 +1,17 @@
 import UIKit
 import MapboxMaps
 
-@objc(TrackingModeExample)
-public class TrackingModeExample: UIViewController, ExampleProtocol {
+final class TrackingModeExample: UIViewController, ExampleProtocol {
+    private var cancelables = Set<AnyCancelable>()
+    private var locationTrackingCancellation: AnyCancelable?
 
     private var mapView: MapView!
-    private var cameraLocationConsumer: CameraLocationConsumer!
     private lazy var toggleBearingImageButton = UIButton(frame: .zero)
+    private lazy var trackingButton = UIButton(frame: .zero)
     private lazy var styleToggle = UISegmentedControl(items: Style.allCases.map(\.name))
-    private var style: Style = .satelliteStreets {
+    private var style: Style = .standard {
         didSet {
-            mapView.mapboxMap.style.uri = style.uri
+            mapView.mapboxMap.styleURI = style.uri
         }
     }
     private var showsBearingImage: Bool = false {
@@ -19,40 +20,12 @@ public class TrackingModeExample: UIViewController, ExampleProtocol {
         }
     }
 
-    private enum Style: Int, CaseIterable {
-        var name: String {
-            switch self {
-            case .light:
-                return "Light"
-            case .satelliteStreets:
-                return "Satelite"
-            case .customUri:
-                return "Custom"
-            }
-        }
-
-        var uri: StyleURI {
-            switch self {
-            case .light:
-                return .light
-            case .satelliteStreets:
-                return .satelliteStreets
-            case .customUri:
-                let localStyleURL = Bundle.main.url(forResource: "blueprint_style", withExtension: "json")!
-                return .init(url: localStyleURL)!
-            }
-        }
-
-        case light
-        case satelliteStreets
-        case customUri
-    }
-
     override public func viewDidLoad() {
         super.viewDidLoad()
 
         // Set initial camera settings
-        let options = MapInitOptions(styleURI: style.uri)
+        let cameraOptions = CameraOptions(center: CLLocationCoordinate2D(latitude: 37.26301831966747, longitude: -121.97647612483807), zoom: 10)
+        let options = MapInitOptions(cameraOptions: cameraOptions, styleURI: style.uri)
 
         mapView = MapView(frame: view.bounds, mapInitOptions: options)
         mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -62,19 +35,16 @@ public class TrackingModeExample: UIViewController, ExampleProtocol {
 
         // Setup and create button for toggling show bearing image
         setupToggleShowBearingImageButton()
-
-        cameraLocationConsumer = CameraLocationConsumer(mapView: mapView)
+        setupLocationButton()
 
         // Add user position icon to the map with location indicator layer
         mapView.location.options.puckType = .puck2D()
+        mapView.location.options.puckBearingEnabled = true
 
-        // Allows the delegate to receive information about map events.
-        mapView.mapboxMap.onNext(event: .mapLoaded) { _ in
-            // Register the location consumer with the map
-            // Note that the location manager holds weak references to consumers, which should be retained
-            self.mapView.location.addLocationConsumer(newConsumer: self.cameraLocationConsumer)
+        mapView.gestures.delegate = self
 
-        }
+        // Update the camera's centerCoordinate when a locationUpdate is received.
+        startTracking()
     }
 
     public override func viewDidAppear(_ animated: Bool) {
@@ -118,8 +88,67 @@ public class TrackingModeExample: UIViewController, ExampleProtocol {
         syncPuckAndButton()
     }
 
+    private func setupLocationButton() {
+        trackingButton.addTarget(self, action: #selector(switchTracking), for: .touchUpInside)
+
+        if #available(iOS 13.0, *) {
+            trackingButton.setImage(UIImage(systemName: "location.fill"), for: .normal)
+        } else {
+            trackingButton.setTitle("No tracking", for: .normal)
+        }
+
+        let buttonWidth = 44.0
+        trackingButton.translatesAutoresizingMaskIntoConstraints = false
+        trackingButton.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        trackingButton.layer.cornerRadius = buttonWidth/2
+        trackingButton.layer.shadowOffset = CGSize(width: -1, height: 1)
+        trackingButton.layer.shadowColor = UIColor.black.cgColor
+        trackingButton.layer.shadowOpacity = 0.5
+        view.addSubview(trackingButton)
+
+        NSLayoutConstraint.activate([
+            trackingButton.trailingAnchor.constraint(equalTo: toggleBearingImageButton.trailingAnchor),
+            trackingButton.bottomAnchor.constraint(equalTo: toggleBearingImageButton.topAnchor, constant: -20),
+            trackingButton.widthAnchor.constraint(equalTo: trackingButton.heightAnchor),
+            trackingButton.widthAnchor.constraint(equalToConstant: buttonWidth)
+        ])
+    }
+
     @objc func switchStyle(sender: UISegmentedControl) {
         style = Style(rawValue: sender.selectedSegmentIndex) ?? . satelliteStreets
+    }
+
+    @objc func switchTracking() {
+        let isTrackingNow = locationTrackingCancellation != nil
+        if isTrackingNow {
+            stopTracking()
+        } else {
+            startTracking()
+        }
+    }
+
+    private func startTracking() {
+        locationTrackingCancellation = mapView.location.onLocationChange.observe { [weak mapView] newLocation in
+            guard let location = newLocation.last, let mapView else { return }
+            mapView.camera.ease(
+                to: CameraOptions(center: location.coordinate, zoom: 15),
+                duration: 1.3)
+        }
+
+        if #available(iOS 13.0, *) {
+            trackingButton.setImage(UIImage(systemName: "location.fill"), for: .normal)
+        } else {
+            trackingButton.setTitle("No tracking", for: .normal)
+        }
+    }
+
+    func stopTracking() {
+        if #available(iOS 13.0, *) {
+            trackingButton.setImage(UIImage(systemName: "location"), for: .normal)
+        } else {
+            trackingButton.setTitle("Track", for: .normal)
+        }
+        locationTrackingCancellation = nil
     }
 
     func addStyleToggle() {
@@ -133,17 +162,48 @@ public class TrackingModeExample: UIViewController, ExampleProtocol {
     }
 }
 
-// Create class which conforms to LocationConsumer, update the camera's centerCoordinate when a locationUpdate is received
-public class CameraLocationConsumer: LocationConsumer {
-    weak var mapView: MapView?
-
-    init(mapView: MapView) {
-        self.mapView = mapView
+extension TrackingModeExample: GestureManagerDelegate {
+    public func gestureManager(_ gestureManager: MapboxMaps.GestureManager, didBegin gestureType: MapboxMaps.GestureType) {
+        stopTracking()
     }
 
-    public func locationUpdate(newLocation: Location) {
-        mapView?.camera.ease(
-            to: CameraOptions(center: newLocation.coordinate, zoom: 15),
-            duration: 1.3)
+    public func gestureManager(_ gestureManager: MapboxMaps.GestureManager, didEnd gestureType: MapboxMaps.GestureType, willAnimate: Bool) {}
+
+    public func gestureManager(_ gestureManager: MapboxMaps.GestureManager, didEndAnimatingFor gestureType: MapboxMaps.GestureType) {}
+}
+
+extension TrackingModeExample {
+    private enum Style: Int, CaseIterable {
+        var name: String {
+            switch self {
+            case .standard:
+                return "Standard"
+            case .light:
+                return "Light"
+            case .satelliteStreets:
+                return "Satellite"
+            case .customUri:
+                return "Custom"
+            }
+        }
+
+        var uri: StyleURI {
+            switch self {
+            case .standard:
+                return .standard
+            case .light:
+                return .light
+            case .satelliteStreets:
+                return .satelliteStreets
+            case .customUri:
+                let localStyleURL = Bundle.main.url(forResource: "blueprint_style", withExtension: "json")!
+                return .init(url: localStyleURL)!
+            }
+        }
+
+        case standard
+        case light
+        case satelliteStreets
+        case customUri
     }
 }

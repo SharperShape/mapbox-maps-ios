@@ -2,7 +2,6 @@ import UIKit
 import CoreLocation
 import MapboxMaps
 
-@objc(VoiceOverAccessibilityExample)
 final class VoiceOverAccessibilityExample: UIViewController, ExampleProtocol {
     struct MyData {
         var id: Int
@@ -38,6 +37,8 @@ final class VoiceOverAccessibilityExample: UIViewController, ExampleProtocol {
         }
     }
 
+    private var cancelables = Set<AnyCancelable>()
+
     override func viewDidLoad() {
         super.viewDidLoad()
         let centerCoordinate = CLLocationCoordinate2D(latitude: 40.7131854, longitude: -74.0165265)
@@ -49,19 +50,17 @@ final class VoiceOverAccessibilityExample: UIViewController, ExampleProtocol {
         mapView.isAccessibilityElement = false
         mapView.accessibilityElements = []
 
-        let customLocationProvider = SimulatedLocationProvider(
-            currentLocation: CLLocation(
-                latitude: centerCoordinate.latitude,
-                longitude: centerCoordinate.longitude))
-        mapView.location.overrideLocationProvider(with: customLocationProvider)
+        let location = Location(coordinate: centerCoordinate)
+        mapView.location.override(locationProvider: Signal(just: [location]))
         mapView.location.options.puckType = .puck2D(.makeDefault())
 
         // create point annotation manager to house point annotations
         pointAnnotationManager = mapView.annotations.makePointAnnotationManager()
         pointAnnotationManager.annotations = data.map { dataElement in
             var annotation = PointAnnotation(id: dataElement.id.description, coordinate: dataElement.coordinate)
-            annotation.image = .init(image: UIImage(named: "custom_marker")!, name: "custom_marker")
-            annotation.userInfo = ["name": dataElement.name]
+            annotation.image = .init(image: UIImage(named: "dest-pin")!, name: "custom_marker")
+            annotation.customData = ["name": .string(dataElement.name)]
+            annotation.iconOffset = [0, 12]
             return annotation
         }
 
@@ -87,13 +86,16 @@ final class VoiceOverAccessibilityExample: UIViewController, ExampleProtocol {
             object: nil)
 
         // Observe events that require recomputing accessibility elements
-        mapView.mapboxMap.onNext(event: .mapLoaded) { [weak self] _ in
+        mapView.mapboxMap.onMapLoaded.observeNext { [weak self] _ in
             self?.updateAllAccessibilityElements {
                 self?.finish()
             }
-        }
+        }.store(in: &cancelables)
         mapView.gestures.delegate = self
-        mapView.location.addLocationConsumer(newConsumer: self)
+        mapView.location.onLocationChange.observe { [weak self] location in
+            guard let self, let location = location.last else { return }
+            self.updateLocationAccessibilityElement(location: location)
+        }.store(in: &cancelables)
     }
 
     @objc private func voiceOverStatusDidChange() {
@@ -124,9 +126,8 @@ final class VoiceOverAccessibilityExample: UIViewController, ExampleProtocol {
         mapView.accessibilityElements = allAccessibilityElements
     }
 
-    func updateLocationAccessibilityElement() {
-        if let location = mapView.location.latestLocation,
-           let accessibilityFrame = mapView.accessibilityFrame(for: location.coordinate) {
+    func updateLocationAccessibilityElement(location: Location) {
+        if let accessibilityFrame = mapView.accessibilityFrame(for: location.coordinate) {
             let element = UIAccessibilityElement(accessibilityContainer: mapView!)
             element.accessibilityIdentifier = "puck"
             element.accessibilityLabel = "Current Location"
@@ -138,8 +139,6 @@ final class VoiceOverAccessibilityExample: UIViewController, ExampleProtocol {
     }
 
     func updateAllAccessibilityElements(completion: @escaping () -> Void = {}) {
-        updateLocationAccessibilityElement()
-
         let group = DispatchGroup()
 
         // update accessibility elements for annotations
@@ -148,21 +147,21 @@ final class VoiceOverAccessibilityExample: UIViewController, ExampleProtocol {
             layerIds: [pointAnnotationManager.layerId],
             filter: nil)
         mapView.mapboxMap.queryRenderedFeatures(
-            in: mapView.safeAreaLayoutGuide.layoutFrame,
+            with: mapView.safeAreaLayoutGuide.layoutFrame,
             options: pointAnnotationsQueryOptions) { [weak self] result in
                 guard let self = self, let mapView = self.mapView else { return }
                 switch result {
                 case .success(let queriedFeatures):
                     self.annotationAccessibilityElements = queriedFeatures.compactMap { queriedFeature -> UIAccessibilityElement? in
-                        guard case .point(let point) = queriedFeature.feature.geometry,
+                        guard case .point(let point) = queriedFeature.queriedFeature.feature.geometry,
                               let accessibilityFrame = mapView.accessibilityFrame(for: point.coordinates),
-                              let properties = queriedFeature.feature.properties?.rawValue as? [String: Any],
-                              let userInfo = properties["userInfo"] as? [String: Any],
-                              let name = userInfo["name"] as? String else {
+                              let properties = queriedFeature.queriedFeature.feature.properties?.rawValue as? [String: Any],
+                              let customData = properties["custom_data"] as? [String: Any],
+                              let name = customData["name"] as? String else {
                             return nil
                         }
                         let element = UIAccessibilityElement(accessibilityContainer: mapView)
-                        element.accessibilityIdentifier = queriedFeature.feature.identifier?.description
+                        element.accessibilityIdentifier = queriedFeature.queriedFeature.feature.identifier?.description
                         element.accessibilityFrame = accessibilityFrame
                         element.accessibilityLabel = name
                         return element
@@ -185,16 +184,16 @@ final class VoiceOverAccessibilityExample: UIViewController, ExampleProtocol {
                 "us-interstate"
             })
         mapView.mapboxMap.queryRenderedFeatures(
-            in: mapView.safeAreaLayoutGuide.layoutFrame,
+            with: mapView.safeAreaLayoutGuide.layoutFrame,
             options: routeShieldsQueryOptions) { [weak self] result in
                 guard let self = self, let mapView = self.mapView else { return }
                 switch result {
                 case .success(let queriedFeatures):
                     // create the UIAccessibility element for each route shield in the map view.
                     self.routeShieldAccessibilityElements = queriedFeatures.compactMap { queriedFeature -> UIAccessibilityElement? in
-                        guard case .point(let point) = queriedFeature.feature.geometry,
+                        guard case .point(let point) = queriedFeature.queriedFeature.feature.geometry,
                               let accessibilityFrame = mapView.accessibilityFrame(for: point.coordinates),
-                              let properties = queriedFeature.feature.properties?.rawValue as? [String: Any],
+                              let properties = queriedFeature.queriedFeature.feature.properties?.rawValue as? [String: Any],
                               let shieldNumber = properties["ref"] as? String else {
                             return nil
                         }
@@ -230,12 +229,6 @@ extension VoiceOverAccessibilityExample: GestureManagerDelegate {
     }
 }
 
-extension VoiceOverAccessibilityExample: LocationConsumer {
-    func locationUpdate(newLocation: Location) {
-        updateLocationAccessibilityElement()
-    }
-}
-
 private extension MapView {
     func accessibilityFrame(for coordinate: CLLocationCoordinate2D) -> CGRect? {
         let pointInViewSpace = mapboxMap.point(for: coordinate)
@@ -254,6 +247,10 @@ extension FeatureIdentifier: CustomStringConvertible {
             return number.description
         case .string(let string):
             return string
+        #if USING_TURF_WITH_LIBRARY_EVOLUTION
+        @unknown default:
+            return String(describing: self)
+        #endif
         }
     }
 }

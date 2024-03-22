@@ -1,44 +1,70 @@
 // This file is generated.
 import Foundation
+import os
 @_implementationOnly import MapboxCommon_Private
 
 /// An instance of `PolygonAnnotationManager` is responsible for a collection of `PolygonAnnotation`s.
 public class PolygonAnnotationManager: AnnotationManagerInternal {
+    typealias OffsetCalculatorType = OffsetPolygonCalculator
 
-    // MARK: - Annotations
+    public var sourceId: String { id }
 
-    /// The collection of PolygonAnnotations being managed
-    public var annotations = [PolygonAnnotation]() {
-        didSet {
-            needsSyncSourceAndLayer = true
-        }
-    }
+    public var layerId: String { id }
 
-    private var needsSyncSourceAndLayer = false
-
-    // MARK: - Interaction
-
-    /// Set this delegate in order to be called back if a tap occurs on an annotation being managed by this manager.
-    /// - NOTE: This annotation manager listens to tap events via the `GestureManager.singleTapGestureRecognizer`.
-    public weak var delegate: AnnotationInteractionDelegate?
-
-    // MARK: - AnnotationManager protocol conformance
-
-    public let sourceId: String
-
-    public let layerId: String
+    private var dragId: String { "\(id)_drag" }
 
     public let id: String
 
-    // MARK: - Setup / Lifecycle
+    /// The collection of ``PolygonAnnotation`` being managed.
+    ///
+    /// Each annotation must have a unique identifier. Duplicate IDs will cause only the first annotation to be displayed, while the rest will be ignored.
+    public var annotations: [PolygonAnnotation] {
+        get { mainAnnotations + draggedAnnotations }
+        set {
+            mainAnnotations = newValue
+            mainAnnotations.removeDuplicates()
+            draggedAnnotations.removeAll(keepingCapacity: true)
+            draggedAnnotationIndex = nil
+        }
+    }
 
-    /// Dependency required to add sources/layers to the map
-    private let style: Style
+    /// Set this delegate in order to be called back if a tap occurs on an annotation being managed by this manager.
+    /// - NOTE: This annotation manager listens to tap events via the `GestureManager.singleTapGestureRecognizer`.
+    @available(*, deprecated, message: "Use tapHandler property of Annotation")
+    public weak var delegate: AnnotationInteractionDelegate? {
+        get { _delegate }
+        set { _delegate = newValue }
+    }
+    private weak var _delegate: AnnotationInteractionDelegate?
+
+    // Deps
+    private let style: StyleProtocol
+    private let offsetCalculator: OffsetCalculatorType
+
+    // Private state
+
+    /// Currently displayed (synced) annotations.
+    private var displayedAnnotations: [PolygonAnnotation] = []
+
+    /// Updated, non-moved annotations. On next display link they will be diffed with `displayedAnnotations` and updated.
+    private var mainAnnotations = [PolygonAnnotation]() {
+        didSet { syncSourceOnce.reset() }
+    }
+
+    /// When annotation is moved for the first time, it migrates to this array from mainAnnotations.
+    private var draggedAnnotations = [PolygonAnnotation]() {
+        didSet {
+            if insertDraggedLayerAndSourceOnce.happened {
+                // Update dragged annotation only when the drag layer is created.
+                syncDragSourceOnce.reset()
+            }
+        }
+    }
 
     /// Storage for common layer properties
-    private var layerProperties: [String: Any] = [:] {
+    var layerProperties: [String: Any] = [:] {
         didSet {
-            needsSyncSourceAndLayer = true
+            syncLayerOnce.reset()
         }
     }
 
@@ -47,84 +73,106 @@ public class PolygonAnnotationManager: AnnotationManagerInternal {
     /// the subsequent sync.
     private var previouslySetLayerPropertyKeys: Set<String> = []
 
-    private let displayLinkParticipant = DelegatingDisplayLinkParticipant()
+    private var draggedAnnotationIndex: Array<PolygonAnnotation>.Index?
+    private var destroyOnce = Once()
+    private var syncSourceOnce = Once(happened: true)
+    private var syncDragSourceOnce = Once(happened: true)
+    private var syncLayerOnce = Once(happened: true)
+    private var insertDraggedLayerAndSourceOnce = Once()
+    private var displayLinkToken: AnyCancelable?
 
-    private weak var displayLinkCoordinator: DisplayLinkCoordinator?
+    var allLayerIds: [String] { [layerId, dragId] }
 
-    private var isDestroyed = false
+    /// In SwiftUI isDraggable and isSelected are disabled.
+    var isSwiftUI = false
 
-    internal init(id: String,
-                  style: Style,
-                  layerPosition: LayerPosition?,
-                  displayLinkCoordinator: DisplayLinkCoordinator) {
+    init(id: String,
+         style: StyleProtocol,
+         layerPosition: LayerPosition?,
+         displayLink: Signal<Void>,
+         offsetCalculator: OffsetCalculatorType
+    ) {
         self.id = id
-        self.sourceId = id
-        self.layerId = id
         self.style = style
-        self.displayLinkCoordinator = displayLinkCoordinator
+        self.offsetCalculator = offsetCalculator
 
         do {
             // Add the source with empty `data` property
-            var source = GeoJSONSource()
-            source.data = .empty
-            try style.addSource(source, id: sourceId)
+            let source = GeoJSONSource(id: sourceId)
+            try style.addSource(source)
 
             // Add the correct backing layer for this annotation type
-            var layer = FillLayer(id: layerId)
-            layer.source = sourceId
+            let layer = FillLayer(id: layerId, source: sourceId)
             try style.addPersistentLayer(layer, layerPosition: layerPosition)
         } catch {
             Log.error(
-                forMessage: "Failed to create source / layer in PolygonAnnotationManager",
+                forMessage: "Failed to create source / layer in PolygonAnnotationManager. Error: \(error)",
                 category: "Annotations")
         }
 
-        self.displayLinkParticipant.delegate = self
-
-        displayLinkCoordinator.add(displayLinkParticipant)
+        displayLinkToken = displayLink.observe { [weak self] in
+            self?.syncSourceAndLayerIfNeeded()
+        }
     }
 
     internal func destroy() {
-        guard !isDestroyed else {
-            return
-        }
-        isDestroyed = true
+        guard destroyOnce.continueOnce() else { return }
 
-        do {
+        displayLinkToken?.cancel()
+
+        func wrapError(_ what: String, _ body: () throws -> Void) {
+            do {
+                try body()
+            } catch {
+                Log.warning(
+                    forMessage: "Failed to remove \(what) for PolygonAnnotationManager with id \(id) due to error: \(error)",
+                    category: "Annotations")
+            }
+        }
+
+        wrapError("layer") {
             try style.removeLayer(withId: layerId)
-        } catch {
-            Log.warning(
-                forMessage: "Failed to remove layer for PolygonAnnotationManager with id \(id) due to error: \(error)",
-                category: "Annotations")
         }
-        do {
+
+        wrapError("source") {
             try style.removeSource(withId: sourceId)
-        } catch {
-            Log.warning(
-                forMessage: "Failed to remove source for PolygonAnnotationManager with id \(id) due to error: \(error)",
-                category: "Annotations")
         }
-        displayLinkCoordinator?.remove(displayLinkParticipant)
+
+        if insertDraggedLayerAndSourceOnce.happened {
+            wrapError("drag source and layer") {
+                try style.removeLayer(withId: dragId)
+                try style.removeSource(withId: dragId)
+            }
+        }
     }
 
     // MARK: - Sync annotations to map
 
-    /// Synchronizes the backing source and layer with the current `annotations`
-    /// and common layer properties. This method is called automatically with
-    /// each display link, but it may also be called manually in situations
-    /// where the backing source and layer need to be updated earlier.
-    public func syncSourceAndLayerIfNeeded() {
-        guard needsSyncSourceAndLayer, !isDestroyed else {
-            return
-        }
-        needsSyncSourceAndLayer = false
+    private func syncSource() {
+        guard syncSourceOnce.continueOnce() else { return }
+
+        let diff = mainAnnotations.diff(from: displayedAnnotations, id: \.id)
+        syncLayerOnce.reset(if: !diff.isEmpty)
+        style.apply(annotationsDiff: diff, sourceId: sourceId, feature: \.feature)
+        displayedAnnotations = mainAnnotations
+    }
+
+    private func syncDragSource() {
+        guard syncDragSourceOnce.continueOnce() else { return }
+
+        let fc = FeatureCollection(features: draggedAnnotations.map(\.feature))
+        style.updateGeoJSONSource(withId: dragId, geoJSON: .featureCollection(fc))
+    }
+
+    private func syncLayer() {
+        guard syncLayerOnce.continueOnce() else { return }
 
         // Construct the properties dictionary from the annotations
-        let dataDrivenLayerPropertyKeys = Set(annotations.flatMap { $0.layerProperties.keys })
+        let dataDrivenLayerPropertyKeys = Set(annotations.flatMap(\.layerProperties.keys))
         let dataDrivenProperties = Dictionary(
             uniqueKeysWithValues: dataDrivenLayerPropertyKeys
                 .map { (key) -> (String, Any) in
-                    (key, ["get", key, ["get", "layerProperties"]])
+                    (key, ["get", key, ["get", "layerProperties"]] as [Any])
                 })
 
         // Merge the common layer properties
@@ -133,7 +181,7 @@ public class PolygonAnnotationManager: AnnotationManagerInternal {
         // Construct the properties dictionary to reset any properties that are no longer used
         let unusedPropertyKeys = previouslySetLayerPropertyKeys.subtracting(newLayerProperties.keys)
         let unusedProperties = Dictionary(uniqueKeysWithValues: unusedPropertyKeys.map { (key) -> (String, Any) in
-            (key, Style.layerPropertyDefaultValue(for: .fill, property: key).value)
+            (key, StyleManager.layerPropertyDefaultValue(for: .fill, property: key).value)
         })
 
         // Store the new set of property keys
@@ -145,26 +193,28 @@ public class PolygonAnnotationManager: AnnotationManagerInternal {
         // make a single call into MapboxCoreMaps to set layer properties
         do {
             try style.setLayerProperties(for: layerId, properties: allLayerProperties)
+            if !draggedAnnotations.isEmpty {
+                try style.setLayerProperties(for: dragId, properties: allLayerProperties)
+            }
         } catch {
             Log.error(
                 forMessage: "Could not set layer properties in PolygonAnnotationManager due to error \(error)",
                 category: "Annotations")
         }
+    }
 
-        // build and update the source data
-        let featureCollection = FeatureCollection(features: annotations.map(\.feature))
-        do {
-            let data = try JSONEncoder().encode(featureCollection)
-            let jsonObject = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-            try style.setSourceProperty(for: sourceId, property: "data", value: jsonObject)
-        } catch {
-            Log.error(
-                forMessage: "Could not update annotations in PolygonAnnotationManager due to error: \(error)",
-                category: "Annotations")
+    func syncSourceAndLayerIfNeeded() {
+        guard !destroyOnce.happened else { return }
+
+        OSLog.platform.withIntervalSignpost(SignpostName.mapViewDisplayLink, "Participant: PolygonAnnotationManager") {
+            syncSource()
+            syncDragSource()
+            syncLayer()
         }
     }
 
     // MARK: - Common layer properties
+
 
     /// Whether or not the fill should be antialiased.
     public var fillAntialias: Bool? {
@@ -173,6 +223,16 @@ public class PolygonAnnotationManager: AnnotationManagerInternal {
         }
         set {
             layerProperties["fill-antialias"] = newValue
+        }
+    }
+
+    /// Controls the intensity of light emitted on the source features.
+    public var fillEmissiveStrength: Double? {
+        get {
+            return layerProperties["fill-emissive-strength"] as? Double
+        }
+        set {
+            layerProperties["fill-emissive-strength"] = newValue
         }
     }
 
@@ -196,23 +256,143 @@ public class PolygonAnnotationManager: AnnotationManagerInternal {
         }
     }
 
-    internal func handleQueriedFeatureIds(_ queriedFeatureIds: [String]) {
-        // Find if any `queriedFeatureIds` match an annotation's `id`
-        let tappedAnnotations = annotations.filter { queriedFeatureIds.contains($0.id) }
+    /// 
+    /// Slot for the underlying layer.
+    ///
+    /// Use this property to position the annotations relative to other map features if you use Mapbox Standard Style.
+    /// See <doc:Migrate-to-v11##21-The-Mapbox-Standard-Style> for more info.
+    public var slot: String? {
+        get {
+            return layerProperties["slot"] as? String
+        }
+        set {
+            layerProperties["slot"] = newValue
+        }
+    }
 
-        // If `tappedAnnotations` is not empty, call delegate
-        if !tappedAnnotations.isEmpty {
-            delegate?.annotationManager(
-                self,
-                didDetectTappedAnnotations: tappedAnnotations)
+    // MARK: - User interaction handling
+
+
+    func handleTap(layerId: String, feature: Feature, context: MapContentGestureContext) -> Bool {
+
+        guard let featureId = feature.identifier?.string else { return false }
+
+        let tappedIndex = annotations.firstIndex { $0.id == featureId }
+        guard let tappedIndex else { return false }
+        var tappedAnnotation = annotations[tappedIndex]
+
+        tappedAnnotation.isSelected.toggle()
+
+        if !isSwiftUI {
+            // In-place update of annotations is not supported in SwiftUI.
+            // Use the .onTapGesture {} to update annotations on call side.
+            self.annotations[tappedIndex] = tappedAnnotation
+        }
+
+        _delegate?.annotationManager(
+            self,
+            didDetectTappedAnnotations: [tappedAnnotation])
+
+        return tappedAnnotation.tapHandler?(context) ?? false
+    }
+
+    func handleLongPress(layerId: String, feature: Feature, context: MapContentGestureContext) -> Bool {
+        guard let featureId = feature.identifier?.string else { return false }
+
+        return annotations.first { $0.id == featureId }?.longPressHandler?(context) ?? false
+    }
+
+    func handleDragBegin(with featureId: String, context: MapContentGestureContext) -> Bool {
+        guard !isSwiftUI else { return false }
+
+        func predicate(annotation: PolygonAnnotation) -> Bool {
+            annotation.id == featureId && annotation.isDraggable
+        }
+
+        func tryBeginDragging(_ annotations: inout [PolygonAnnotation], idx: Int) -> Bool  {
+            var annotation = annotations[idx]
+            // If no drag handler set, the dragging is allowed
+            let dragAllowed = annotation.dragBeginHandler?(&annotation, context) ?? true
+            annotations[idx] = annotation
+            return dragAllowed
+        }
+
+        /// First, try to drag annotations that are already on the dragging layer.
+        if let idx = draggedAnnotations.firstIndex(where: predicate) {
+            let dragAllowed = tryBeginDragging(&draggedAnnotations, idx: idx)
+            guard dragAllowed else {
+                return false
+            }
+
+            draggedAnnotationIndex = idx
+            return true
+        }
+
+        /// Then, try to start dragging from the main set of annotations.
+        if let idx = mainAnnotations.lastIndex(where: predicate) {
+            let dragAllowed = tryBeginDragging(&mainAnnotations, idx: idx)
+            guard dragAllowed else {
+                return false
+            }
+
+            insertDraggedLayerAndSource()
+
+            let annotation = mainAnnotations.remove(at: idx)
+            draggedAnnotations.append(annotation)
+            draggedAnnotationIndex = draggedAnnotations.endIndex - 1
+            return true
+        }
+
+        return false
+    }
+
+    private func insertDraggedLayerAndSource() {
+        insertDraggedLayerAndSourceOnce {
+            let source = GeoJSONSource(id: dragId)
+            let layer = FillLayer(id: dragId, source: dragId)
+            do {
+                try style.addSource(source)
+                try style.addPersistentLayer(layer, layerPosition: .above(layerId))
+            } catch {
+                Log.error(forMessage: "Add drag source/layer \(error)", category: "Annotations")
+            }
+        }
+    }
+
+    func handleDragChange(with translation: CGPoint, context: MapContentGestureContext) {
+        guard !isSwiftUI,
+              let draggedAnnotationIndex,
+              draggedAnnotationIndex < draggedAnnotations.endIndex,
+              let polygon = offsetCalculator.geometry(for: translation, from: draggedAnnotations[draggedAnnotationIndex].polygon) else {
+            return
+        }
+
+        draggedAnnotations[draggedAnnotationIndex].polygon = polygon
+
+        callDragHandler(\.dragChangeHandler, context: context)
+    }
+
+    func handleDragEnd(context: MapContentGestureContext) {
+        guard !isSwiftUI else { return }
+        callDragHandler(\.dragEndHandler, context: context)
+        draggedAnnotationIndex = nil
+    }
+
+    private func callDragHandler(
+        _ keyPath: KeyPath<PolygonAnnotation, ((inout PolygonAnnotation, MapContentGestureContext) -> Void)?>,
+        context: MapContentGestureContext
+    ) {
+        guard let draggedAnnotationIndex, draggedAnnotationIndex < draggedAnnotations.endIndex else {
+            return
+        }
+
+        if let handler = draggedAnnotations[draggedAnnotationIndex][keyPath: keyPath] {
+            var copy = draggedAnnotations[draggedAnnotationIndex]
+            handler(&copy, context)
+            draggedAnnotations[draggedAnnotationIndex] = copy
         }
     }
 }
 
-extension PolygonAnnotationManager: DelegatingDisplayLinkParticipantDelegate {
-    func participate(for participant: DelegatingDisplayLinkParticipant) {
-        syncSourceAndLayerIfNeeded()
-    }
-}
 
 // End of generated file.

@@ -1,15 +1,15 @@
 /// Expresses the different ways that ``FollowPuckViewportState`` can obtain values to use when
-/// setting ``CameraOptions/bearing``.
+/// setting ``CameraOptions-swift.struct/bearing``.
 ///
-/// - SeeAlso: ``LocationOptions/puckBearingSource``
-public enum FollowPuckViewportStateBearing: Hashable {
+/// - SeeAlso: ``LocationOptions/puckBearing``
+public enum FollowPuckViewportStateBearing: Codable, Hashable {
 
-    /// ``FollowPuckViewportState`` sets ``CameraOptions/bearing`` to a constant value.
+    /// ``FollowPuckViewportState`` sets ``CameraOptions-swift.struct/bearing`` to a constant value.
     ///
     /// - Parameter bearing: the constant value that should be used to set the camera bearing.
     case constant(_ bearing: CLLocationDirection)
 
-    /// ``FollowPuckViewportState`` sets ``CameraOptions/bearing`` based on the current
+    /// ``FollowPuckViewportState`` sets ``CameraOptions-swift.struct/bearing`` based on the current
     /// heading.
     ///
     /// - SeeAlso:
@@ -17,22 +17,24 @@ public enum FollowPuckViewportStateBearing: Hashable {
     ///   - ``Location/heading``
     case heading
 
-    /// ``FollowPuckViewportState`` sets ``CameraOptions/bearing`` based on the current
+    /// ``FollowPuckViewportState`` sets ``CameraOptions-swift.struct/bearing`` based on the current
     /// course.
     ///
     /// - SeeAlso:
     ///   - ``LocationManager``
     ///   - ``Location/course``
     case course
+}
 
-    internal func evaluate(with location: InterpolatedLocation) -> CLLocationDirection? {
+extension FollowPuckViewportStateBearing {
+    func evaluate(with state: FollowPuckViewportState.RenderingState) -> CLLocationDirection? {
         switch self {
         case .constant(let value):
             return value
         case .heading:
-            return location.heading
+            return state.heading
         case .course:
-            return location.course
+            return state.bearing
         }
     }
 }

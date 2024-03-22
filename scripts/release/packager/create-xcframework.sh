@@ -22,53 +22,71 @@ else
     exit 1
 fi
 
-# Create iOS Simulator Framework
-step "Archiving iOS Simulator Framework for $PRODUCT"
-SIMULATOR_ARCHIVE_PATH="$(pwd)/.create-xcframework/iOS-Simulator.xcarchive"
-rm -rf "$SIMULATOR_ARCHIVE_PATH"
+archive_framework() {
+  local archive_path="$1"
+  local platform="$2"
+  local archs="$3"
 
-xcodebuild archive \
-  -project "$PROJECT" \
-  -scheme "$SCHEME" \
-  -configuration Release \
-  -destination 'generic/platform=iOS Simulator' \
-  -archivePath "$SIMULATOR_ARCHIVE_PATH" \
-  BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-  SKIP_INSTALL=NO \
-  ARCHS='x86_64 arm64' \
-  EXCLUDED_ARCHS= \
-  MACH_O_TYPE="$MACH_O_TYPE" \
-  LLVM_LTO=NO
+  step "Archiving $PRODUCT framework for $platform"
+  rm -rf "$archive_path"
 
-# Create iOS Device Framework
-step "Archiving iOS Device Framework for $PRODUCT"
-DEVICE_ARCHIVE_PATH="$(pwd)/.create-xcframework/iOS.xcarchive"
-rm -rf "$DEVICE_ARCHIVE_PATH"
+  xcodebuild archive \
+    -project "$PROJECT" \
+    -scheme "$SCHEME" \
+    -configuration Release \
+    -destination "generic/platform=$platform" \
+    -archivePath "$archive_path" \
+    BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+    COMPILER_INDEX_STORE_ENABLE=NO \
+    SWIFT_SERIALIZE_DEBUGGING_OPTIONS=NO \
+    SKIP_INSTALL=NO \
+    ARCHS="$archs" \
+    EXCLUDED_ARCHS= \
+    MACH_O_TYPE="$MACH_O_TYPE" \
+    LLVM_LTO=NO
+}
 
-xcodebuild archive \
-  -project "$PROJECT" \
-  -scheme "$SCHEME" \
-  -configuration Release \
-  -destination 'generic/platform=iOS' \
-  -archivePath "$DEVICE_ARCHIVE_PATH" \
-  BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-  SKIP_INSTALL=NO \
-  ARCHS='arm64' \
-  EXCLUDED_ARCHS= \
-  MACH_O_TYPE="$MACH_O_TYPE" \
-  LLVM_LTO=NO
+# Create per-platform archives
+IOS_SIMULATOR_ARCHIVE_PATH="$(pwd)/.create-xcframework/iOS-Simulator.xcarchive"
+IOS_DEVICE_ARCHIVE_PATH="$(pwd)/.create-xcframework/iOS.xcarchive"
+VISION_OS_SIMULATOR_ARCHIVE_PATH="$(pwd)/.create-xcframework/visionOS-Simulator.xcarchive"
+VISION_OS_DEVICE_ARCHIVE_PATH="$(pwd)/.create-xcframework/visionOS.xcarchive"
+archive_framework "$IOS_SIMULATOR_ARCHIVE_PATH" "iOS Simulator" "x86_64 arm64"
+archive_framework "$IOS_DEVICE_ARCHIVE_PATH" "iOS" "arm64"
+archive_framework "$VISION_OS_SIMULATOR_ARCHIVE_PATH" "visionOS Simulator" "x86_64 arm64"
+archive_framework "$VISION_OS_DEVICE_ARCHIVE_PATH" "visionOS" "arm64"
 
 # Create XCFramework
 step "Creating $PRODUCT.xcframework"
+
+inject_build_info() {
+  local archive_path="$1"
+
+  plist_path="$archive_path/Info.plist"
+
+  /usr/libexec/PlistBuddy -c "Add :MBXBuildInfo dict" "$plist_path"
+  plutil -insert "MBXBuildInfo.BuildDate" -string "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$plist_path"
+  plutil -insert "MBXBuildInfo.Git SHA" -string "$(git rev-parse HEAD)" "$plist_path"
+  plutil -insert "MBXBuildInfo.Git Branch" -string "$(git rev-parse --abbrev-ref HEAD)" "$plist_path"
+  plutil -insert "MBXBuildInfo.Swift version" -string "$(swift --version 2>&1 | grep -o "version .*" | cut -d ' ' -f2)" "$plist_path"
+  plutil -insert "MBXBuildInfo.Xcode version" -string "$(xcodebuild -version | head -n 1 | cut -d ' ' -f2)" "$plist_path"
+  plutil -insert "MBXBuildInfo.SDK version" -string "$(jq -r .version ../../../../Sources/MapboxMaps/MapboxMaps.json)" "$plist_path"
+
+  if [[ -n "${CIRCLE_BUILD_NUM:-}" ]]; then
+    echo "Injecting CI build info into info.plist"
+    plutil -insert "MBXBuildInfo.CI Build Number" -string "$CIRCLE_BUILD_NUM" "$plist_path"
+  fi
+}
 
 BUILD_XCFRAMEWORK_COMMAND="xcodebuild -create-xcframework -output '$PRODUCT.xcframework'"
 
 BREAK=$'\n\t'
 DEBUG_BREAK=$'\n\t\t'
-for archive in "$DEVICE_ARCHIVE_PATH" "$SIMULATOR_ARCHIVE_PATH"
+for archive in "$IOS_DEVICE_ARCHIVE_PATH" "$IOS_SIMULATOR_ARCHIVE_PATH" "$VISION_OS_DEVICE_ARCHIVE_PATH" "$VISION_OS_SIMULATOR_ARCHIVE_PATH"
 do
   FRAMEWORK_PATH=$(find "$archive" -name "$PRODUCT.framework")
   BUILD_XCFRAMEWORK_COMMAND+=" \\${BREAK} -framework '$FRAMEWORK_PATH'"
+  inject_build_info "$FRAMEWORK_PATH"
 
   for dSYM_NAME in $DSYM_NAMES
   do
@@ -93,6 +111,7 @@ done
 
 echo "$BUILD_XCFRAMEWORK_COMMAND"
 eval "$BUILD_XCFRAMEWORK_COMMAND"
+rm -f xcodebuild.log # Remove build log that generated on the CI with xcodebuild wrapper
 
 # Clean Up
 step "Cleaning up intermediate artifacts for $PRODUCT"

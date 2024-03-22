@@ -6,9 +6,9 @@ final class RotateGestureHandlerTests: XCTestCase {
     var mapboxMap: MockMapboxMap!
     var cameraAnimationsManager: MockCameraAnimationsManager!
     var rotateGestureHandler: RotateGestureHandler!
-    // swiftlint:disable:next weak_delegate
     var delegate: MockGestureHandlerDelegate!
     var view: UIView!
+    let interruptingRecognizers = UIGestureRecognizer.interruptingRecognizers([.longPress, .swipe, .screenEdge, .pan])
 
     override func setUp() {
         super.setUp()
@@ -17,9 +17,7 @@ final class RotateGestureHandlerTests: XCTestCase {
         view.addGestureRecognizer(gestureRecognizer)
         mapboxMap = MockMapboxMap()
         cameraAnimationsManager = MockCameraAnimationsManager()
-        rotateGestureHandler = RotateGestureHandler(
-            gestureRecognizer: gestureRecognizer,
-            mapboxMap: mapboxMap)
+        rotateGestureHandler = RotateGestureHandler(gestureRecognizer: gestureRecognizer, mapboxMap: mapboxMap)
         delegate = MockGestureHandlerDelegate()
         rotateGestureHandler.delegate = delegate
     }
@@ -31,6 +29,7 @@ final class RotateGestureHandlerTests: XCTestCase {
         cameraAnimationsManager = nil
         mapboxMap = nil
         gestureRecognizer = nil
+        interruptingRecognizers.forEach { $0.view?.removeGestureRecognizer($0) }
         super.setUp()
     }
 
@@ -102,7 +101,7 @@ final class RotateGestureHandlerTests: XCTestCase {
         gestureRecognizer.getRotationStub.defaultReturnValue = 30.toRadians()
         gestureRecognizer.sendActions()
 
-        XCTAssertEqual(delegate.gestureBeganStub.invocations.first?.parameters, .pinch)
+        XCTAssertEqual(delegate.gestureBeganStub.invocations.first?.parameters, .rotation)
     }
 
     func testDelegateGetsNotifiedAboutPinchGestureEnded() {
@@ -114,7 +113,7 @@ final class RotateGestureHandlerTests: XCTestCase {
         gestureRecognizer.getStateStub.defaultReturnValue = .ended
         gestureRecognizer.sendActions()
 
-        XCTAssertEqual(delegate.gestureEndedStub.invocations.first?.parameters.gestureType, .pinch)
+        XCTAssertEqual(delegate.gestureEndedStub.invocations.first?.parameters.gestureType, .rotation)
     }
 
     func testDelegateGetsNotifiedAboutPinchGestureCancelled() {
@@ -126,7 +125,7 @@ final class RotateGestureHandlerTests: XCTestCase {
         gestureRecognizer.getStateStub.defaultReturnValue = .cancelled
         gestureRecognizer.sendActions()
 
-        XCTAssertEqual(delegate.gestureEndedStub.invocations.first?.parameters.gestureType, .pinch)
+        XCTAssertEqual(delegate.gestureEndedStub.invocations.first?.parameters.gestureType, .rotation)
     }
 
     func testRotationIsAppliedAroundTouchMidpoint() {
@@ -186,99 +185,36 @@ final class RotateGestureHandlerTests: XCTestCase {
     }
 
     func testRotationRecognizesSimultaneouslyWithPinch() {
-        let shouldRecognizeSimultaneously = rotateGestureHandler.gestureRecognizer(
-            gestureRecognizer,
-            shouldRecognizeSimultaneouslyWith: UIPinchGestureRecognizer()
-        )
+        let pinchRecognizer = UIPinchGestureRecognizer()
+        view.addGestureRecognizer(pinchRecognizer)
 
-        XCTAssertTrue(shouldRecognizeSimultaneously)
+        rotateGestureHandler.assertRecognizedSimultaneously(gestureRecognizer, with: [pinchRecognizer])
     }
 
     func testRotationShouldNotRecognizeSimultaneouslyWithNonPinch() {
-        let recognizers = [UIPanGestureRecognizer(), UILongPressGestureRecognizer(), UISwipeGestureRecognizer(), UIScreenEdgePanGestureRecognizer(), UITapGestureRecognizer()]
+        interruptingRecognizers.forEach(view.addGestureRecognizer)
 
-        for recognizer in recognizers {
-            let shouldRecognizeSimultaneously = rotateGestureHandler.gestureRecognizer(
-                gestureRecognizer,
-                shouldRecognizeSimultaneouslyWith: recognizer
-            )
+        rotateGestureHandler.assertNotRecognizedSimultaneously(gestureRecognizer, with: interruptingRecognizers)
+    }
 
-            XCTAssertFalse(shouldRecognizeSimultaneously)
-        }
+    func testRotationShouldRecognizeSimultaneouslyWithAnyAttachedToDifferentView() {
+        rotateGestureHandler.assertRecognizedSimultaneously(gestureRecognizer, with: interruptingRecognizers)
     }
 
     func testRotationShouldNotRecognizeSimultaneouslyWhenRotateAndPinchDisabled() {
+        let pinchRecognizer = UIPinchGestureRecognizer()
+        view.addGestureRecognizer(pinchRecognizer)
         rotateGestureHandler.simultaneousRotateAndPinchZoomEnabled = false
 
         let shouldRecognizeSimultaneously = rotateGestureHandler.gestureRecognizer(
             gestureRecognizer,
-            shouldRecognizeSimultaneouslyWith: UIPinchGestureRecognizer()
+            shouldRecognizeSimultaneouslyWith: pinchRecognizer
         )
 
         XCTAssertFalse(shouldRecognizeSimultaneously)
     }
-
-    func testSheduleRotationUpdateIsIgnoredWhenNotRotating() {
-        let expectation = expectation(description: "Scheduled rotation update ignored")
-        expectation.isInverted = true
-        rotateGestureHandler.scheduleRotationUpdateIfNeeded()
-        DispatchQueue.main.async {
-            if !self.mapboxMap.setCameraStub.invocations.isEmpty {
-                expectation.fulfill()
-            }
-        }
-
-        wait(for: [expectation], timeout: 0.1)
-    }
-
-    func testScheduledRotationUpdateIsPerformed() {
-        let expectation = expectation(description: "Scheduled rotation update performed")
-
-        gestureRecognizer.getStateStub.defaultReturnValue = .began
-        gestureRecognizer.sendActions()
-
-        gestureRecognizer.getStateStub.defaultReturnValue = .changed
-        gestureRecognizer.getVelocityStub.defaultReturnValue = 1.radiansPerSecond
-        gestureRecognizer.getRotationStub.defaultReturnValue = 30.toRadians()
-        gestureRecognizer.sendActions()
-        mapboxMap.setCameraStub.reset()
-
-        rotateGestureHandler.scheduleRotationUpdateIfNeeded()
-        DispatchQueue.main.async {
-            if !self.mapboxMap.setCameraStub.invocations.isEmpty {
-                expectation.fulfill()
-            }
-        }
-        wait(for: [expectation], timeout: 0.1)
-    }
-
-    func testScheduledRotationUpdateIsIgnoredAfterGestureUpdate() {
-        let expectation = expectation(description: "Scheduled rotation update performed")
-        expectation.isInverted = true
-
-        gestureRecognizer.getStateStub.defaultReturnValue = .began
-        gestureRecognizer.sendActions()
-
-        gestureRecognizer.getStateStub.defaultReturnValue = .changed
-        gestureRecognizer.getVelocityStub.defaultReturnValue = 1.radiansPerSecond
-        gestureRecognizer.getRotationStub.defaultReturnValue = 30.toRadians()
-        gestureRecognizer.sendActions()
-
-        mapboxMap.setCameraStub.reset()
-
-        rotateGestureHandler.scheduleRotationUpdateIfNeeded()
-        DispatchQueue.main.async {
-            // camera should be set only once after gesture recognizer sends its update,
-            // the scheduled bearing update should be ignored after that
-            if self.mapboxMap.setCameraStub.invocations.count > 1 {
-                expectation.fulfill()
-            }
-        }
-        gestureRecognizer.sendActions()
-        wait(for: [expectation], timeout: 0.1)
-    }
 }
 
-fileprivate extension Double {
+private extension Double {
     var radiansPerSecond: CGFloat { self * 17.4532925 }
 }

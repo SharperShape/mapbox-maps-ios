@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import MapboxMaps
 
 final class BasicCameraAnimatorTests: XCTestCase {
@@ -26,6 +27,12 @@ final class BasicCameraAnimatorTests: XCTestCase {
         impl.owner = .random()
 
         XCTAssertEqual(animator.owner, impl.owner)
+    }
+
+    func testAnimationType() {
+        impl.animationType = .unspecified
+
+        XCTAssertEqual(animator.animationType, impl.animationType)
     }
 
     func testTransition() {

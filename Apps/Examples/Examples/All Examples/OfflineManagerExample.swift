@@ -11,8 +11,7 @@ import MapboxMaps
 /// will fail until excess regions are deleted. This limit is subject
 /// to change. Please contact Mapbox if you require a higher limit.
 /// Additional charges may apply.
-@objc(OfflineManagerExample)
-final class OfflineManagerExample: UIViewController, ExampleProtocol {
+final class OfflineManagerExample: UIViewController, NonMapViewExampleProtocol {
     // This example uses a Storyboard to setup the following views
     @IBOutlet private var mapViewContainer: UIView!
     @IBOutlet private var logView: UITextView!
@@ -24,6 +23,7 @@ final class OfflineManagerExample: UIViewController, ExampleProtocol {
     private var mapView: MapView?
     private var tileStore: TileStore?
     private var logger: OfflineManagerLogWriter!
+    private var cancelables = Set<AnyCancelable>()
 
     // Default MapInitOptions. If you use a custom path for a TileStore, you would
     // need to create a custom MapInitOptions to reference that TileStore.
@@ -33,7 +33,7 @@ final class OfflineManagerExample: UIViewController, ExampleProtocol {
     }()
 
     private lazy var offlineManager: OfflineManager = {
-        return OfflineManager(resourceOptions: mapInitOptions.resourceOptions)
+        return OfflineManager()
     }()
 
     // Regions and style pack downloads
@@ -55,7 +55,6 @@ final class OfflineManagerExample: UIViewController, ExampleProtocol {
     deinit {
         OfflineSwitch.shared.isMapboxStackConnected = true
         removeTileRegionAndStylePack()
-        tileStore = nil
     }
 
     override func viewDidLoad() {
@@ -121,7 +120,7 @@ final class OfflineManagerExample: UIViewController, ExampleProtocol {
 
         // 2. Create an offline region with tiles for the outdoors style
         let outdoorsOptions = TilesetDescriptorOptions(styleURI: .outdoors,
-                                                       zoomRange: 0...16)
+                                                       zoomRange: 0...16, tilesets: nil)
 
         let outdoorsDescriptor = offlineManager.createTilesetDescriptor(for: outdoorsOptions)
 
@@ -223,8 +222,7 @@ final class OfflineManagerExample: UIViewController, ExampleProtocol {
         tileStore?.removeTileRegion(forId: tileRegionId)
 
         // Set the disk quota to zero, so that tile regions are fully evicted
-        // when removed. The TileStore is also used when `ResourceOptions.isLoadTilePacksFromNetwork`
-        // is `true`, and also by the Navigation SDK.
+        // when removed.
         // This removes the tiles from the predictive cache.
         tileStore?.setOptionForKey(TileStoreOptions.diskQuota, value: 0)
 
@@ -266,11 +264,7 @@ final class OfflineManagerExample: UIViewController, ExampleProtocol {
             case (_, .initial):
                 resetUI()
 
-                let tileStore = TileStore.default
-                let accessToken = ResourceOptionsManager.default.resourceOptions.accessToken
-                tileStore.setOptionForKey(TileStoreOptions.mapboxAccessToken, value: accessToken)
-
-                self.tileStore = tileStore
+                self.tileStore = TileStore.default
 
                 logger?.log(message: "Enabling HTTP stack network connection", category: "Example", color: .orange)
                 OfflineSwitch.shared.isMapboxStackConnected = true
@@ -322,26 +316,25 @@ final class OfflineManagerExample: UIViewController, ExampleProtocol {
         button.setTitle("Show Downloads", for: .normal)
         progressContainer.isHidden = true
 
-        // It's important that the MapView use the same ResourceOptions as the
-        // OfflineManager
         let mapView = MapView(frame: mapViewContainer.bounds, mapInitOptions: mapInitOptions)
         mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         mapViewContainer.addSubview(mapView)
 
         // Add a point annotation that shows the point geometry that were passed
         // to the tile region API.
-        mapView.mapboxMap.onNext(event: .styleLoaded) { [weak self] _ in
+        mapView.mapboxMap.onStyleLoaded.observeNext { [weak self] _ in
             guard let self = self,
                   let mapView = self.mapView else {
                 return
             }
 
             var pointAnnotation = PointAnnotation(coordinate: self.tokyoCoord)
-            pointAnnotation.image = .init(image: UIImage(named: "custom_marker")!, name: "custom-marker")
+            pointAnnotation.image = .init(image: UIImage(named: "dest-pin")!, name: "custom-marker")
+            pointAnnotation.iconOffset = [0, 12]
 
             let pointAnnotationManager = mapView.annotations.makePointAnnotationManager()
             pointAnnotationManager.annotations = [pointAnnotation]
-        }
+        }.store(in: &cancelables)
 
         self.mapView = mapView
     }

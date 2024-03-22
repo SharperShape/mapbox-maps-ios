@@ -2,9 +2,8 @@ import XCTest
 @testable import MapboxMaps
 
 final class FlyToCameraAnimatorTests: XCTestCase {
-
-    internal let initialCameraState = CameraState(
-        MapboxCoreMaps.CameraState(
+    let initialCameraState = CameraState(
+        CoreCameraState(
             center: .init(
                 latitude: 42.3601,
                 longitude: -71.0589),
@@ -27,6 +26,7 @@ final class FlyToCameraAnimatorTests: XCTestCase {
         pitch: 10)
 
     let duration: TimeInterval = 10
+    let curve = TimingCurve.easeInOut
     var owner: AnimationOwner!
     var mapboxMap: MockMapboxMap!
     var mainQueue: MockMainQueue!
@@ -46,8 +46,9 @@ final class FlyToCameraAnimatorTests: XCTestCase {
         dateProvider = MockDateProvider()
         flyToCameraAnimator = FlyToCameraAnimator(
             toCamera: finalCameraOptions,
-            owner: owner,
             duration: duration,
+            curve: curve,
+            owner: owner,
             mapboxMap: mapboxMap,
             mainQueue: mainQueue,
             dateProvider: dateProvider)
@@ -165,8 +166,8 @@ final class FlyToCameraAnimatorTests: XCTestCase {
         let completion = Stub<UIViewAnimatingPosition, Void>()
         flyToCameraAnimator.addCompletion(completion.call(with:))
 
-        XCTAssertEqual(mainQueue.asyncStub.invocations.count, 1)
-        let closure = try XCTUnwrap(mainQueue.asyncStub.invocations.first?.parameters)
+        XCTAssertEqual(mainQueue.asyncClosureStub.invocations.count, 1)
+        let closure = try XCTUnwrap(mainQueue.asyncClosureStub.invocations.first?.parameters.work)
 
         closure()
 
@@ -181,8 +182,8 @@ final class FlyToCameraAnimatorTests: XCTestCase {
         let completion = Stub<UIViewAnimatingPosition, Void>()
         flyToCameraAnimator.addCompletion(completion.call(with:))
 
-        XCTAssertEqual(mainQueue.asyncStub.invocations.count, 1)
-        let closure = try XCTUnwrap(mainQueue.asyncStub.invocations.first?.parameters)
+        XCTAssertEqual(mainQueue.asyncClosureStub.invocations.count, 1)
+        let closure = try XCTUnwrap(mainQueue.asyncClosureStub.invocations.first?.parameters.work)
 
         closure()
 

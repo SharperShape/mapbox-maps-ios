@@ -6,36 +6,62 @@ public struct LocationOptions: Equatable {
 
     /// Specifies the minimum distance (measured in meters) a device must move horizontally
     /// before a location update is generated.
-
+    ///
     /// The default value of this property is `kCLDistanceFilterNone`.
-    public var distanceFilter: CLLocationDistance = kCLDistanceFilterNone
+    @available(*, unavailable, message: "Use AppleLocationProvider.Options.distanceFilter instead")
+    public var distanceFilter: CLLocationDistance { kCLDistanceFilterNone }
 
     /// Specifies the accuracy of the location data.
+    ///
     /// The default value is `kCLLocationAccuracyBest`.
-    public var desiredAccuracy: CLLocationAccuracy = kCLLocationAccuracyBest
+    @available(*, unavailable, message: "Use AppleLocationProvider.Options.desiredAccuracy instead")
+    public var desiredAccuracy: CLLocationAccuracy { kCLLocationAccuracyBest }
 
     /// Sets the type of user activity associated with the location updates.
+    ///
     /// The default value is `CLActivityType.other`.
-    public var activityType: CLActivityType = .other
+    @available(*, unavailable, message: "Use AppleLocationProvider.Options.activityType instead")
+    public var activityType: CLActivityType { .other }
 
     /// Sets the type of puck that should be used
     public var puckType: PuckType?
 
-    /// Specifies if a `Puck` should use `Heading` or `Course` for the bearing
-    /// This is an experimental option. The default value is `PuckBearingSource.heading`.
-    public var puckBearingSource: PuckBearingSource = .heading
+    /// Specifies if a `Puck` should use `Heading` or `Course` for the bearing.
+    ///
+    /// The default value is `PuckBearing.heading`.
+    public var puckBearing: PuckBearing
 
     /// Whether the puck rotates to track the bearing source.
-    public var puckBearingEnabled: Bool = true
+    ///
+    /// The default value is `false`.
+    public var puckBearingEnabled: Bool
 
-    public init() {}
+    /// Initializes a `LocationOptions`.
+    /// - Parameters:
+    ///   - puckType: Sets the type of puck that should be used.
+    ///   - puckBearing: Specifies if a `Puck` should use `Heading` or `Course` for the bearing.
+    ///   - puckBearingEnabled: Whether the puck rotates to track the bearing source.
+    public init(
+        puckType: PuckType? = nil,
+        puckBearing: PuckBearing = .heading,
+        puckBearingEnabled: Bool = false
+    ) {
+        self.puckType = puckType
+        self.puckBearing = puckBearing
+        self.puckBearingEnabled = puckBearingEnabled
+    }
 }
 
 /// Controls how the puck is oriented
-public enum PuckBearingSource: Equatable {
-    /// The puck should set its bearing using `heading: CLHeading`
+public enum PuckBearing: Equatable {
+    /// The puck should set its bearing using `heading: CLHeading`. Bearing will mimic user's
+    /// spatial orientation.
+    ///
+    /// - Note: On visionOS, the heading-based puck bearing is not supported by default.
+    /// You can supply your custom data via the ``HeadingProvider`` in ``LocationManager`` to make it work.
     case heading
 
-    /// The puck should set its bearing using `course: CLLocationDirection`
+    /// The puck should set its bearing using `course: CLLocationDirection`. Bearing will mimic
+    /// the general direction of travel.
     case course
 }

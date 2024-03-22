@@ -8,6 +8,7 @@ internal protocol BasicCameraAnimatorDelegate: AnyObject {
 internal protocol BasicCameraAnimatorProtocol: AnyObject {
     var delegate: BasicCameraAnimatorDelegate? { get set }
     var owner: AnimationOwner { get }
+    var animationType: AnimationType { get }
     var transition: CameraTransition? { get }
     var state: UIViewAnimatingState { get }
     var isRunning: Bool { get }
@@ -25,6 +26,8 @@ internal protocol BasicCameraAnimatorProtocol: AnyObject {
 }
 
 internal final class BasicCameraAnimatorImpl: BasicCameraAnimatorProtocol {
+    typealias Animation = (inout CameraTransition) -> Void
+
     private enum InternalState: Equatable {
         case initial
         case running(CameraTransition)
@@ -38,6 +41,9 @@ internal final class BasicCameraAnimatorImpl: BasicCameraAnimatorProtocol {
     /// The animator's owner.
     internal let owner: AnimationOwner
 
+    /// Type of the embeded animation
+    internal var animationType: AnimationType
+
     /// The `CameraView` owned by this animator
     private let cameraView: CameraView
 
@@ -48,7 +54,7 @@ internal final class BasicCameraAnimatorImpl: BasicCameraAnimatorProtocol {
     internal weak var delegate: BasicCameraAnimatorDelegate?
 
     /// Represents the animation that this animator is attempting to execute
-    private var animation: ((inout CameraTransition) -> Void)?
+    private let animation: Animation
 
     private var completions = [AnimationCompletion]()
 
@@ -110,14 +116,18 @@ internal final class BasicCameraAnimatorImpl: BasicCameraAnimatorProtocol {
     // MARK: Initializer
     internal init(propertyAnimator: UIViewPropertyAnimator,
                   owner: AnimationOwner,
+                  type: AnimationType = .unspecified,
                   mapboxMap: MapboxMapProtocol,
                   mainQueue: MainQueueProtocol,
-                  cameraView: CameraView) {
+                  cameraView: CameraView,
+                  animation: @escaping Animation) {
         self.propertyAnimator = propertyAnimator
         self.owner = owner
+        self.animationType = type
         self.mapboxMap = mapboxMap
         self.mainQueue = mainQueue
         self.cameraView = cameraView
+        self.animation = animation
     }
 
     deinit {
@@ -153,7 +163,7 @@ internal final class BasicCameraAnimatorImpl: BasicCameraAnimatorProtocol {
             // already running; do nothing
             break
         case .paused:
-            fatalError("A paused animator cannot be started with a delay.")
+            assertionFailure("A paused animator cannot be started with a delay.")
         case .final:
             // animators cannot be restarted
             break
@@ -197,12 +207,6 @@ internal final class BasicCameraAnimatorImpl: BasicCameraAnimatorProtocol {
         }
     }
 
-    /// Add animations block to the animator.
-    internal func addAnimations(_ animations: @escaping (inout CameraTransition) -> Void) {
-        precondition(animation == nil, "\(#function) should only be called once.")
-        animation = animations
-    }
-
     /// Add a completion block to the animator.
     internal func addCompletion(_ completion: @escaping AnimationCompletion) {
         switch internalState {
@@ -219,14 +223,14 @@ internal final class BasicCameraAnimatorImpl: BasicCameraAnimatorProtocol {
     internal func continueAnimation(withTimingParameters parameters: UITimingCurveProvider?, durationFactor: Double) {
         switch internalState {
         case .initial:
-            fatalError("Attempt to continue an animation that has not started.")
+            assertionFailure("Can't continue an animation that has not started.")
         case .running:
-            fatalError("Attempt to continue an animation that is already running.")
+            assertionFailure("Can't continue an animation that is already running.")
         case let .paused(transition):
             internalState = .running(transition)
             propertyAnimator.continueAnimation(withTimingParameters: parameters, durationFactor: CGFloat(durationFactor))
         case .final:
-            fatalError("Attempt to continue an animation that has already completed.")
+            assertionFailure("Can't continue an animation that has already completed.")
         }
     }
 
@@ -281,11 +285,7 @@ internal final class BasicCameraAnimatorImpl: BasicCameraAnimatorProtocol {
     }
 
     private func makeTransition() -> CameraTransition {
-        precondition(internalState == .initial, "createTransition must only be called when BasicCameraAnimator is in its initial state.")
-
-        guard let animation = animation else {
-            fatalError("Animation cannot be nil when starting an animation")
-        }
+        assert(internalState == .initial, "createTransition must only be called when BasicCameraAnimator is in its initial state.")
 
         var transition = CameraTransition(cameraState: mapboxMap.cameraState, initialAnchor: mapboxMap.anchor)
         animation(&transition)
@@ -311,6 +311,8 @@ internal final class BasicCameraAnimatorImpl: BasicCameraAnimatorProtocol {
         }
 
         UIView.performWithoutAnimation {
+            // set unique non-animatable value to detect same-transaction animations
+            cameraView.layer.needsDisplayOnBoundsChange.toggle()
             cameraView.syncLayer(to: transition.fromCameraOptions) // Set up the "from" values for the interpoloation
         }
         return transition

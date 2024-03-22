@@ -1,3 +1,4 @@
+/// An object representing points, curves, and surfaces in coordinate space. Use an instance of this enumeration whenever a value could be any kind of Geometry object.
 public typealias Geometry = Turf.Geometry
 
 extension Geometry {
@@ -70,6 +71,32 @@ extension MapboxCommon.Geometry {
         #if USING_TURF_WITH_LIBRARY_EVOLUTION
         @unknown default:
             fatalError("Could not determine Geometry from given Turf Geometry")
+        #endif
+        }
+    }
+}
+
+extension Geometry {
+    /// Collects all coordinates for this geometry.
+    var coordinates: [CLLocationCoordinate2D] {
+        switch self {
+        case .point(let point):
+            return [point.coordinates]
+        case .lineString(let lineString):
+            return lineString.coordinates
+        case .polygon(let polygon):
+            return polygon.coordinates.flatMap { $0 }
+        case .multiPoint(let multipoint):
+            return multipoint.coordinates
+        case .multiLineString(let multiLineString):
+            return multiLineString.coordinates.flatMap { $0 }
+        case .multiPolygon(let multiPolygon):
+            return multiPolygon.coordinates.flatMap { $0.flatMap { $0 } }
+        case .geometryCollection(let geometryCollection):
+            return geometryCollection.geometries.flatMap { $0.coordinates }
+        #if USING_TURF_WITH_LIBRARY_EVOLUTION
+        @unknown default:
+            return []
         #endif
         }
     }

@@ -5,7 +5,7 @@ import XCTest
 final class CircleAnnotationTests: XCTestCase {
 
     func testCircleSortKey() {
-        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)))
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
         annotation.circleSortKey =  Double.testConstantValue()
 
         guard let featureProperties = try? XCTUnwrap(annotation.feature.properties) else {
@@ -19,7 +19,7 @@ final class CircleAnnotationTests: XCTestCase {
     }
 
     func testCircleBlur() {
-        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)))
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
         annotation.circleBlur =  Double.testConstantValue()
 
         guard let featureProperties = try? XCTUnwrap(annotation.feature.properties) else {
@@ -33,7 +33,7 @@ final class CircleAnnotationTests: XCTestCase {
     }
 
     func testCircleColor() {
-        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)))
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
         annotation.circleColor =  StyleColor.testConstantValue()
 
         guard let featureProperties = try? XCTUnwrap(annotation.feature.properties) else {
@@ -43,11 +43,11 @@ final class CircleAnnotationTests: XCTestCase {
               case let .string(circleColor) = layerProperties["circle-color"] else {
             return XCTFail("Layer property circle-color should be set to a string.")
         }
-        XCTAssertEqual(circleColor, annotation.circleColor.flatMap { $0.rgbaString })
+        XCTAssertEqual(circleColor, annotation.circleColor.flatMap { $0.rawValue })
     }
 
     func testCircleOpacity() {
-        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)))
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
         annotation.circleOpacity =  Double.testConstantValue()
 
         guard let featureProperties = try? XCTUnwrap(annotation.feature.properties) else {
@@ -61,7 +61,7 @@ final class CircleAnnotationTests: XCTestCase {
     }
 
     func testCircleRadius() {
-        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)))
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
         annotation.circleRadius =  Double.testConstantValue()
 
         guard let featureProperties = try? XCTUnwrap(annotation.feature.properties) else {
@@ -75,7 +75,7 @@ final class CircleAnnotationTests: XCTestCase {
     }
 
     func testCircleStrokeColor() {
-        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)))
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
         annotation.circleStrokeColor =  StyleColor.testConstantValue()
 
         guard let featureProperties = try? XCTUnwrap(annotation.feature.properties) else {
@@ -85,11 +85,11 @@ final class CircleAnnotationTests: XCTestCase {
               case let .string(circleStrokeColor) = layerProperties["circle-stroke-color"] else {
             return XCTFail("Layer property circle-stroke-color should be set to a string.")
         }
-        XCTAssertEqual(circleStrokeColor, annotation.circleStrokeColor.flatMap { $0.rgbaString })
+        XCTAssertEqual(circleStrokeColor, annotation.circleStrokeColor.flatMap { $0.rawValue })
     }
 
     func testCircleStrokeOpacity() {
-        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)))
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
         annotation.circleStrokeOpacity =  Double.testConstantValue()
 
         guard let featureProperties = try? XCTUnwrap(annotation.feature.properties) else {
@@ -103,7 +103,7 @@ final class CircleAnnotationTests: XCTestCase {
     }
 
     func testCircleStrokeWidth() {
-        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)))
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
         annotation.circleStrokeWidth =  Double.testConstantValue()
 
         guard let featureProperties = try? XCTUnwrap(annotation.feature.properties) else {
@@ -114,6 +114,38 @@ final class CircleAnnotationTests: XCTestCase {
             return XCTFail("Layer property circle-stroke-width should be set to a number.")
         }
         XCTAssertEqual(circleStrokeWidth, annotation.circleStrokeWidth)
+    }
+
+    @available(*, deprecated)
+    func testUserInfo() throws {
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
+        let userInfo = ["foo": "bar"]
+        annotation.userInfo = userInfo
+
+        let featureProperties = try XCTUnwrap(annotation.feature.properties)
+        let actualUserInfo = try XCTUnwrap(featureProperties["userInfo"]??.rawValue as? [String: Any])
+        XCTAssertEqual(actualUserInfo["foo"] as? String, userInfo["foo"])
+    }
+
+    @available(*, deprecated)
+    func testUserInfoNilWhenNonJSONObjectPassed() throws {
+        struct NonJSON: Equatable {}
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
+        annotation.userInfo = ["foo": NonJSON()]
+
+        let featureProperties = try XCTUnwrap(annotation.feature.properties)
+        let actualUserInfo = try XCTUnwrap(featureProperties["userInfo"]??.rawValue as? [String: Any])
+        XCTAssertNil(actualUserInfo["foo"] as? NonJSON)
+    }
+
+    @available(*, deprecated)
+    func testCustomData() throws {
+        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
+        let customData: JSONObject = ["foo": .string("bar")]
+        annotation.customData = customData
+
+        let actualCustomData = try XCTUnwrap(annotation.feature.properties?["custom_data"])
+        XCTAssertEqual(actualCustomData, .object(customData))
     }
 }
 

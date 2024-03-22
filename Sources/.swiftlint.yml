@@ -1,3 +1,5 @@
 ---
 opt_in_rules:
-  - explicit_top_level_acl
+  - missing_docs
+disabled_rules:
+  - file_length

@@ -1,19 +1,28 @@
 import UIKit
 
 internal protocol CameraAnimatorsRunnerProtocol: AnyObject {
+    var isEnabled: Bool { get set }
     var cameraAnimators: [CameraAnimator] { get }
     func update()
     func cancelAnimations()
     func cancelAnimations(withOwners owners: [AnimationOwner])
+    func cancelAnimations(withOwners owners: [AnimationOwner], andTypes: [AnimationType])
     func add(_ animator: CameraAnimatorProtocol)
 }
 
 internal final class CameraAnimatorsRunner: CameraAnimatorsRunnerProtocol {
 
-    /// When ``EnablableProtocol/isEnabled`` is `false`, all existing animations
+    /// When `false`, all existing animations
     /// will be canceled at each invocation of ``CameraAnimatorsRunner/update()`` and any
-    /// new animations will be canceled immediately.
-    private let enablable: EnablableProtocol
+    /// new animations will be canceled immediately
+    /// It is false by default, until the MapView is added to a UIWindow and display link is created.
+    var isEnabled: Bool = false {
+        didSet {
+            if !isEnabled {
+                cancelAnimations()
+            }
+        }
+    }
 
     /// See ``CameraAnimationsManager/cameraAnimators``.
     internal var cameraAnimators: [CameraAnimator] {
@@ -28,14 +37,12 @@ internal final class CameraAnimatorsRunner: CameraAnimatorsRunnerProtocol {
 
     private let mapboxMap: MapboxMapProtocol
 
-    internal init(mapboxMap: MapboxMapProtocol,
-                  enablable: EnablableProtocol) {
+    internal init(mapboxMap: MapboxMapProtocol) {
         self.mapboxMap = mapboxMap
-        self.enablable = enablable
     }
 
     internal func update() {
-        guard enablable.isEnabled else {
+        guard isEnabled else {
             cancelAnimations()
             return
         }
@@ -57,10 +64,17 @@ internal final class CameraAnimatorsRunner: CameraAnimatorsRunnerProtocol {
         }
     }
 
+    func cancelAnimations(withOwners owners: [AnimationOwner], andTypes types: [AnimationType]) {
+        for animator in allCameraAnimators.allObjects
+        where owners.contains(animator.owner) && types.contains(animator.animationType) {
+            animator.stopAnimation()
+        }
+    }
+
     internal func add(_ animator: CameraAnimatorProtocol) {
         animator.delegate = self
         allCameraAnimators.add(animator)
-        if !enablable.isEnabled {
+        if !isEnabled {
             animator.stopAnimation()
         }
     }

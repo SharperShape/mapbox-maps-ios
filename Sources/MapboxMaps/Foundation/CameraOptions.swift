@@ -2,13 +2,35 @@ import Foundation
 import CoreLocation
 import UIKit
 
-public struct CameraOptions: Hashable {
-    public var center: CLLocationCoordinate2D?
-    public var padding: UIEdgeInsets?
-    public var anchor: CGPoint?
+public struct CameraOptions: Codable, Hashable {
+    /// The geographic coordinate that will be rendered at the midpoint of the area defined by `padding`. Defaults to (0, 0).
+    public var center: CLLocationCoordinate2D? {
+        get { centerCodable?.coordinates }
+        set { centerCodable = newValue.map(CLLocationCoordinate2DCodable.init) }
+    }
+
+    /// Insets from each edge of the map. Impacts the "principal point" of the graphical projection and the location at which `center` is rendered. Defaults to 0.
+    public var padding: UIEdgeInsets? {
+        get { paddingCodable?.edgeInsets }
+        set { paddingCodable = newValue.map(UIEdgeInsetsCodable.init) }
+    }
+
+    /// Point in the map's coordinate system about which `zoom` and `bearing` should be applied. Mutually exclusive with `center`. Defaults to (0, 0).
+    public var anchor: CGPoint? {
+        get { anchorCodable?.point }
+        set { anchorCodable = newValue.map(CGPointCodable.init) }
+    }
+
+    /// The zoom level of the map. Defaults to 0.
     public var zoom: CGFloat?
+    /// The bearing of the map, measured in degrees clockwise from true north. Defaults to 0.
     public var bearing: CLLocationDirection?
+    /// Pitch toward the horizon measured in degrees, with 0 degrees resulting in a top-down view for a two-dimensional map. Defaults to 0.
     public var pitch: CGFloat?
+
+    private var centerCodable: CLLocationCoordinate2DCodable?
+    private var paddingCodable: UIEdgeInsetsCodable?
+    private var anchorCodable: CGPointCodable?
 
     /**
     `CameraOptions` represents a set of updates to make to the camera.
@@ -28,9 +50,9 @@ public struct CameraOptions: Hashable {
                 bearing: CLLocationDirection? = nil,
                 pitch: CGFloat? = nil) {
         self.center     = center
-        self.padding 	= padding
+        self.padding    = padding
         self.anchor     = anchor
-        self.zoom 	    = zoom
+        self.zoom       = zoom
         self.bearing    = bearing
         self.pitch      = pitch
     }
@@ -44,45 +66,21 @@ public struct CameraOptions: Hashable {
         self.anchor     = anchor
     }
 
-    internal init(_ objcValue: MapboxCoreMaps.CameraOptions) {
+    internal init(_ objcValue: CoreCameraOptions) {
         self.init(
-            center: objcValue.__center?.coordinate,
+            center: objcValue.__center?.value,
             padding: objcValue.__padding?.toUIEdgeInsetsValue(),
             anchor: objcValue.__anchor?.point,
             zoom: objcValue.__zoom?.CGFloat,
             bearing: objcValue.__bearing?.CLLocationDirection,
             pitch: objcValue.__pitch?.CGFloat)
     }
-
-    public static func == (lhs: CameraOptions, rhs: CameraOptions) -> Bool {
-        return lhs.center?.latitude == rhs.center?.latitude
-            && lhs.center?.longitude == rhs.center?.longitude
-            && lhs.padding == rhs.padding
-            && lhs.anchor == rhs.anchor
-            && lhs.zoom == rhs.zoom
-            && lhs.bearing == rhs.bearing
-            && lhs.pitch == rhs.pitch
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(center?.latitude)
-        hasher.combine(center?.longitude)
-        hasher.combine(padding?.top)
-        hasher.combine(padding?.left)
-        hasher.combine(padding?.bottom)
-        hasher.combine(padding?.right)
-        hasher.combine(anchor?.x)
-        hasher.combine(anchor?.y)
-        hasher.combine(zoom)
-        hasher.combine(bearing)
-        hasher.combine(pitch)
-    }
 }
 
-extension MapboxCoreMaps.CameraOptions {
+extension CoreCameraOptions {
     internal convenience init(_ swiftValue: CameraOptions) {
         self.init(
-            __center: swiftValue.center?.location,
+            __center: swiftValue.center.flatMap { Coordinate2D(value: $0) },
             padding: swiftValue.padding?.toMBXEdgeInsetsValue(),
             anchor: swiftValue.anchor?.screenCoordinate,
             zoom: swiftValue.zoom?.NSNumber,

@@ -39,6 +39,16 @@ final class CameraAnimationsManagerImplTests: XCTestCase {
         XCTAssertEqual(runner.cancelAnimationsStub.invocations.count, 1)
     }
 
+    func testCancelAnimationsWithTypes() throws {
+        impl.cancelAnimations(withOwners: [.gestures], andTypes: [.deceleration])
+
+        XCTAssertEqual(runner.cancelAnimationsOwnersTypesStub.invocations.count, 1)
+
+        let invocation = try XCTUnwrap(runner.cancelAnimationsOwnersTypesStub.invocations.first)
+        XCTAssertEqual(invocation.parameters.owners, [.gestures])
+        XCTAssertEqual(invocation.parameters.types, [.deceleration])
+    }
+
     func testFlyTo() throws {
         let camera = CameraOptions.random()
         let duration = TimeInterval?.random(.random(in: 0...10))
@@ -47,6 +57,7 @@ final class CameraAnimationsManagerImplTests: XCTestCase {
         let cancelable = impl.fly(
             to: camera,
             duration: duration,
+            curve: .easeInOut,
             completion: completion.call(with:))
 
         // cancels any existing high-level animator (identified based on the owner)
@@ -79,7 +90,7 @@ final class CameraAnimationsManagerImplTests: XCTestCase {
     }
 
     func testFlyToWithNilCompletion() throws {
-        impl.fly(to: .random(), duration: nil, completion: nil)
+        impl.fly(to: .random(), duration: nil, curve: .easeInOut, completion: nil)
 
         // creates the new animator
         XCTAssertEqual(factory.makeFlyToAnimatorStub.invocations.count, 1)

@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Kila2/XcodeGen/master/Assets/json-schema/project.json
+
+include:
+  - targets.yml
+packages:
+  Fingertips:
+    url: git@github.com:mapbox/Fingertips.git
+    from: 0.6.0
+targets:
+  Examples:
+    templates:
+      - application
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mapbox.examples
+        SWIFT_OBJC_BRIDGING_HEADER: $(MAPBOXMAPS_PATH)/Apps/Examples/Examples/Examples-Bridging-Header.h
+    sources:
+      - path: ../Apps/Examples/Examples
+        excludes:
+          - VisionOSMain.swift
+          - "SwiftUI Examples/**"
+          - "All Examples/Sample Data/**"
+          - "Assets.xcassets/**"
+        destinationFilters: [iOS]
+      - path: ../Apps/Examples/Examples
+        includes:
+          - VisionOSMain.swift
+        destinationFilters: [visionOS]
+      - path: ../Apps/Examples/Examples
+        includes:
+          - "SwiftUI Examples/**"
+          - "All Examples/Sample Data/**"
+          - "Assets.xcassets/**"
+        # destinationFilters: [iOS, visionOS]
+
+    dependencies:
+      - package: Fingertips
+        destinationFilters: [iOS]
+    scheme:
+      testTargets:
+        - ExamplesTests
+        - ExamplesUITests
+      environmentVariables:
+        - variable: MAPBOX_REOPEN_EXAMPLE
+          value: 1
+
+  ExamplesTests:
+    templates:
+      - unit-test
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: "com.mapbox.MapboxTests"
+    sources:
+      - path: ../Tests/ExamplesTests
+        destinationFilters: [iOS] # no-op on visionOS
+    dependencies:
+      - target: Examples
+
+  ExamplesUITests:
+    templates:
+      - unit-test
+    type: bundle.ui-testing
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: "mapbox.ExamplesUITests"
+    sources:
+      - path: ../Tests/ExamplesUITests
+        destinationFilters: [iOS] # no-op on visionOS
+
+    dependencies:
+      - target: Examples

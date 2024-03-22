@@ -5,11 +5,11 @@ final class PinchGestureHandlerTests: XCTestCase {
     var view: UIView!
     var gestureRecognizer: MockPinchGestureRecognizer!
     var mapboxMap: MockMapboxMap!
-    var pinchBehaviorProvider: MockPinchBehaviorProvider!
     var pinchGestureHandler: PinchGestureHandler!
     // swiftlint:disable:next weak_delegate
     var delegate: MockGestureHandlerDelegate!
     var initialPinchMidpoint: CGPoint!
+    let interruptingRecognizers = UIGestureRecognizer.interruptingRecognizers([.longPress, .swipe, .screenEdge, .pan])
 
     override func setUp() {
         super.setUp()
@@ -17,15 +17,10 @@ final class PinchGestureHandlerTests: XCTestCase {
         gestureRecognizer = MockPinchGestureRecognizer()
         view.addGestureRecognizer(gestureRecognizer)
         mapboxMap = MockMapboxMap()
-        pinchBehaviorProvider = MockPinchBehaviorProvider()
-        pinchGestureHandler = PinchGestureHandler(
-            gestureRecognizer: gestureRecognizer,
-            mapboxMap: mapboxMap,
-            pinchBehaviorProvider: pinchBehaviorProvider)
+        pinchGestureHandler = PinchGestureHandler(gestureRecognizer: gestureRecognizer, mapboxMap: mapboxMap)
         delegate = MockGestureHandlerDelegate()
         pinchGestureHandler.delegate = delegate
 
-        pinchGestureHandler.panEnabled = .random()
         pinchGestureHandler.zoomEnabled = .random()
         gestureRecognizer.locationOfTouchStub.returnValueQueue = [
             CGPoint(x: -1, y: -1),
@@ -38,10 +33,10 @@ final class PinchGestureHandlerTests: XCTestCase {
         initialPinchMidpoint = nil
         delegate = nil
         pinchGestureHandler = nil
-        pinchBehaviorProvider = nil
         mapboxMap = nil
         gestureRecognizer = nil
         view = nil
+        interruptingRecognizers.forEach { $0.view?.removeGestureRecognizer($0) }
         super.tearDown()
     }
 
@@ -49,18 +44,6 @@ final class PinchGestureHandlerTests: XCTestCase {
         gestureRecognizer.getStateStub.defaultReturnValue = state
         gestureRecognizer.getNumberOfTouchesStub.defaultReturnValue = numberOfTouches
         gestureRecognizer.sendActions()
-    }
-
-    func verifyMakePinchBehavior() {
-        guard pinchBehaviorProvider.makePinchBehaviorStub.invocations.count == 1 else {
-            XCTFail("makePinchBehavior was not invoked exactly 1 time.")
-            return
-        }
-        let parameters = pinchBehaviorProvider.makePinchBehaviorStub.invocations[0].parameters
-        XCTAssertEqual(parameters.panEnabled, pinchGestureHandler.panEnabled)
-        XCTAssertEqual(parameters.zoomEnabled, pinchGestureHandler.zoomEnabled)
-        XCTAssertEqual(parameters.initialCameraState, mapboxMap.cameraState)
-        XCTAssertEqual(parameters.initialPinchMidpoint, initialPinchMidpoint)
     }
 
     func verifyGestureBegan() {
@@ -84,14 +67,12 @@ final class PinchGestureHandlerTests: XCTestCase {
     func testPinchBeganWith1Touch() {
         sendActions(with: .began, numberOfTouches: 1)
 
-        XCTAssertEqual(pinchBehaviorProvider.makePinchBehaviorStub.invocations.count, 0)
         XCTAssertEqual(delegate.gestureBeganStub.invocations.count, 0)
     }
 
     func testPinchBeganWith2Touches() throws {
         sendActions(with: .began, numberOfTouches: 2)
 
-        verifyMakePinchBehavior()
         verifyGestureBegan()
     }
 
@@ -125,7 +106,6 @@ final class PinchGestureHandlerTests: XCTestCase {
 
         sendActions(with: .changed, numberOfTouches: 2)
 
-        verifyMakePinchBehavior()
         verifyGestureBegan()
 
         sendActions(with: .ended, numberOfTouches: 2)
@@ -134,6 +114,7 @@ final class PinchGestureHandlerTests: XCTestCase {
     }
 
     func testBegin2Changed2Ended() throws {
+        let initialZoom = mapboxMap.cameraState.zoom
         sendActions(with: .began, numberOfTouches: 2)
 
         let pinchMidpoint = CGPoint.random()
@@ -145,20 +126,54 @@ final class PinchGestureHandlerTests: XCTestCase {
             CGPoint(x: 1, y: 1)]
         sendActions(with: .changed, numberOfTouches: 2)
 
-        let behavior = try XCTUnwrap(
-            pinchBehaviorProvider.makePinchBehaviorStub.invocations.first?.returnValue as? MockPinchBehavior)
         XCTAssertEqual(
-            behavior.updateStub.invocations.map(\.parameters),
-            [.init(pinchMidpoint: pinchMidpoint, pinchScale: pinchScale)])
+            mapboxMap.setCameraStub.invocations.map(\.parameters),
+            [CameraOptions(anchor: pinchMidpoint, zoom: initialZoom + log2(pinchScale))])
 
         sendActions(with: .ended, numberOfTouches: 2)
 
         verifyGestureEnded()
     }
 
+    func testUpdate() {
+        // given
+        let pinchScale = CGFloat.random(in: 0.1..<10)
+        let pinchMidpoint = CGPoint.random()
+        let initialZoom = mapboxMap.cameraState.zoom
+
+        gestureRecognizer.locationStub.defaultReturnValue = pinchMidpoint
+        gestureRecognizer.getScaleStub.defaultReturnValue = pinchScale
+        gestureRecognizer.getStateStub.returnValueQueue = [.began, .changed]
+
+        // when
+        gestureRecognizer.sendActions() // began
+        gestureRecognizer.sendActions() // changed
+
+        // then
+        // verify that only one camera changed notification was emitted
+        XCTAssertEqual(mapboxMap.setCameraStub.invocations.count, 1)
+        XCTAssertEqual(
+            mapboxMap.setCameraStub.invocations.map(\.parameters),
+            [CameraOptions(anchor: pinchMidpoint, zoom: initialZoom + log2(pinchScale))])
+
+    }
+
+    func testFocalPoint() {
+        // given
+        let focalPoint = CGPoint.random()
+        pinchGestureHandler.focalPoint = focalPoint
+        gestureRecognizer.getStateStub.returnValueQueue = [.began, .changed]
+
+        // when
+        gestureRecognizer.sendActions() // began
+        gestureRecognizer.sendActions() // changed
+
+        // then
+        XCTAssertEqual(mapboxMap.setCameraStub.invocations.first?.parameters.anchor, focalPoint)
+    }
+
     func testBegin2Changed2Changed1Changed2Ended() {
         sendActions(with: .began, numberOfTouches: 2)
-        pinchBehaviorProvider.makePinchBehaviorStub.reset()
         delegate.gestureBeganStub.reset()
 
         sendActions(with: .changed, numberOfTouches: 2)
@@ -170,7 +185,6 @@ final class PinchGestureHandlerTests: XCTestCase {
             CGPoint(x: -1, y: -1),
             CGPoint(x: 1, y: 1)]
         sendActions(with: .changed, numberOfTouches: 2)
-        verifyMakePinchBehavior()
         XCTAssertEqual(delegate.gestureBeganStub.invocations.count, 0)
 
         sendActions(with: .ended, numberOfTouches: 2)
@@ -181,43 +195,37 @@ final class PinchGestureHandlerTests: XCTestCase {
         XCTAssertEqual(pinchGestureHandler.simultaneousRotateAndPinchZoomEnabled, true)
     }
 
-    func testPinchRecognizesSimultaneouslyWithRotation() {
-        let shouldRecognizeSimultaneously = pinchGestureHandler.gestureRecognizer(
-            gestureRecognizer,
-            shouldRecognizeSimultaneouslyWith: UIRotationGestureRecognizer()
-        )
+    func testPinchGestureDelegateShouldNotPreventAlienGestures() {
+        let shouldRecognize = pinchGestureHandler.gestureRecognizer(UITapGestureRecognizer(),
+                                shouldRecognizeSimultaneouslyWith: UIPanGestureRecognizer())
+        XCTAssertTrue(shouldRecognize)
 
-        XCTAssertTrue(shouldRecognizeSimultaneously)
     }
 
-    func testPinchShouldNotRecognizeSimultaneouslyWithNonRotation() {
-        let recognizers = [UIPanGestureRecognizer(), UILongPressGestureRecognizer(), UISwipeGestureRecognizer(), UIScreenEdgePanGestureRecognizer(), UITapGestureRecognizer()]
+    func testPinchRecognizesSimultaneouslyWithRotationAndSingleTouchPan() {
+        let singleTouchPan = UIPanGestureRecognizer()
+        singleTouchPan.maximumNumberOfTouches = 1
+        let recognizers = [singleTouchPan, UIRotationGestureRecognizer()]
+        recognizers.forEach(view.addGestureRecognizer)
 
-        for recognizer in recognizers {
-            let shouldRecognizeSimultaneously = pinchGestureHandler.gestureRecognizer(
-                gestureRecognizer,
-                shouldRecognizeSimultaneouslyWith: recognizer
-            )
-
-            XCTAssertFalse(shouldRecognizeSimultaneously)
-        }
+        pinchGestureHandler.assertRecognizedSimultaneously(gestureRecognizer, with: Set(recognizers))
     }
 
     func testPinchShouldNotRecognizeSimultaneouslyWhenRotateAndPinchDisabled() {
+        let rotationRecognizer = UIRotationGestureRecognizer()
+        view.addGestureRecognizer(rotationRecognizer)
         pinchGestureHandler.simultaneousRotateAndPinchZoomEnabled = false
 
-        let shouldRecognizeSimultaneously = pinchGestureHandler.gestureRecognizer(
-            gestureRecognizer,
-            shouldRecognizeSimultaneouslyWith: UIRotationGestureRecognizer()
-        )
-
-        XCTAssertFalse(shouldRecognizeSimultaneously)
+        pinchGestureHandler.assertNotRecognizedSimultaneously(gestureRecognizer, with: [rotationRecognizer])
     }
 
-    func testPinchUpdateShouldNotifyDelegate() {
-        sendActions(with: .began, numberOfTouches: 2)
-        sendActions(with: .changed, numberOfTouches: 2)
+    func testShouldNotRecognizeSimultaneouslyWithRecognizerOtherThanRotation() {
+        interruptingRecognizers.forEach(view.addGestureRecognizer)
 
-        XCTAssertEqual(delegate.pinchGestureHandlerDidUpdateGestureStub.invocations.count, 1)
+        pinchGestureHandler.assertNotRecognizedSimultaneously(gestureRecognizer, with: interruptingRecognizers)
+    }
+
+    func testShouldRecognizeSimultaneouslyWithAnyRecognizerAttachedToDifferentView() {
+        pinchGestureHandler.assertRecognizedSimultaneously(gestureRecognizer, with: interruptingRecognizers)
     }
 }

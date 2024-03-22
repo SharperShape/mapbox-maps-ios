@@ -1,37 +1,30 @@
 import UIKit
 import MapboxMaps
 
-@objc(HeatmapLayerGlobeExample)
-public class HeatmapLayerGlobeExample: UIViewController, ExampleProtocol {
+final class HeatmapLayerGlobeExample: UIViewController, ExampleProtocol {
+    private var mapView: MapView!
+    private var cancelables = Set<AnyCancelable>()
 
-    internal var mapView: MapView!
-    internal let earthquakeSourceId: String = "earthquakes"
-    internal let earthquakeLayerId: String = "earthquake-viz"
-    internal let heatmapLayerId = "earthquakes-heat"
-    internal let heatmapLayerSource = "earthquakes"
-    internal let circleLayerId = "earthquakes-circle"
-    internal let earthquakeURL = URL(string: "https://www.mapbox.com/mapbox-gl-js/assets/earthquakes.geojson")!
-
-    override public func viewDidLoad() {
+    override func viewDidLoad() {
         super.viewDidLoad()
 
         // Center the map over the United States.
-        let centerCoordinate = CLLocationCoordinate2D(latitude: 50,
-                                                      longitude: -120)
+        let centerCoordinate = CLLocationCoordinate2D(latitude: 50, longitude: -120)
         let options = MapInitOptions(cameraOptions: CameraOptions(center: centerCoordinate, zoom: 1.0), styleURI: .dark)
+        
         // Set up map view
         mapView = MapView(frame: view.bounds, mapInitOptions: options)
         mapView.ornaments.options.scaleBar.visibility = .hidden
         mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        try! self.mapView.mapboxMap.style.setProjection(StyleProjection(name: .globe))
+        try! self.mapView.mapboxMap.setProjection(StyleProjection(name: .globe))
         view.addSubview(mapView)
 
-        mapView.mapboxMap.onNext(event: .mapLoaded) { [weak self] _ in
+        mapView.mapboxMap.onMapLoaded.observeNext { [weak self] _ in
             guard let self = self else { return }
-            try! self.mapView.mapboxMap.style.setAtmosphere(Atmosphere())
+            try! self.mapView.mapboxMap.setAtmosphere(Atmosphere())
             self.addRuntimeLayers()
             self.finish()
-        }
+        }.store(in: &cancelables)
     }
 
     func addRuntimeLayers() {
@@ -41,12 +34,12 @@ public class HeatmapLayerGlobeExample: UIViewController, ExampleProtocol {
     }
 
     func createEarthquakeSource() {
-        var earthquakeSource = GeoJSONSource()
+        var earthquakeSource = GeoJSONSource(id: self.earthquakeSourceId)
         earthquakeSource.data = .url(self.earthquakeURL)
         earthquakeSource.generateId = true
 
         do {
-            try mapView.mapboxMap.style.addSource(earthquakeSource, id: self.earthquakeSourceId)
+            try mapView.mapboxMap.addSource(earthquakeSource)
         } catch {
             print("Ran into an error adding a source: \(error)")
         }
@@ -55,8 +48,7 @@ public class HeatmapLayerGlobeExample: UIViewController, ExampleProtocol {
     func createHeatmapLayer() {
 
         // Add earthquake-viz layer
-        var heatmapLayer = HeatmapLayer(id: self.heatmapLayerId)
-        heatmapLayer.source = self.earthquakeSourceId
+        var heatmapLayer = HeatmapLayer(id: self.heatmapLayerId, source: self.earthquakeSourceId)
         heatmapLayer.maxZoom = 9.0
         heatmapLayer.sourceLayer  = self.heatmapLayerSource
 
@@ -126,27 +118,26 @@ public class HeatmapLayerGlobeExample: UIViewController, ExampleProtocol {
         )
 
         do {
-            try mapView.mapboxMap.style.addLayer(heatmapLayer, layerPosition: .above("waterway-label"))
+            try mapView.mapboxMap.addLayer(heatmapLayer, layerPosition: .above("waterway-label"))
         } catch {
             print("Ran into an error adding a layer: \(error)")
         }
     }
 
-    public func createCircleLayer() {
+    func createCircleLayer() {
 
-        var circleLayerSource = GeoJSONSource()
+        var circleLayerSource = GeoJSONSource(id: self.earthquakeSourceId)
         circleLayerSource.data = .url(self.earthquakeURL)
         circleLayerSource.generateId = true
 
         do {
-            try mapView.mapboxMap.style.addSource(circleLayerSource, id: self.earthquakeSourceId)
+            try mapView.mapboxMap.addSource(circleLayerSource)
         } catch {
             print("Ran into an error adding a source: \(error)")
         }
 
         // Add circle layer
-        var circleLayer = CircleLayer(id: self.circleLayerId)
-        circleLayer.source = self.earthquakeSourceId
+        var circleLayer = CircleLayer(id: self.circleLayerId, source: self.earthquakeSourceId)
 
         // Adjust the circle layer radius by zoom level
         circleLayer.circleRadius = .expression(
@@ -217,10 +208,19 @@ public class HeatmapLayerGlobeExample: UIViewController, ExampleProtocol {
         circleLayer.circleStrokeWidth = .constant(0.1)
 
         do {
-            try mapView.mapboxMap.style.addLayer(circleLayer, layerPosition: .below(self.heatmapLayerId))
+            try mapView.mapboxMap.addLayer(circleLayer, layerPosition: .below(self.heatmapLayerId))
         } catch {
             print("Ran into an error adding a layer: \(error)")
         }
     }
 
+}
+
+private extension HeatmapLayerGlobeExample {
+    var earthquakeSourceId: String { "earthquakes" }
+    var earthquakeLayerId: String { "earthquake-viz" }
+    var heatmapLayerId: String { "earthquakes-heat" }
+    var heatmapLayerSource: String { "earthquakes" }
+    var circleLayerId: String { "earthquakes-circle" }
+    var earthquakeURL: URL { URL(string: "https://www.mapbox.com/mapbox-gl-js/assets/earthquakes.geojson")! }
 }

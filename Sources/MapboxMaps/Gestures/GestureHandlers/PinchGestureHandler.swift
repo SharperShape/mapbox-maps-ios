@@ -1,13 +1,8 @@
 import UIKit
 @_implementationOnly import MapboxCommon_Private
 
-internal protocol PinchGestureHandlerDelegate: GestureHandlerDelegate {
-    func pinchGestureHandlerDidUpdateGesture(_ handler: PinchGestureHandlerProtocol)
-}
-
 internal protocol PinchGestureHandlerProtocol: FocusableGestureHandlerProtocol {
     var zoomEnabled: Bool { get set }
-    var panEnabled: Bool { get set }
     var simultaneousRotateAndPinchZoomEnabled: Bool { get set }
     var focalPoint: CGPoint? { get set }
 }
@@ -18,29 +13,19 @@ internal final class PinchGestureHandler: GestureHandler, PinchGestureHandlerPro
     /// Whether pinch gesture can zoom map or not
     internal var zoomEnabled: Bool = true
 
-    /// Whether pinch gesture can pan map or not
-    internal var panEnabled: Bool = true
-
     internal var simultaneousRotateAndPinchZoomEnabled: Bool = true
 
     /// Anchor point for rotating and zooming
     internal var focalPoint: CGPoint?
 
-    /// The behavior for the current gesture, based on the initial state of the \*Enabled flags.
-    private var pinchBehavior: PinchBehavior?
-
     private var invokedGestureBegan = false
+    private var initialZoom: CGFloat?
 
     private let mapboxMap: MapboxMapProtocol
 
-    private let pinchBehaviorProvider: PinchBehaviorProviderProtocol
-
     /// Initialize the handler which creates the panGestureRecognizer and adds to the view
-    internal init(gestureRecognizer: UIPinchGestureRecognizer,
-                  mapboxMap: MapboxMapProtocol,
-                  pinchBehaviorProvider: PinchBehaviorProviderProtocol) {
+    internal init(gestureRecognizer: UIPinchGestureRecognizer, mapboxMap: MapboxMapProtocol) {
         self.mapboxMap = mapboxMap
-        self.pinchBehaviorProvider = pinchBehaviorProvider
         super.init(gestureRecognizer: gestureRecognizer)
         gestureRecognizer.delegate = self
         gestureRecognizer.addTarget(self, action: #selector(handleGesture(_:)))
@@ -67,24 +52,21 @@ internal final class PinchGestureHandler: GestureHandler, PinchGestureHandlerPro
             // if a second touch goes down again before the gesture ends, we
             // resume and re-capture the initial state
             guard gestureRecognizer.numberOfTouches == 2 else {
-                pinchBehavior = nil
+                initialZoom = nil
                 gestureRecognizer.scale = 1
                 return
             }
 
-            if let pinchBehavior = pinchBehavior {
-                pinchBehavior.update(
-                    pinchMidpoint: gestureRecognizer.location(in: view),
-                    pinchScale: gestureRecognizer.scale)
-
-                if let pinchDelegate = (delegate as? PinchGestureHandlerDelegate) {
-                    pinchDelegate.pinchGestureHandlerDidUpdateGesture(self)
-                }
+            if let initialZoom = initialZoom {
+                let zoomIncrement = log2(gestureRecognizer.scale)
+                mapboxMap.setCamera(to: CameraOptions(
+                    anchor: focalPoint ?? gestureRecognizer.location(in: view),
+                    zoom: initialZoom + zoomIncrement))
             } else {
                 start(with: gestureRecognizer)
             }
         case .ended, .cancelled:
-            pinchBehavior = nil
+            initialZoom = nil
             if invokedGestureBegan {
                 delegate?.gestureEnded(for: .pinch, willAnimate: false)
             }
@@ -95,22 +77,8 @@ internal final class PinchGestureHandler: GestureHandler, PinchGestureHandlerPro
     }
 
     private func start(with gestureRecognizer: UIPinchGestureRecognizer) {
-        guard let view = gestureRecognizer.view else {
-            return
-        }
+        initialZoom = mapboxMap.cameraState.zoom
 
-        if panEnabled, focalPoint != nil {
-            Log.warning(
-                forMessage: "Possible pinch gesture recognizer misconfiguration: the specified focal point will be ignored when pinching. In order for the focal point to work, pinch pan has to be disabled.",
-                category: "Gestures")
-        }
-
-        pinchBehavior = pinchBehaviorProvider.makePinchBehavior(
-            panEnabled: panEnabled,
-            zoomEnabled: zoomEnabled,
-            initialCameraState: mapboxMap.cameraState,
-            initialPinchMidpoint: gestureRecognizer.location(in: view),
-            focalPoint: focalPoint)
         // if this is the first time we started handling the gesture, inform
         // the delegate.
         if !invokedGestureBegan {
@@ -121,10 +89,29 @@ internal final class PinchGestureHandler: GestureHandler, PinchGestureHandlerPro
 }
 
 extension PinchGestureHandler: UIGestureRecognizerDelegate {
-    internal func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                                    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        return self.gestureRecognizer === gestureRecognizer &&
-        otherGestureRecognizer is UIRotationGestureRecognizer &&
-        simultaneousRotateAndPinchZoomEnabled
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        return self.gestureRecognizer === gestureRecognizer && zoomEnabled
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        guard gestureRecognizer === self.gestureRecognizer else { return true }
+
+        guard gestureRecognizer.attachedToSameView(as: otherGestureRecognizer) else { return true }
+
+        switch otherGestureRecognizer {
+        case is UIRotationGestureRecognizer:
+            return simultaneousRotateAndPinchZoomEnabled
+#if !(swift(>=5.9) && os(visionOS))
+        case is UIScreenEdgePanGestureRecognizer:
+            return false
+#endif
+        case let pan as UIPanGestureRecognizer where pan.maximumNumberOfTouches == 1:
+            return true
+        default:
+            return false
+        }
     }
 }

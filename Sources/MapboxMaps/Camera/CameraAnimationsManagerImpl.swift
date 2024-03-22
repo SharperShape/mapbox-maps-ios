@@ -6,10 +6,12 @@ internal protocol CameraAnimationsManagerProtocol: AnyObject {
     var cameraAnimators: [CameraAnimator] { get }
 
     func cancelAnimations()
+    func cancelAnimations(withOwners owners: [AnimationOwner], andTypes types: [AnimationType])
 
     @discardableResult
     func fly(to: CameraOptions,
              duration: TimeInterval?,
+             curve: TimingCurve,
              completion: AnimationCompletion?) -> Cancelable
 
     @discardableResult
@@ -73,18 +75,24 @@ internal final class CameraAnimationsManagerImpl: CameraAnimationsManagerProtoco
         runner.cancelAnimations()
     }
 
+    internal func cancelAnimations(withOwners owners: [AnimationOwner], andTypes types: [AnimationType]) {
+        runner.cancelAnimations(withOwners: owners, andTypes: types)
+    }
+
     // MARK: - High-Level Animation APIs
 
     /// See ``CameraAnimationsManager/fly(to:duration:completion:)``.
     @discardableResult
     internal func fly(to: CameraOptions,
                       duration: TimeInterval?,
+                      curve: TimingCurve,
                       completion: AnimationCompletion?) -> Cancelable {
         runner.cancelAnimations(withOwners: [.cameraAnimationsManager])
         let animator = factory.makeFlyToAnimator(
             toCamera: to,
-            animationOwner: .cameraAnimationsManager,
-            duration: duration)
+            duration: duration,
+            curve: curve,
+            animationOwner: .cameraAnimationsManager)
         if let completion = completion {
             animator.addCompletion(completion)
         }
@@ -125,7 +133,7 @@ internal final class CameraAnimationsManagerImpl: CameraAnimationsManagerProtoco
         return animator
     }
 
-    /// This function will handle the natural decelration of a gesture when there is a velocity provided. A use case for this is the pan gesture.
+    /// This function will handle the natural deceleration of a gesture when there is a velocity provided. A use case for this is the pan gesture.
     /// - Parameters:
     ///   - location: The initial location. This location will be simulated based on velocity and decelerationFactor.
     ///   - velocity: The initial velocity.

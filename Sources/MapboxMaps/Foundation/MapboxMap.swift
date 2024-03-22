@@ -1,70 +1,204 @@
 // swiftlint:disable file_length
-import MapboxCoreMaps
 import UIKit
 @_implementationOnly import MapboxCommon_Private
-@_implementationOnly import MapboxCoreMaps_Private
 import Turf
 
-internal protocol MapboxMapProtocol: AnyObject {
-    var size: CGSize { get }
+protocol MapboxMapProtocol: AnyObject {
     var cameraBounds: CameraBounds { get }
     var cameraState: CameraState { get }
+    var size: CGSize { get }
     var anchor: CGPoint { get }
+    var options: MapOptions { get }
     func setCamera(to cameraOptions: CameraOptions)
-    func dragStart(for point: CGPoint)
+    func setCameraBounds(with options: CameraBoundsOptions) throws
+    func setNorthOrientation(_ northOrientation: NorthOrientation)
+    func setConstrainMode(_ constrainMode: ConstrainMode)
+    func setViewportMode(_ viewportMode: ViewportMode)
     func dragCameraOptions(from: CGPoint, to: CGPoint) -> CameraOptions
-    func dragEnd()
     func beginAnimation()
     func endAnimation()
     func beginGesture()
     func endGesture()
     @discardableResult
-    func onEvery<Payload>(event eventType: MapEvents.Event<Payload>, handler: @escaping (MapEvent<Payload>) -> Void) -> Cancelable
+    func queryRenderedFeatures(with point: CGPoint, options: RenderedQueryOptions?, completion: @escaping (Result<[QueriedRenderedFeature], Error>) -> Void) -> Cancelable
+    func collectPerformanceStatistics(_ options: PerformanceStatisticsOptions, callback: @escaping (PerformanceStatistics) -> Void) -> AnyCancelable
+
     // View annotation management
-    func setViewAnnotationPositionsUpdateListener(_ listener: ViewAnnotationPositionsUpdateListener?)
+    func setViewAnnotationPositionsUpdateCallback(_ callback: ViewAnnotationPositionsUpdateCallback?)
     func addViewAnnotation(withId id: String, options: ViewAnnotationOptions) throws
     func updateViewAnnotation(withId id: String, options: ViewAnnotationOptions) throws
     func removeViewAnnotation(withId id: String) throws
     func options(forViewAnnotationWithId id: String) throws -> ViewAnnotationOptions
     func pointIsAboveHorizon(_ point: CGPoint) -> Bool
-    func camera(for geometry: Geometry, padding: UIEdgeInsets, bearing: CGFloat?, pitch: CGFloat?) -> CameraOptions
+    // swiftlint:disable:next function_parameter_count
+    func camera(for coordinateBounds: CoordinateBounds,
+                padding: UIEdgeInsets?,
+                bearing: Double?,
+                pitch: Double?,
+                maxZoom: Double?,
+                offset: CGPoint?) -> CameraOptions
+    func camera(for coordinates: [CLLocationCoordinate2D],
+                camera: CameraOptions,
+                coordinatesPadding: UIEdgeInsets?,
+                maxZoom: Double?,
+                offset: CGPoint?) throws -> CameraOptions
+    func coordinate(for point: CGPoint) -> CLLocationCoordinate2D
     func point(for coordinate: CLLocationCoordinate2D) -> CGPoint
-    func performWithoutNotifying(_ block: () -> Void)
+
+    var onMapLoaded: Signal<MapLoaded> { get }
+    var onMapLoadingError: Signal<MapLoadingError> { get }
+    var onStyleLoaded: Signal<StyleLoaded> { get }
+    var onStyleDataLoaded: Signal<StyleDataLoaded> { get }
+    var onCameraChanged: Signal<CameraChanged> { get }
+    var onMapIdle: Signal<MapIdle> { get }
+    var onSourceAdded: Signal<SourceAdded> { get }
+    var onSourceRemoved: Signal<SourceRemoved> { get }
+    var onSourceDataLoaded: Signal<SourceDataLoaded> { get }
+    var onStyleImageMissing: Signal<StyleImageMissing> { get }
+    var onStyleImageRemoveUnused: Signal<StyleImageRemoveUnused> { get }
+    var onRenderFrameStarted: Signal<RenderFrameStarted> { get }
+    var onRenderFrameFinished: Signal<RenderFrameFinished> { get }
+    var onResourceRequest: Signal<ResourceRequest> { get }
 }
 
 // swiftlint:disable type_body_length
 
-/// MapboxMap provides access to the map model, including the camera, style, observable map events,
-/// and querying rendered features. Obtain the MapboxMap instance for a MapView via MapView.mapboxMap.
+/// Provides access to the map model, including the camera, style, observable map events,
+/// and querying rendered features.
 ///
-/// Note: MapboxMap should only be used from the main thread.
-public final class MapboxMap: MapboxMapProtocol {
-    /// The underlying renderer object responsible for rendering the map
-    private let __map: Map
+/// If you have a ``MapView`` you can access the `MapboxMap` instance via ``MapView/mapboxMap`` property.
+///
+/// ``MapboxMap`` inherits ``StyleManager-46yjd``, you can use it's methods to access runtime styling API:
+///
+///   ```swift
+///   mapboxMap.styleURI = .satelliteStreets
+///   ```
+///
+/// Use `on`-prefixed properties to subscribe to map events, for example:
+///    ```swift
+///    // Holds resources allocated for subscriptions.
+///    var cancelables = Set<AnyCancelable>()
+///
+///    // Observe every occurrence of CameraChanged event.
+///    mapboxMap.onCameraChanged.observe { event in
+///         print("Current camera state: \(event.cameraState)")
+///    }.store(in: &cancelables)
+///
+///    // Observe only the next occurrence of MapLoaded event.
+///    mapboxMap.onMapLoaded.observeNext { event in
+///        print("Map is loaded at: \(event.timeInterval.end)")
+///    }.store(in: &cancelables)
+///    ```
+///
+/// The ``AnyCancelable`` object returned from ``Signal/observe(_:)`` or ``Signal/observeNext(_:)``
+/// holds the resources allocated for the subscription and can be used to cancel it. If the cancelable
+/// object is deallocated, the subscription will be cancelled immediately.
+///
+/// The simplified diagram of the events emitted by the map is displayed below.
+///
+/// ```
+/// ┌─────────────┐               ┌─────────┐                   ┌──────────────┐
+/// │ Application │               │   Map   │                   │ResourceLoader│
+/// └──────┬──────┘               └────┬────┘                   └───────┬──────┘
+///        │                           │                                │
+///        ├───────setStyleURI────────▶│                                │
+///        │                           ├───────────get style───────────▶│
+///        │                           │                                │
+///        │                           │◀─────────style data────────────┤
+///        │                           │                                │
+///        │                           ├─parse style─┐                  │
+///        │                           │             │                  │
+///        │      StyleDataLoaded      ◀─────────────┘                  │
+///        │◀───────type: Style────────┤                                │
+///        │                           ├─────────get sprite────────────▶│
+///        │                           │                                │
+///        │                           │◀────────sprite data────────────┤
+///        │                           │                                │
+///        │                           ├──────parse sprite───────┐      │
+///        │                           │                         │      │
+///        │      StyleDataLoaded      ◀─────────────────────────┘      │
+///        │◀──────type: Sprite────────┤                                │
+///        │                           ├─────get source TileJSON(s)────▶│
+///        │                           │                                │
+///        │     SourceDataLoaded      │◀─────parse TileJSON data───────┤
+///        │◀─────type: Metadata───────┤                                │
+///        │                           │                                │
+///        │                           │                                │
+///        │      StyleDataLoaded      │                                │
+///        │◀──────type: Sources───────┤                                │
+///        │                           ├──────────get tiles────────────▶│
+///        │                           │                                │
+///        │◀───────StyleLoaded────────┤                                │
+///        │                           │                                │
+///        │     SourceDataLoaded      │◀─────────tile data─────────────┤
+///        │◀───────type: Tile─────────┤                                │
+///        │                           │                                │
+///        │                           │                                │
+///        │◀────RenderFrameStarted────┤                                │
+///        │                           ├─────render─────┐               │
+///        │                           │                │               │
+///        │                           ◀────────────────┘               │
+///        │◀───RenderFrameFinished────┤                                │
+///        │                           ├──render, all tiles loaded──┐   │
+///        │                           │                            │   │
+///        │                           ◀────────────────────────────┘   │
+///        │◀────────MapLoaded─────────┤                                │
+///        │                           │                                │
+///        │                           │                                │
+///        │◀─────────MapIdle──────────┤                                │
+///        │                    ┌ ─── ─┴─ ─── ┐                         │
+///        │                    │   offline   │                         │
+///        │                    └ ─── ─┬─ ─── ┘                         │
+///        │                           │                                │
+///        ├─────────setCamera────────▶│                                │
+///        │                           ├───────────get tiles───────────▶│
+///        │                           │                                │
+///        │                           │┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─   │
+///        │◀─────────MapIdle──────────┤   waiting for connectivity  │  │
+///        │                           ││  Map renders cached data      │
+///        │                           │ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘  │
+///        │                           │                                │
+/// ```
+///
+/// - Important: MapboxMap should only be used from the main thread.
+public final class MapboxMap: StyleManager {
+    /// The underlying renderer object responsible for rendering the map.
+    private let __map: CoreMap
 
     /// The `style` object supports run time styling.
-    public let style: Style
+    @available(*, deprecated, message: "Access style APIs directly from MapboxMap instance instead")
+    public var style: StyleManager { return self }
 
-    private let observable: MapboxObservableProtocol
+    /// Provides access to events triggered during Map lifecycle.
+    private let events: MapEvents
+
+    private let _isDefaultCameraInitialized = CurrentValueSignalProxy<Bool>()
+
+    /// Triggered when map is loaded for the first time, and camera is initialized with default style camera options.
+    var isDefaultCameraInitialized: Signal<Bool> { _isDefaultCameraInitialized.signal.skipRepeats() }
 
     deinit {
         __map.destroyRenderer()
     }
 
-    internal init(mapClient: MapClient,
-                  mapInitOptions: MapInitOptions,
-                  mapboxObservableProvider: (ObservableProtocol) -> MapboxObservableProtocol) {
-        let coreOptions = MapboxCoreMaps.ResourceOptions(mapInitOptions.resourceOptions)
+    internal init(map: CoreMap, events: MapEvents, styleSourceManager: StyleSourceManagerProtocol) {
+        self.__map = map
+        self.events = events
 
-        __map = Map(
-            client: mapClient,
-            mapOptions: mapInitOptions.mapOptions,
-            resourceOptions: coreOptions)
+        super.init(with: map, sourceManager: styleSourceManager)
+
         __map.createRenderer()
+        _isDefaultCameraInitialized.proxied = onCameraChanged.map { _ in true }
+    }
 
-        observable = mapboxObservableProvider(__map)
-
-        style = Style(with: __map)
+    internal convenience init(mapClient: CoreMapClient, mapInitOptions: MapInitOptions, styleSourceManager: StyleSourceManagerProtocol? = nil) {
+        let map = CoreMap(
+            client: mapClient,
+            mapOptions: mapInitOptions.mapOptions)
+        self.init(
+            map: map,
+            events: MapEvents(observable: map),
+            styleSourceManager: styleSourceManager ?? StyleSourceManager(styleManager: map))
     }
 
     // MARK: - Render loop
@@ -78,47 +212,67 @@ public final class MapboxMap: MapboxMapProtocol {
 
     // MARK: - Style loading
 
-    private func observeStyleLoad(_ completion: @escaping (Result<Style, Error>) -> Void) {
-        onNext(event: .styleLoaded) { _ in
-            if !self.style.isLoaded {
-                Log.warning(forMessage: "style.isLoaded == false, was this an empty style?", category: "Style")
-            }
-            completion(.success(self.style))
-        }
-
-        onNext(event: .mapLoadingError) { event in
-            completion(.failure(event.payload.error))
-        }
-    }
-
-    /// Loads a style from a StyleURI, calling a completion closure when the
+    /// Loads a `style` from a StyleURI, calling a completion closure when the
     /// style is fully loaded or there has been an error during load.
+    ///
+    /// If style loading started while the other style is already loading, the latter's loading `completion`
+    /// will receive a ``CancelError``. If a style is failed to load, `completion` will receive a ``StyleError``.
     ///
     /// - Parameters:
     ///   - styleURI: StyleURI to load
-    ///   - completion: Closure called when the style has been fully loaded. The
-    ///     `Result` type encapsulates the `Style` or error that occurred. See
-    ///     `MapLoadingError`
-    public func loadStyleURI(_ styleURI: StyleURI, completion: ((Result<Style, Error>) -> Void)? = nil) {
-        if let completion = completion {
-            observeStyleLoad(completion)
-        }
-        __map.setStyleURIForUri(styleURI.rawValue)
+    ///   - transition: Options for the style transition.
+    ///   - completion: Closure called when the style has been fully loaded.
+    ///     If style has failed to load a `MapLoadingError` is provided to the closure.
+    public func loadStyle(_ styleURI: StyleURI,
+                          transition: TransitionOptions? = nil,
+                          completion: ((Error?) -> Void)? = nil) {
+        load(mapStyle: MapStyle(uri: styleURI),
+             transition: transition,
+             completion: completion)
     }
 
-    /// Loads a style from a JSON string, calling a completion closure when the
+    /// Loads a `style` from a StyleURI, calling a completion closure when the
+    /// style is fully loaded or there has been an error during load.
+    ///
+    ///
+    /// - Parameters:
+    ///   - styleURI: StyleURI to load
+    ///   - completion: Closure called when the style has been fully loaded.
+    @available(*, deprecated, renamed: "loadStyle")
+    public func loadStyleURI(_ styleURI: StyleURI, completion: ((Error?) -> Void)? = nil) {
+        loadStyle(styleURI, completion: completion)
+    }
+
+    /// Loads a `style` from a JSON string, calling a completion closure when the
+    /// style is fully loaded or there has been an error during load.
+    ///
+    /// If style loading started while the other style is already loading, the latter's loading `completion`
+    /// will receive a ``CancelError``. If a style is failed to load, `completion` will receive a ``StyleError``.
+    ///
+    /// - Parameters:
+    ///   - JSON: Style JSON string
+    ///   - transition: Options for the style transition.
+    ///   - completion: Closure called when the style has been fully loaded.
+    ///     If style has failed to load a `MapLoadingError` is provided to the closure.
+    public func loadStyle(_ JSON: String,
+                          transition: TransitionOptions? = nil,
+                          completion: ((Error?) -> Void)? = nil) {
+        load(mapStyle: MapStyle(json: JSON),
+             transition: transition,
+             completion: completion)
+    }
+
+    /// Loads a `style` from a JSON string, calling a completion closure when the
     /// style is fully loaded or there has been an error during load.
     ///
     /// - Parameters:
-    ///   - styleURI: Style JSON string
+    ///   - JSON: Style JSON string
     ///   - completion: Closure called when the style has been fully loaded. The
     ///     `Result` type encapsulates the `Style` or error that occurred. See
     ///     `MapLoadingError`
-    public func loadStyleJSON(_ JSON: String, completion: ((Result<Style, Error>) -> Void)? = nil) {
-        if let completion = completion {
-            observeStyleLoad(completion)
-        }
-        __map.setStyleJSONForJson(JSON)
+    @available(*, deprecated, renamed: "loadStyle")
+    public func loadStyleJSON(_ JSON: String, completion: ((Error?) -> Void)? = nil) {
+        loadStyle(JSON, completion: completion)
     }
 
     // MARK: - Prefetching
@@ -139,55 +293,58 @@ public final class MapboxMap: MapboxMapProtocol {
         }
     }
 
-    /// Reduces memory use. Useful to call when the application gets paused or
+    /// Reduces memory use. This is called automatically when the application gets paused or
     /// sent to background.
-    internal func reduceMemoryUse() {
+    ///
+    /// Calling this might have lead to temporary increased CPU load, as in-memory caches of tiles, images, textures etc.
+    /// will be cleared. This will cause the map to fetch the required resources anew.
+    /// For example, the map tiles will be re-created for the currently displayed portion of the map.
+    public func reduceMemoryUse() {
         __map.reduceMemoryUse()
     }
 
-    /// The memory budget hint to be used by the map. The budget can be given in
-    /// tile units or in megabytes. A Map will do its best to keep the memory
-    /// allocations for non-essential resources within the budget.
+    /// The tile cache budget hint to be used by the map.
     ///
-    /// The memory budget distribution and resource
-    /// eviction logic is subject to change. Current implementation sets a memory budget
-    /// hint per data source.
+    /// The budget can be given in tile units or in megabytes. A Map will do the best effort to keep memory
+    /// allocations for a non essential resources within the budget.
     ///
-    /// If nil is set, the memory budget in tile units will be dynamically calculated based on
+    /// If tile cache budget in megabytes is set, the engine will try to use ETC1 texture compression
+    /// for raster layers, therefore, raster images with alpha channel will be rendered incorrectly.
+    ///
+    /// If null is set, the tile cache budget size in tile units will be dynamically calculated based on
     /// the current viewport size.
-    /// - Parameter memoryBudget: The memory budget hint to be used by the Map.
-    @_spi(Experimental) public func setMemoryBudget(_ memoryBudget: MapMemoryBudget?) {
-        __map.__setMemoryBudgetFor(memoryBudget)
+    /// - Parameter size: The tile cache budget size to be used by the Map.
+    public func setTileCacheBudget(size: TileCacheBudgetSize?) {
+        __map.__setTileCacheBudgetFor(size?.coreTileCacheBudget)
     }
 
-    /// Gets the resource options for the map.
+    /// The MapboxCoreMaps tile cache budget hint to be used by the map.
     ///
-    /// All optional fields of the returned object are initialized with the
-    /// actual values.
+    /// The budget can be given in tile units or in megabytes. A Map will do the best effort to keep memory
+    /// allocations for a non essential resources within the budget.
     ///
-    /// - Note: The result of this property is different from the `ResourceOptions`
-    /// that were provided to the map's initializer.
-    public var resourceOptions: ResourceOptions {
-        return ResourceOptions(__map.getResourceOptions())
+    /// If tile cache budget in megabytes is set, the engine will try to use ETC1 texture compression
+    /// for raster layers, therefore, raster images with alpha channel will be rendered incorrectly.
+    ///
+    /// If null is set, the tile cache budget in tile units will be dynamically calculated based on
+    /// the current viewport size.
+    /// - Parameter tileCacheBudget: The MapboxCoreMaps tile cache budget hint to be used by the Map.
+    @available(*, deprecated, message: "Use .setTileCacheBudget(size: TileCacheBudgetSize?) instead.")
+    public func setTileCacheBudget(_ tileCacheBudget: TileCacheBudget?) {
+        __map.__setTileCacheBudgetFor(tileCacheBudget)
     }
 
-    /// Clears temporary map data.
+    /// Defines whether multiple copies of the world will be rendered side by side beyond -180 and 180 degrees longitude.
     ///
-    /// Clears temporary map data from the data path defined in the given resource
-    /// options. Useful to reduce the disk usage or in case the disk cache contains
-    /// invalid data.
+    /// If disabled, when the map is zoomed out far enough that a single representation of the world does not fill the map's entire container,
+    /// there will be blank space beyond 180 and -180 degrees longitude.
+    /// In this case, features that cross 180 and -180 degrees longitude will be cut in two (with one portion on the right edge of the map
+    /// and the other on the left edge of the map) at every zoom level.
     ///
-    /// - Note: Calling this API will affect all maps that use the same data path
-    ///         and does not affect persistent map data like offline style packages.
-    ///
-    /// - Parameters:
-    ///   - resourceOptions: The `resource options` that contain the map data path
-    ///         to be used
-    ///   - completion: Called once the request is complete
-    public static func clearData(for resourceOptions: ResourceOptions, completion: @escaping (Error?) -> Void) {
-        Map.clearData(for: MapboxCoreMaps.ResourceOptions(resourceOptions),
-                      callback: coreAPIClosureAdapter(for: completion,
-                                                      concreteErrorType: MapError.self))
+    /// By default, `shouldRenderWorldCopies` is set to `true`.
+    public var shouldRenderWorldCopies: Bool {
+        get { __map.getRenderWorldCopies() }
+        set { __map.setRenderWorldCopiesForRenderWorldCopies(newValue) }
     }
 
     /// Gets elevation for the given coordinate.
@@ -207,11 +364,13 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Parameter rect: The `rect` whose bounds will be transformed into a set of map coordinate bounds.
     /// - Returns: A `CoordinateBounds` object that represents the southwest and northeast corners of the view's bounds.
     public func coordinateBounds(for rect: CGRect) -> CoordinateBounds {
-        let topRight = coordinate(for: CGPoint(x: rect.maxX, y: rect.minY)).wrap()
-        let bottomLeft = coordinate(for: CGPoint(x: rect.minX, y: rect.maxY)).wrap()
+        let topRight = CGPoint(x: rect.maxX, y: rect.minY)
+        let bottomLeft = CGPoint(x: rect.minX, y: rect.maxY)
 
-        let southwest = CLLocationCoordinate2D(latitude: bottomLeft.latitude, longitude: bottomLeft.longitude)
-        let northeast = CLLocationCoordinate2D(latitude: topRight.latitude, longitude: topRight.longitude)
+        let coordinates = coordinates(for: [topRight, bottomLeft])
+
+        let northeast = coordinates[0].wrap()
+        let southwest = coordinates[1].wrap()
 
         return CoordinateBounds(southwest: southwest, northeast: northeast)
     }
@@ -220,32 +379,29 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Parameter coordinateBounds: The `coordinateBounds` that will be converted into a rect relative to the `MapView`
     /// - Returns: A `CGRect` whose corners represent the vertices of a set of `CoordinateBounds`.
     public func rect(for coordinateBounds: CoordinateBounds) -> CGRect {
-        let southwest = coordinateBounds.southwest.wrap()
-        let northeast = coordinateBounds.northeast.wrap()
+        let points = points(for: [coordinateBounds.southwest.wrap(), coordinateBounds.northeast.wrap()])
+        let swPoint = points[0]
+        let nePoint = points[1]
 
-        var rect = CGRect.zero
-
-        let swPoint = point(for: southwest)
-        let nePoint = point(for: northeast)
-
-        rect = CGRect(origin: swPoint, size: CGSize.zero)
-
-        rect = rect.extend(from: nePoint)
-
-        return rect
+        return CGRect(origin: swPoint, size: CGSize.zero).extend(from: nePoint)
     }
 
     // MARK: Debug options
-    /// The array of `MapDebugOptions`. Setting this property to an empty array
+    /// The array of `MapDebugOptions` for the native map. Setting this property to an empty array
     /// disables previously enabled `MapDebugOptions`.
     /// The default value is an empty array.
+    @available(*, deprecated, message: "Use MapView.debugOptions instead.")
     public var debugOptions: [MapDebugOptions] {
+        get { _debugOptions }
+        set { _debugOptions = newValue }
+    }
+    var _debugOptions: [MapDebugOptions] {
         get {
             return __map.getDebug().compactMap { MapDebugOptions(rawValue: $0.intValue) }
         }
         set {
             // Remove the previously visible options, then update the debug options to the new array.
-            let oldOptions = debugOptions.map { NSNumber(value: $0.rawValue) }
+            let oldOptions = _debugOptions.map { NSNumber(value: $0.rawValue) }
             __map.setDebugForDebugOptions(oldOptions, value: false)
 
             let options = newValue.map { NSNumber(value: $0.rawValue) }
@@ -254,35 +410,12 @@ public final class MapboxMap: MapboxMapProtocol {
     }
 
     /// Gets the size of the map in points
-    internal var size: CGSize {
+    var size: CGSize {
         get {
             CGSize(__map.getSize())
         }
         set {
             __map.setSizeFor(Size(newValue))
-        }
-    }
-
-    /// Notify map about gesture being in progress.
-    internal var isGestureInProgress: Bool {
-        get {
-            return __map.isGestureInProgress()
-        }
-        set {
-            __map.setGestureInProgressForInProgress(newValue)
-        }
-    }
-
-    /// Tells the map rendering engine that the animation is currently performed
-    /// by the user (e.g. with a `setCamera()` calls series). It adjusts the
-    /// engine for the animation use case.
-    /// In particular, it brings more stability to symbol placement and rendering.
-    internal var isUserAnimationInProgress: Bool {
-        get {
-            return __map.isUserAnimationInProgress()
-        }
-        set {
-            __map.setUserAnimationInProgressForInProgress(newValue)
         }
     }
 
@@ -294,22 +427,47 @@ public final class MapboxMap: MapboxMapProtocol {
     /// Set the map north orientation
     ///
     /// - Parameter northOrientation: The map north orientation to set
-    internal func setNorthOrientation(northOrientation: NorthOrientation) {
+    public func setNorthOrientation(_ northOrientation: NorthOrientation) {
         __map.setNorthOrientationFor(northOrientation)
     }
 
     /// Set the map constrain mode
     ///
     /// - Parameter constrainMode: The map constraint mode to set
-    internal func setConstrainMode(_ constrainMode: ConstrainMode) {
+    public func setConstrainMode(_ constrainMode: ConstrainMode) {
         __map.setConstrainModeFor(constrainMode)
     }
 
     /// Set the map viewport mode
     ///
     /// - Parameter viewportMode: The map viewport mode to set
-    internal func setViewportMode(_ viewportMode: ViewportMode) {
+    public func setViewportMode(_ viewportMode: ViewportMode) {
         __map.setViewportModeFor(viewportMode)
+    }
+
+    /// Collects CPU and GPU resource usage, as well as timings of layers and rendering groups, over a user-configurable sampling duration.
+    /// Use the collected information to identify layers or rendering groups that may be performing poorly.
+    ///
+    /// Use ``PerformanceStatisticsOptions`` to configure the following collection behaviours:
+    ///     - Which types of sampling to perform, whether cumulative, per-frame, or both.
+    ///     - Duration of sampling in milliseconds. A value of 0 forces the collection of performance statistics every frame.
+    ///
+    /// The statistics collection can be canceled using the ``AnyCancelable`` object returned by this function, note that if the token goes out of the scope it's deinitialized and thus canceled. Canceling collection will prevent the
+    /// callback from being called. Collection can be restarted by calling ``MapboxMap/collectPerformanceStatistics(_:callback:)`` again to obtain a new ``AnyCancelable`` object.
+    ///
+    /// The callback function will be called every time the configured sampling duration ``PerformanceStatisticsOptions/samplingDurationMillis`` has elapsed.
+    ///
+    /// - Parameters:
+    ///   - options The statistics collection options to collect.
+    ///   - callback The callback to be invoked when performance statistics are available.
+    /// - Returns:  The ``AnyCancelable`` object that can be used to cancel performance statistics collection.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func collectPerformanceStatistics(_ options: PerformanceStatisticsOptions, callback: @escaping (PerformanceStatistics) -> Void) -> AnyCancelable {
+        __map.startPerformanceStatisticsCollection(for: options, callback: callback)
+        return BlockCancelable { [weak self] in
+            self?.__map.stopPerformanceStatisticsCollection()
+        }.erased
     }
 
     /// Calculates a `CameraOptions` to fit a `CoordinateBounds`
@@ -318,20 +476,28 @@ public final class MapboxMap: MapboxMapProtocol {
     ///
     /// - Parameters:
     ///   - coordinateBounds: The coordinate bounds that will be displayed within the viewport.
-    ///   - padding: The new padding to be used by the camera.
-    ///   - bearing: The new bearing to be used by the camera.
-    ///   - pitch: The new pitch to be used by the camera.
+    ///   - padding: The amount of padding in screen points to add to the given `coordinates`.
+    ///              This padding is not applied to the map but to the coordinates provided.
+    ///              If you want to apply padding to the map use `camera` parameter on ``camera(for:camera:coordinatesPadding:maxZoom:offset:)``
+    ///   - bearing: The new bearing to be used by the camera, in degrees (0°, 360°) clockwise from true north.
+    ///   - pitch: The new pitch to be used by the camera, in degrees (0°, 85°) with 0° being a top-down view.
+    ///   - maxZoom: The maximum zoom level to allow when the camera would transition to the specified bounds.
+    ///   - offset: The center of the given bounds relative to the map's center, measured in points.
     /// - Returns: A `CameraOptions` that fits the provided constraints
-    public func camera(for coordinateBounds: CoordinateBounds,
-                       padding: UIEdgeInsets,
+    public func camera(for coordinateBounds: CoordinateBounds, // swiftlint:disable:this function_parameter_count
+                       padding: UIEdgeInsets?,
                        bearing: Double?,
-                       pitch: Double?) -> CameraOptions {
+                       pitch: Double?,
+                       maxZoom: Double?,
+                       offset: CGPoint?) -> CameraOptions {
         return CameraOptions(
             __map.cameraForCoordinateBounds(
                 for: coordinateBounds,
-                padding: padding.toMBXEdgeInsetsValue(),
+                padding: padding?.toMBXEdgeInsetsValue(),
                 bearing: bearing?.NSNumber,
-                pitch: pitch?.NSNumber))
+                pitch: pitch?.NSNumber,
+                maxZoom: maxZoom?.NSNumber,
+                offset: offset?.screenCoordinate))
     }
 
     /// Calculates a `CameraOptions` to fit a list of coordinates.
@@ -340,18 +506,21 @@ public final class MapboxMap: MapboxMapProtocol {
     ///
     /// - Parameters:
     ///   - coordinates: Array of coordinates that should fit within the new viewport.
-    ///   - padding: The new padding to be used by the camera.
-    ///   - bearing: The new bearing to be used by the camera.
-    ///   - pitch: The new pitch to be used by the camera.
+    ///   - padding: The amount of padding in screen points to add to the given `coordinates`.
+    ///              This padding is not applied to the map but to the coordinates provided.
+    ///              If you want to apply padding to the map use `camera` parameter on ``camera(for:camera:coordinatesPadding:maxZoom:offset:)``
+    ///   - bearing: The new bearing to be used by the camera, in degrees (0°, 360°) clockwise from true north.
+    ///   - pitch: The new pitch to be used by the camera, in degrees (0°, 85°) with 0° being a top-down view.
     /// - Returns: A `CameraOptions` that fits the provided constraints
+    @available(*, deprecated, message: "Use ``camera(for:camera:coordinatesPadding:maxZoom:offset:)`` instead.")
     public func camera(for coordinates: [CLLocationCoordinate2D],
-                       padding: UIEdgeInsets,
+                       padding: UIEdgeInsets?,
                        bearing: Double?,
                        pitch: Double?) -> CameraOptions {
         return CameraOptions(
             __map.cameraForCoordinates(
-                forCoordinates: coordinates.map(\.location),
-                padding: padding.toMBXEdgeInsetsValue(),
+                for: coordinates.map { Coordinate2D(value: $0) },
+                padding: padding?.toMBXEdgeInsetsValue(),
                 bearing: bearing?.NSNumber,
                 pitch: pitch?.NSNumber))
     }
@@ -382,9 +551,42 @@ public final class MapboxMap: MapboxMapProtocol {
                        rect: CGRect) -> CameraOptions {
         return CameraOptions(
             __map.cameraForCoordinates(
-                forCoordinates: coordinates.map(\.location),
-                camera: MapboxCoreMaps.CameraOptions(camera),
-                box: ScreenBox(rect)))
+                for: coordinates.map { Coordinate2D(value: $0) },
+                camera: CoreCameraOptions(camera),
+                box: CoreScreenBox(rect)))
+    }
+
+    /// Convenience method that returns the `camera options` object for given parameters.
+    ///
+    /// - Parameters:
+    ///   - coordinates: The `coordinates` representing the bounds of the camera.
+    ///   - camera: The `camera options` which will be applied before calculating the camera for the coordinates.
+    ///   If any of the fields in camera options is not provided then the current value from the map for that field will be used.
+    ///   - coordinatesPadding: The amount of padding in screen points to add to the given `coordinates`.
+    ///   This padding is not applied to the map but to the coordinates provided. If you want to apply padding to the map use `camera` parameter.
+    ///   - maxZoom: The maximum zoom level allowed in the returned camera options.
+    ///   - offset: The center of the given bounds relative to map center in screen points.
+    /// - Returns: A `CameraOptions` object representing the provided parameters.
+    public func camera(for coordinates: [CLLocationCoordinate2D],
+                       camera: CameraOptions,
+                       coordinatesPadding: UIEdgeInsets?,
+                       maxZoom: Double?,
+                       offset: CGPoint?) throws -> CameraOptions {
+        let expected = __map.cameraForCoordinates(
+            for: coordinates.map { Coordinate2D(value: $0) },
+            camera: CoreCameraOptions(camera),
+            coordinatesPadding: coordinatesPadding?.toMBXEdgeInsetsValue(),
+            maxZoom: maxZoom as? NSNumber,
+            offset: offset?.screenCoordinate
+        )
+
+        if expected.isError(), let reason = expected.error {
+            throw MapError(coreError: reason)
+        }
+        guard let options = expected.value else {
+            throw MapError(coreError: "Failed to unwrap CameraOptions")
+        }
+        return CameraOptions(options)
     }
 
     /// Calculates a `CameraOptions` to fit a geometry
@@ -392,7 +594,7 @@ public final class MapboxMap: MapboxMapProtocol {
     /// This API isn't supported by Globe projection.
     ///
     /// - Parameters:
-    ///   - geometry: The geoemtry that will be displayed within the viewport.
+    ///   - geometry: The geometry that will be displayed within the viewport.
     ///   - padding: The new padding to be used by the camera.
     ///   - bearing: The new bearing to be used by the camera.
     ///   - pitch: The new pitch to be used by the camera.
@@ -419,19 +621,19 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Returns: `CoordinateBounds` for the given `CameraOptions`
     public func coordinateBounds(for camera: CameraOptions) -> CoordinateBounds {
         return __map.coordinateBoundsForCamera(
-            forCamera: MapboxCoreMaps.CameraOptions(camera))
+            forCamera: CoreCameraOptions(camera))
     }
 
-    /// Returns the unwrapped coordinate bounds to a given ``CameraOptions``.
+    /// Returns the unwrapped coordinate bounds to a given ``CameraOptions-swift.struct``.
     ///
     /// This function is particularly useful, if the camera shows the antimeridian.
     ///
     /// This API isn't supported by Globe projection.
     ///
     /// - Parameter camera: The camera for which the coordinate bounds will be returned.
-    /// - Returns: `CoordinateBounds` for the given ``CameraOptions``.
+    /// - Returns: `CoordinateBounds` for the given ``CameraOptions-swift.struct``.
     public func coordinateBoundsUnwrapped(for camera: CameraOptions) -> CoordinateBounds {
-        return __map.coordinateBoundsForCameraUnwrapped(forCamera: MapboxCoreMaps.CameraOptions(camera))
+        return __map.coordinateBoundsForCameraUnwrapped(forCamera: CoreCameraOptions(camera))
     }
 
     /// Returns the coordinate bounds and zoom for a given `CameraOptions`.
@@ -441,7 +643,7 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Parameter camera: The camera for which the `CoordinateBoundsZoom` will be returned.
     /// - Returns: `CoordinateBoundsZoom` for the given `CameraOptions`
     public func coordinateBoundsZoom(for camera: CameraOptions) -> CoordinateBoundsZoom {
-        return __map.coordinateBoundsZoomForCamera(forCamera: MapboxCoreMaps.CameraOptions(camera))
+        return __map.coordinateBoundsZoomForCamera(forCamera: CoreCameraOptions(camera))
     }
 
     /// Returns the unwrapped coordinate bounds and zoom for a given `CameraOptions`.
@@ -454,7 +656,7 @@ public final class MapboxMap: MapboxMapProtocol {
     ///     be returned.
     /// - Returns: `CoordinateBoundsZoom` for the given `CameraOptions`
     public func coordinateBoundsZoomUnwrapped(for camera: CameraOptions) -> CoordinateBoundsZoom {
-        return __map.coordinateBoundsZoomForCameraUnwrapped(forCamera: MapboxCoreMaps.CameraOptions(camera))
+        return __map.coordinateBoundsZoomForCameraUnwrapped(forCamera: CoreCameraOptions(camera))
     }
 
     // MARK: - Screen coordinate conversion
@@ -480,8 +682,7 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Returns: A `CGPoint` relative to the `UIView`. If the point is outside of the bounds
     ///     of `MapView` the returned point contains `-1.0` for both coordinates.
     public func point(for coordinate: CLLocationCoordinate2D) -> CGPoint {
-        let point = __map.pixelForCoordinate(for: coordinate).point
-        return CGRect(origin: .zero, size: size).contains(point) ? point : CGPoint(x: -1.0, y: -1.0)
+        return __map.pixelForCoordinate(for: coordinate).point.fit(to: size)
     }
 
     /// Converts map coordinates to an array of `CGPoint`, relative to the `MapView`.
@@ -489,11 +690,13 @@ public final class MapboxMap: MapboxMapProtocol {
     /// This API isn't supported by Globe projection.
     ///
     /// - Parameter coordinates: The coordinate to convert.
-    /// - Returns: An array of `CGPoint` relative to the `UIView`.
+    /// - Returns: An array of `CGPoint` relative to the `UIView.
+    /// If a coordinate's point is outside of map view's bounds, it will be `(-1, -1)`
     public func points(for coordinates: [CLLocationCoordinate2D]) -> [CGPoint] {
-        let locations = coordinates.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
-        let screenCoords = __map.pixelsForCoordinates(forCoordinates: locations)
-        return screenCoords.map { $0.point }
+        let bounds = CGRect(origin: .zero, size: size)
+        let locations = coordinates.map { Coordinate2D(value: $0) }
+        let screenCoords = __map.pixelsForCoordinates(for: locations)
+        return screenCoords.map { bounds.contains($0.point) ? $0.point : CGPoint(x: -1.0, y: -1.0) }
     }
 
     /// Converts points in the mapView's coordinate system to geographic coordinates.
@@ -508,7 +711,35 @@ public final class MapboxMap: MapboxMapProtocol {
     public func coordinates(for points: [CGPoint]) -> [CLLocationCoordinate2D] {
         let screenCoords = points.map { $0.screenCoordinate }
         let locations = __map.coordinatesForPixels(forPixels: screenCoords)
-        return locations.map { $0.coordinate }
+        return locations.map { $0.value }
+    }
+
+    /// Obtains the geographical coordinate information that corresponds to a given point.
+    /// The point must exist in the coordinate space of the ``MapView``.
+    ///
+    /// The returned coordinate will be the closest position projected onto the map surface,
+    /// in case the screen coordinate does not intersect with the map surface.
+    ///
+    /// - Parameter point: The point to convert. Must exist in the coordinate space
+    ///     of the `MapView`.
+    ///
+    /// - Returns: A `CoordinateInfo` record containing information about the geographical coordinate corresponding to the given point, including whether it is on the map surface.
+    public func coordinateInfo(for point: CGPoint) -> CoordinateInfo {
+        return __map.coordinateInfoForPixel(forPixel: point.screenCoordinate)
+    }
+
+    /// Obtains the geographical coordinate information that corresponds to given points.
+    /// The points must exist in the coordinate space of the ``MapView``.
+    ///
+    /// The returned coordinate will be the closest position projected onto the map surface,
+    /// in case the screen coordinate does not intersect with the map surface.
+    ///
+    /// - Parameter points: The array of points to convert. Points must exist in the coordinate space
+    ///     of the `MapView`.
+    ///
+    /// - Returns: An array of `CoordinateInfo` records containing information about the geographical coordinates corresponding to the given points, including whether they are on the map surface.
+    public func coordinatesInfo(for points: [CGPoint]) -> [CoordinateInfo] {
+        return __map.coordinatesInfoForPixels(forPixels: points.map(\.screenCoordinate))
     }
 
     // MARK: - Camera options setters/getters
@@ -525,7 +756,7 @@ public final class MapboxMap: MapboxMapProtocol {
     ///
     /// - Parameter cameraOptions: New camera options
     public func setCamera(to cameraOptions: CameraOptions) {
-        __map.setCameraFor(MapboxCoreMaps.CameraOptions(cameraOptions))
+        __map.setCameraFor(CoreCameraOptions(cameraOptions))
     }
 
     /// Returns the current camera state
@@ -534,7 +765,7 @@ public final class MapboxMap: MapboxMapProtocol {
     }
 
     /// The map's current anchor, calculated after applying padding (if it exists)
-    internal var anchor: CGPoint {
+    var anchor: CGPoint {
         let rect = CGRect(origin: .zero, size: size).inset(by: cameraState.padding)
         return CGPoint(x: rect.midX, y: rect.midY)
     }
@@ -568,7 +799,7 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Parameter options: New camera bounds. Nil values will not take effect.
     /// - Throws: `MapError`
     public func setCameraBounds(with options: CameraBoundsOptions) throws {
-        let expected = __map.setBoundsFor(MapboxCoreMaps.CameraBoundsOptions(options))
+        let expected = __map.setBoundsFor(CoreCameraBoundsOptions(options))
 
         if expected.isError() {
             throw MapError(coreError: expected.error)
@@ -576,16 +807,6 @@ public final class MapboxMap: MapboxMapProtocol {
     }
 
     // MARK: - Drag API
-
-    /// Prepares the drag gesture to use the provided screen coordinate as a pivot
-    /// point. This function should be called each time when user starts a
-    /// dragging action (e.g. by clicking on the map). The following dragging
-    /// will be relative to the pivot.
-    ///
-    /// - Parameter point: Screen point
-    public func dragStart(for point: CGPoint) {
-        __map.dragStart(forPoint: point.screenCoordinate)
-    }
 
     /// Calculates target point where camera should move after drag. The method
     /// should be called after `dragStart` and before `dragEnd`.
@@ -597,19 +818,13 @@ public final class MapboxMap: MapboxMapProtocol {
     /// - Returns:
     ///     The camera options object showing end point.
     public func dragCameraOptions(from: CGPoint, to: CGPoint) -> CameraOptions {
-        let options = __map.getDragCameraOptionsFor(fromPoint: from.screenCoordinate,
-                                                    toPoint: to.screenCoordinate)
+        let options = __map.cameraForDrag(forStart: from.screenCoordinate, end: to.screenCoordinate)
         return CameraOptions(options)
     }
 
-    /// Ends the ongoing drag gesture. This function should be called always after
-    /// the user has ended a drag gesture initiated by `dragStart`.
-    public func dragEnd() {
-        __map.dragEnd()
-    }
-
-    internal func pointIsAboveHorizon(_ point: CGPoint) -> Bool {
-        guard style.projection.name == .mercator else {
+    /// :nodoc:
+    func pointIsAboveHorizon(_ point: CGPoint) -> Bool {
+        guard projection?.name == .mercator else {
             return false
         }
         let topMargin = 0.04 * size.height
@@ -623,10 +838,18 @@ public final class MapboxMap: MapboxMapProtocol {
 
     // MARK: - Gesture and Animation Flags
 
+    /// Returns `true` if an animation is currently in progress.
+    public var isAnimationInProgress: Bool { __map.isUserAnimationInProgress() }
+
     private var animationCount = 0
 
     /// If implementing a custom animation mechanism, call this method when the animation begins.
-    /// Must always be paired with a corresponding call to `endAnimation()`
+    ///
+    /// Tells the map rendering engine that the animation is currently performed by the
+    /// user (e.g. with a `setCamera` calls series). It adjusts the engine for the animation use case.
+    /// In particular, it brings more stability to symbol placement and rendering.
+    ///
+    /// - Note: Must always be paired with a corresponding call to `endAnimation()`.
     public func beginAnimation() {
         animationCount += 1
         if animationCount == 1 {
@@ -635,7 +858,8 @@ public final class MapboxMap: MapboxMapProtocol {
     }
 
     /// If implementing a custom animation mechanism, call this method when the animation ends.
-    /// Must always be paired with a corresponding call to `beginAnimation()`
+    ///
+    /// - Note: Must always be paired with a corresponding call to `beginAnimation()`.
     public func endAnimation() {
         assert(animationCount > 0)
         animationCount -= 1
@@ -644,27 +868,58 @@ public final class MapboxMap: MapboxMapProtocol {
         }
     }
 
-    private var gestureCount = 0
+    /// Get/set the map centerAltitudeMode that defines how the map center point should react to terrain elevation changes.
+    /// See ``MapCenterAltitudeMode`` for options.
+    public var centerAltitudeMode: MapCenterAltitudeMode {
+        get { __map.getCenterAltitudeMode() }
+        set {
+            __map.setCenterAltitudeModeFor(newValue)
+            gestureState.intrinsicMode = newValue
+        }
+    }
+
+    private struct GestureState {
+        var count: Int
+        var intrinsicMode: MapCenterAltitudeMode
+    }
+
+    private lazy var gestureState = GestureState(count: 0, intrinsicMode: centerAltitudeMode)
+
+    /// Returns `true` if a gesture is currently in progress.
+    public var isGestureInProgress: Bool { __map.isGestureInProgress() }
 
     /// If implementing a custom gesture, call this method when the gesture begins.
-    /// Must always be paired with a corresponding call to `endGesture()`
+    ///
+    /// Tells the map rendering engine that there is currently a gesture in progress. This
+    /// affects how the map renders labels, as it will use different texture filters if a gesture
+    /// is ongoing.
+    ///
+    /// - Note: Must always be paired with a corresponding call to `endGesture()`
     public func beginGesture() {
-        gestureCount += 1
-        if gestureCount == 1 {
-            __map.setGestureInProgressForInProgress(true)
-        }
+        gestureState.count += 1
+        if gestureState.count == 1 { __map.setGestureInProgressForInProgress(true) }
+
+        /// We should set the center altitude mode to ``MapCenterAltitudeMode.sea`` during gestures to avoid bumpiness when the terrain is enabled.
+        /// It's not necessary to update ``MapCenterAltitudeMode`` if the user explicitly changed altitude to ``MapCenterAltitudeMode.sea`` before the gesture starts.
+        if centerAltitudeMode != .sea { __map.setCenterAltitudeModeFor(.sea) }
     }
 
     /// If implementing a custom gesture, call this method when the gesture ends.
-    /// Must always be paired with a corresponding call to `beginGesture()`
+    ///
+    /// - Note: Must always be paired with a corresponding call to `beginGesture()`.
     public func endGesture() {
-        assert(gestureCount > 0)
-        gestureCount -= 1
-        if gestureCount == 0 {
+        assert(gestureState.count > 0)
+        gestureState.count -= 1
+        if gestureState.count == 0 {
             __map.setGestureInProgressForInProgress(false)
+
+            /// After the gesture end we must ensure to set the ``centerAltitudeMode`` expected be the user.
+            __map.setCenterAltitudeModeFor(gestureState.intrinsicMode)
         }
     }
 }
+
+extension MapboxMap: MapboxMapProtocol {}
 
 // swiftlint:enable type_body_length
 
@@ -678,23 +933,14 @@ extension MapboxMap: MapFeatureQueryable {
     ///   - shape: Screen point coordinates (point, line string or box) to query
     ///         for rendered features.
     ///   - options: Options for querying rendered features.
-    ///   - completion: Callback called when the query completes
-    @available(*, deprecated, renamed: "queryRenderedFeatures(with:options:completion:)")
-    public func queryRenderedFeatures(for shape: [CGPoint], options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) {
-        __map.queryRenderedFeatures(forShape: shape.map { $0.screenCoordinate },
-                                    options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
-                                    callback: coreAPIClosureAdapter(for: completion,
-                                                                    type: NSArray.self,
-                                                                    concreteErrorType: MapError.self))
-    }
-
+    ///   - completion: Callback called when the query completes.
     @discardableResult
-    public func queryRenderedFeatures(with shape: [CGPoint], options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) -> Cancelable {
+    public func queryRenderedFeatures(with shape: [CGPoint], options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedRenderedFeature], Error>) -> Void) -> Cancelable {
         return __map.__queryRenderedFeatures(for: .fromNSArray(shape.map {$0.screenCoordinate}),
                                        options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
                                        callback: coreAPIClosureAdapter(for: completion,
                                                                        type: NSArray.self,
-                                                                       concreteErrorType: MapError.self)).asCancelable()
+                                                                       concreteErrorType: MapError.self))
     }
 
     /// Queries the map for rendered features.
@@ -702,47 +948,28 @@ extension MapboxMap: MapFeatureQueryable {
     /// - Parameters:
     ///   - rect: Screen rect to query for rendered features.
     ///   - options: Options for querying rendered features.
-    ///   - completion: Callback called when the query completes
-    @available(*, deprecated, renamed: "queryRenderedFeatures(with:options:completion:)")
-    public func queryRenderedFeatures(in rect: CGRect, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) {
-        __map.queryRenderedFeatures(for: ScreenBox(rect),
-                                    options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
-                                    callback: coreAPIClosureAdapter(for: completion,
-                                                                    type: NSArray.self,
-                                                                    concreteErrorType: MapError.self))
-    }
-
+    ///   - completion: Callback called when the query completes.
     @discardableResult
-    public func queryRenderedFeatures(with rect: CGRect, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) -> Cancelable {
+    public func queryRenderedFeatures(with rect: CGRect, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedRenderedFeature], Error>) -> Void) -> Cancelable {
         return __map.__queryRenderedFeatures(for: .fromScreenBox(.init(rect)),
                                        options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
                                        callback: coreAPIClosureAdapter(for: completion,
                                                                        type: NSArray.self,
-                                                                       concreteErrorType: MapError.self)).asCancelable()
+                                                                       concreteErrorType: MapError.self))
     }
-
     /// Queries the map for rendered features.
     ///
     /// - Parameters:
     ///   - point: Screen point at which to query for rendered features.
     ///   - options: Options for querying rendered features.
-    ///   - completion: Callback called when the query completes
-    @available(*, deprecated, renamed: "queryRenderedFeatures(with:options:completion:)")
-    public func queryRenderedFeatures(at point: CGPoint, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) {
-        __map.queryRenderedFeatures(forPixel: point.screenCoordinate,
-                                    options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
-                                    callback: coreAPIClosureAdapter(for: completion,
-                                                                    type: NSArray.self,
-                                                                    concreteErrorType: MapError.self))
-    }
-
+    ///   - completion: Callback called when the query completes.
     @discardableResult
-    public func queryRenderedFeatures(with point: CGPoint, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedFeature], Error>) -> Void) -> Cancelable {
+    public func queryRenderedFeatures(with point: CGPoint, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedRenderedFeature], Error>) -> Void) -> Cancelable {
         return __map.__queryRenderedFeatures(for: .fromScreenCoordinate(point.screenCoordinate),
                                              options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
                                              callback: coreAPIClosureAdapter(for: completion,
                                                                              type: NSArray.self,
-                                                                             concreteErrorType: MapError.self)).asCancelable()
+                                                                             concreteErrorType: MapError.self))
     }
 
     /// Queries the map for source features.
@@ -750,58 +977,16 @@ extension MapboxMap: MapFeatureQueryable {
     /// - Parameters:
     ///   - sourceId: Style source identifier used to query for source features.
     ///   - options: Options for querying source features.
-    ///   - completion: Callback called when the query completes
+    ///   - completion: Callback called when the query completes.
+    @discardableResult
     public func querySourceFeatures(for sourceId: String,
                                     options: SourceQueryOptions,
-                                    completion: @escaping (Result<[QueriedFeature], Error>) -> Void) {
-        __map.querySourceFeatures(forSourceId: sourceId,
+                                    completion: @escaping (Result<[QueriedSourceFeature], Error>) -> Void) -> Cancelable {
+        return __map.__querySourceFeatures(forSourceId: sourceId,
                                   options: options,
                                   callback: coreAPIClosureAdapter(for: completion,
                                                                   type: NSArray.self,
                                                                   concreteErrorType: MapError.self))
-    }
-
-    /// Queries for feature extension values in a GeoJSON source.
-    ///
-    /// - Parameters:
-    ///   - sourceId: The identifier of the source to query.
-    ///   - feature: Feature to look for in the query.
-    ///   - extension: Currently supports keyword `supercluster`.
-    ///   - extensionField: Currently supports following three extensions:
-    ///
-    ///       1. `children`: returns the children of a cluster (on the next zoom
-    ///         level).
-    ///       2. `leaves`: returns all the leaves of a cluster (given its cluster_id)
-    ///       3. `expansion-zoom`: returns the zoom on which the cluster expands
-    ///         into several children (useful for "click to zoom" feature).
-    ///
-    ///   - args: Used for further query specification when using 'leaves'
-    ///         extensionField. Now only support following two args:
-    ///
-    ///       1. `limit`: the number of points to return from the query (must
-    ///             use type 'UInt64', set to maximum for all points)
-    ///       2. `offset`: the amount of points to skip (for pagination, must
-    ///             use type 'UInt64')
-    ///
-    ///   - completion: The result could be a feature extension value containing
-    ///         either a value (expansion-zoom) or a feature collection (children
-    ///         or leaves). An error is passed if the operation was not successful.
-    /// Deprecated. Use getGeoJsonClusterLeaves/getGeoJsonClusterChildren/getGeoJsonClusterExpansionZoom to instead.
-    public func queryFeatureExtension(for sourceId: String,
-                                      feature: Feature,
-                                      extension: String,
-                                      extensionField: String,
-                                      args: [String: Any]? = nil,
-                                      completion: @escaping (Result<FeatureExtensionValue, Error>) -> Void) {
-
-        __map.queryFeatureExtensions(forSourceIdentifier: sourceId,
-                                     feature: MapboxCommon.Feature(feature),
-                                     extension: `extension`,
-                                     extensionField: extensionField,
-                                     args: args,
-                                     callback: coreAPIClosureAdapter(for: completion,
-                                                                     type: FeatureExtensionValue.self,
-                                                                     concreteErrorType: MapError.self))
     }
 
     /// Returns all the leaves (original points) of a cluster (given its cluster_id) from a GeoJSON source, with pagination support: limit is the number of leaves
@@ -815,12 +1000,13 @@ extension MapboxMap: MapFeatureQueryable {
     ///   - completion: The result could be a feature extension value containing
     ///         either a value (expansion-zoom) or a feature collection (children
     ///         or leaves). An error is passed if the operation was not successful.
+    @discardableResult
     public func getGeoJsonClusterLeaves(forSourceId sourceId: String,
                                         feature: Feature,
                                         limit: UInt64 = 10,
                                         offset: UInt64 = 0,
-                                        completion: @escaping (Result<FeatureExtensionValue, Error>) -> Void) {
-        __map.queryFeatureExtensions(forSourceIdentifier: sourceId,
+                                        completion: @escaping (Result<FeatureExtensionValue, Error>) -> Void) -> Cancelable {
+        return __map.__queryFeatureExtensions(forSourceIdentifier: sourceId,
                                      feature: MapboxCommon.Feature(feature),
                                      extension: "supercluster",
                                      extensionField: "leaves",
@@ -839,10 +1025,11 @@ extension MapboxMap: MapFeatureQueryable {
     ///   - completion: The result could be a feature extension value containing
     ///         either a value (expansion-zoom) or a feature collection (children
     ///         or leaves). An error is passed if the operation was not successful.
+    @discardableResult
     public func getGeoJsonClusterChildren(forSourceId sourceId: String,
                                           feature: Feature,
-                                          completion: @escaping (Result<FeatureExtensionValue, Error>) -> Void) {
-        __map.queryFeatureExtensions(forSourceIdentifier: sourceId,
+                                          completion: @escaping (Result<FeatureExtensionValue, Error>) -> Void) -> Cancelable {
+        return __map.__queryFeatureExtensions(forSourceIdentifier: sourceId,
                                      feature: MapboxCommon.Feature(feature),
                                      extension: "supercluster",
                                      extensionField: "children",
@@ -861,10 +1048,11 @@ extension MapboxMap: MapFeatureQueryable {
     ///   - completion: The result could be a feature extension value containing
     ///         either a value (expansion-zoom) or a feature collection (children
     ///         or leaves). An error is passed if the operation was not successful.
+    @discardableResult
     public func getGeoJsonClusterExpansionZoom(forSourceId sourceId: String,
                                                feature: Feature,
-                                               completion: @escaping (Result<FeatureExtensionValue, Error>) -> Void) {
-        __map.queryFeatureExtensions(forSourceIdentifier: sourceId,
+                                               completion: @escaping (Result<FeatureExtensionValue, Error>) -> Void) -> Cancelable {
+        __map.__queryFeatureExtensions(forSourceIdentifier: sourceId,
                                      feature: MapboxCommon.Feature(feature),
                                      extension: "supercluster",
                                      extensionField: "expansion-zoom",
@@ -875,61 +1063,96 @@ extension MapboxMap: MapFeatureQueryable {
     }
 }
 
-extension MapboxMap {
-    /// Subscribes an observer to a list of events.
-    ///
-    /// `MapboxMap` holds a strong reference to `observer` while it is subscribed. To stop receiving
-    /// notifications, pass the same `observer` to `unsubscribe(_:events:)`.
-    ///
-    /// - Parameters:
-    ///   - observer: An object that will receive events of the types specified by `events`
-    ///   - events: Array of event types to deliver to `observer`
-    ///
-    /// - Note:
-    ///     Prefer `onNext(eventTypes:handler:)`, `onNext(_:handler:)`, and
-    ///     `onEvery(_:handler:)` to using this lower-level APIs
-    public func subscribe(_ observer: Observer, events: [String]) {
-        observable.subscribe(observer, events: events)
-    }
-
-    /// Unsubscribes an observer from a provided list of event types.
-    ///
-    /// `MapboxMap` holds a strong reference to `observer` while it is subscribed. To stop receiving
-    /// notifications, pass the same `observer` to this method as was passed to
-    /// `subscribe(_:events:)`.
-    ///
-    /// - Parameters:
-    ///   - observer: The object to unsubscribe
-    ///   - events: Array of event types to unsubscribe from. Pass an
-    ///     empty array (the default) to unsubscribe from all events.
-    public func unsubscribe(_ observer: Observer, events: [String] = []) {
-        observable.unsubscribe(observer, events: events)
-    }
-}
-
 // MARK: - Map Event handling
 
-extension MapboxMap: MapEventsObservable {
+extension MapboxMap {
 
-    /// Listen to a single occurrence of a Map event.
-    ///
-    /// This will observe the next (and only the next) event of the specified
-    /// type. After observation, the underlying subscriber will unsubscribe from
-    /// the map or snapshotter.
-    ///
-    /// If you need to unsubscribe before the event fires, call `cancel()` on
-    /// the returned `Cancelable` object.
-    ///
-    /// - Parameters:
-    ///   - eventType: The event type to listen to.
-    ///   - handler: The closure to execute when the event occurs.
-    ///
-    /// - Returns: A `Cancelable` object that you can use to stop listening for
-    ///     the event. This is especially important if you have a retain cycle in
-    ///     the handler.
-    @discardableResult
-    public func onNext<Payload>(event eventType: MapEvents.Event<Payload>, handler: @escaping (MapEvent<Payload>) -> Void) -> Cancelable {
-        return observable.onNext(event: eventType, handler: handler)
+    /// The style has been fully loaded, and the map has rendered all visible tiles.
+    public var onMapLoaded: Signal<MapLoaded> { events.signal(for: \.onMapLoaded) }
+
+        /// An error that has occurred while loading the Map. The `type` property defines what resource could
+        /// not be loaded and the `message` property will contain a descriptive error message.
+        /// In case of `source` or `tile` loading errors, `sourceID` or `tileID` will contain the identifier of the source failing.
+    public var onMapLoadingError: Signal<MapLoadingError> { events.signal(for: \.onMapLoadingError) }
+
+        /// The requested style has been fully loaded, including the style, specified sprite and sources' metadata.
+        ///
+        /// The style specified sprite would be marked as loaded even with sprite loading error (an error will be emitted via ``MapboxMap/onMapLoadingError``).
+        /// Sprite loading error is not fatal and we don't want it to block the map rendering, thus this event will still be emitted if style and sources are fully loaded.
+    public var onStyleLoaded: Signal<StyleLoaded> { events.signal(for: \.onStyleLoaded) }
+
+        /// The requested style data has been loaded. The `type` property defines what kind of style data has been loaded.
+        /// Event may be emitted synchronously, for example, when ``MapboxMap/loadStyle(_:transition:completion:)-2jmep`` is used to load style.
+        ///
+        /// Based on an event data `type` property value, following use-cases may be implemented:
+        /// - `style`: Style is parsed, style layer properties could be read and modified, style layers and sources could be
+        /// added or removed before rendering is started.
+        /// - `sprite`: Style's sprite sheet is parsed and it is possible to add or update images.
+        /// - `sources`: All sources defined by the style are loaded and their properties could be read and updated if needed.
+    public var onStyleDataLoaded: Signal<StyleDataLoaded> { events.signal(for: \.onStyleDataLoaded) }
+
+        /// The camera has changed. This event is emitted whenever the visible viewport
+        /// changes due to the MapView's size changing or when the camera
+        /// is modified by calling camera methods. The event is emitted synchronously,
+        /// so that an updated camera state can be fetched immediately.
+    public var onCameraChanged: Signal<CameraChanged> { events.signal(for: \.onCameraChanged) }
+
+        /// The map has entered the idle state. The map is in the idle state when there are no ongoing transitions
+        /// and the map has rendered all requested non-volatile tiles. The event will not be emitted if animation is in progress (see ``MapboxMap/beginAnimation()``, ``MapboxMap/endAnimation()``)
+        /// and / or gesture is in progress (see ``MapboxMap/beginGesture()``, ``MapboxMap/endGesture()``).
+    public var onMapIdle: Signal<MapIdle> { events.signal(for: \.onMapIdle) }
+
+        /// The source has been added with ``StyleManager/addSource(_:dataId:)``  or ``StyleManager/addSource(withId:properties:)``.
+        /// The event is emitted synchronously, therefore, it is possible to immediately
+        /// read added source's properties.
+    public var onSourceAdded: Signal<SourceAdded> { events.signal(for: \.onSourceAdded) }
+
+        /// The source has been removed with ``StyleManager/removeSource(withId:)``.
+        /// The event is emitted synchronously, thus, ``StyleManager/allSourceIdentifiers`` will be
+        /// in sync when the observer receives the notification.
+    public var onSourceRemoved: Signal<SourceRemoved> { events.signal(for: \.onSourceRemoved) }
+
+        /// A source data has been loaded.
+        /// Event may be emitted synchronously in cases when source's metadata is available when source is added to the style.
+        ///
+        /// The `dataID` property defines the source id.
+        ///
+        /// The `type` property defines if source's metadata (e.g., TileJSON) or tile has been loaded. The property of `metadata`
+        /// value might be useful to identify when particular source's metadata is loaded, thus all source's properties are
+        /// readable and can be updated before map will start requesting data to be rendered.
+        ///
+        /// The `loaded` property will be set to `true` if all source's data required for visible viewport of the map, are loaded.
+        /// The `tileID` property defines the tile id if the `type` field equals `tile`.
+        /// The `dataID` property will be returned if it has been set for this source.
+    public var onSourceDataLoaded: Signal<SourceDataLoaded> { events.signal(for: \.onSourceDataLoaded) }
+
+        /// A style has a missing image. This event is emitted when the map renders visible tiles and
+        /// one of the required images is missing in the sprite sheet. Subscriber has to provide the missing image
+        /// by calling ``StyleManager/addImage(_:id:sdf:contentInsets:)``.
+    public var onStyleImageMissing: Signal<StyleImageMissing> { events.signal(for: \.onStyleImageMissing) }
+
+        /// An image added to the style is no longer needed and can be removed using ``StyleManager/removeImage(withId:)``.
+    public var onStyleImageRemoveUnused: Signal<StyleImageRemoveUnused> { events.signal(for: \.onStyleImageRemoveUnused) }
+
+        /// The map started rendering a frame.
+    public var onRenderFrameStarted: Signal<RenderFrameStarted> { events.signal(for: \.onRenderFrameStarted) }
+
+        /// The map finished rendering a frame.
+        /// The `renderMode` property tells whether the map has all data (`full`) required to render the visible viewport.
+        /// The `needsRepaint` property provides information about ongoing transitions that trigger map repaint.
+        /// The `placementChanged` property tells if the symbol placement has been changed in the visible viewport.
+    public var onRenderFrameFinished: Signal<RenderFrameFinished> { events.signal(for: \.onRenderFrameFinished) }
+
+        /// The `ResourceRequest` event allows client to observe resource requests made by a
+        /// map or snapshotter.
+    public var  onResourceRequest: Signal<ResourceRequest> { events.signal(for: \.onResourceRequest) }
+
+    /// Returns a ``Signal`` that allows to subscribe to the event with specified string name.
+    /// This method is reserved for the future use.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public subscript(eventName: String) -> Signal<GenericEvent> {
+        events[eventName]
     }
 
     /// Listen to a single occurrence of a Map event.
@@ -948,10 +1171,10 @@ extension MapboxMap: MapEventsObservable {
     /// - Returns: A `Cancelable` object that you can use to stop listening for
     ///     the event. This is especially important if you have a retain cycle in
     ///     the handler.
-    @available(*, deprecated, renamed: "onNext(event:handler:)")
+    @available(*, deprecated, message: "Use mapboxMap.on<eventType>.observeNext instead.")
     @discardableResult
-    public func onNext(_ eventType: MapEvents.EventKind, handler: @escaping (Event) -> Void) -> Cancelable {
-        return observable.onNext([eventType], handler: handler)
+    public func onNext<Payload>(event: MapEventType<Payload>, handler: @escaping (Payload) -> Void) -> Cancelable {
+        events.onNext(event: event, handler: handler)
     }
 
     /// Listen to multiple occurrences of a Map event.
@@ -963,34 +1186,17 @@ extension MapboxMap: MapEventsObservable {
     /// - Returns: A `Cancelable` object that you can use to stop listening for
     ///     events. This is especially important if you have a retain cycle in
     ///     the handler.
-    @available(*, deprecated, renamed: "onEvery(event:handler:)")
+    @available(*, deprecated, message: "Use mapboxMap.on<eventType>.observe instead.")
     @discardableResult
-    public func onEvery(_ eventType: MapEvents.EventKind, handler: @escaping (Event) -> Void) -> Cancelable {
-        return observable.onEvery([eventType], handler: handler)
-    }
-
-    /// Listen to multiple occurrences of a Map event.
-    ///
-    /// - Parameters:
-    ///   - eventType: The event type to listen to.
-    ///   - handler: The closure to execute when the event occurs.
-    ///
-    /// - Returns: A `Cancelable` object that you can use to stop listening for
-    ///     events. This is especially important if you have a retain cycle in
-    ///     the handler.
-    @discardableResult
-    public func onEvery<Payload>(event: MapEvents.Event<Payload>, handler: @escaping (MapEvent<Payload>) -> Void) -> Cancelable {
-        return observable.onEvery(event: event, handler: handler)
-    }
-
-    internal func performWithoutNotifying(_ block: () -> Void) {
-        observable.performWithoutNotifying(block)
+    public func onEvery<Payload>(event: MapEventType<Payload>, handler: @escaping (Payload) -> Void) -> Cancelable {
+        events.onEvery(event: event, handler: handler)
     }
 }
 
 // MARK: - Map data clearing
 
 extension MapboxMap {
+
     /// Clears temporary map data.
     ///
     /// Clears temporary map data from the data path defined in the given resource
@@ -1001,17 +1207,16 @@ extension MapboxMap {
     ///         and does not affect persistent map data like offline style packages.
     ///
     /// - Parameter completion: Called once the request is complete
-    public func clearData(completion: @escaping (Error?) -> Void) {
-        MapboxMap.clearData(for: resourceOptions, completion: completion)
+    public static func clearData(completion: @escaping (Error?) -> Void) {
+        MapboxMapsOptions.clearData(completion: completion)
     }
 }
 
 // MARK: - Attribution
 
 extension MapboxMap: AttributionDataSource {
-    internal func attributions() -> [Attribution] {
-        let attributions = Attribution.parse(style.sourceAttributions())
-        return attributions
+    func loadAttributions(completion: @escaping ([Attribution]) -> Void) {
+        Attribution.parse(__map.getAttributions(), completion: completion)
     }
 }
 
@@ -1028,11 +1233,18 @@ extension MapboxMap {
     ///   - sourceLayerId: Style source layer identifier (for multi-layer sources such as vector sources). Defaults to `nil`.
     ///   - featureId: Identifier of the feature whose state should be updated
     ///   - state: Map of entries to update with their respective new values
-    public func setFeatureState(sourceId: String, sourceLayerId: String? = nil, featureId: String, state: [String: Any]) {
-        __map.setFeatureStateForSourceId(sourceId,
+    ///   - callback: The `feature state operation callback` called when the operation completes or ends.
+    ///
+    /// - Returns: A `Cancelable` object  that could be used to cancel the pending operation.
+    @discardableResult
+    public func setFeatureState(sourceId: String, sourceLayerId: String? = nil, featureId: String, state: [String: Any], callback: @escaping (Result<NSNull, Error>) -> Void) -> Cancelable {
+        return __map.__setFeatureStateForSourceId(sourceId,
                                          sourceLayerId: sourceLayerId,
                                          featureId: featureId,
-                                         state: state)
+                                                  state: state,
+                                                  callback: coreAPIClosureAdapter(for: callback,
+                                                                                  type: NSNull.self,
+                                                                                  concreteErrorType: MapError.self))
     }
 
     /// Get the state map of a feature within a style source.
@@ -1042,8 +1254,11 @@ extension MapboxMap {
     ///   - sourceLayerId: Style source layer identifier (for multi-layer sources such as vector sources).
     ///   - featureId: Identifier of the feature whose state should be queried.
     ///   - callback: Feature's state map or an empty map if the feature could not be found.
-    public func getFeatureState(sourceId: String, sourceLayerId: String? = nil, featureId: String, callback: @escaping (Result<[String: Any], Error>) -> Void) {
-        __map.getFeatureState(forSourceId: sourceId,
+    ///
+    /// - Returns: A `Cancelable` object that could be used to cancel the pending query.
+    @discardableResult
+    public func getFeatureState(sourceId: String, sourceLayerId: String? = nil, featureId: String, callback: @escaping (Result<[String: Any], Error>) -> Void) -> Cancelable {
+        return __map.__getFeatureState(forSourceId: sourceId,
                               sourceLayerId: sourceLayerId,
                               featureId: featureId,
                               callback: coreAPIClosureAdapter(for: callback,
@@ -1059,45 +1274,72 @@ extension MapboxMap {
     ///   - sourceLayerId: The style source layer identifier (for multi-layer sources such as vector sources). Defaults to `nil`.
     ///   - featureId: The feature identifier of the feature whose state should be removed.
     ///   - stateKey: The key of the property to remove. If `nil`, all feature's state object properties are removed. Defaults to `nil`.
-    public func removeFeatureState(sourceId: String, sourceLayerId: String? = nil, featureId: String, stateKey: String? = nil) {
-        __map.removeFeatureState(forSourceId: sourceId,
+    ///   - callback: The `feature state operation callback` called when the operation completes or ends.
+    ///
+    /// - Returns: A `cancelable` object that could be used to cancel the pending operation.
+    @discardableResult
+    public func removeFeatureState(sourceId: String, sourceLayerId: String? = nil, featureId: String, stateKey: String? = nil, callback: @escaping (Result<NSNull, Error>) -> Void) -> Cancelable {
+        return __map.__removeFeatureState(forSourceId: sourceId,
                                  sourceLayerId: sourceLayerId,
                                  featureId: featureId,
-                                 stateKey: stateKey)
+                                  stateKey: stateKey,
+                                callback: coreAPIClosureAdapter(for: callback,
+                                                                type: NSNull.self,
+                                                                  concreteErrorType: MapError.self))
     }
 
+    /// Reset all the feature states within a style source.
+    /// Remove all feature state entries from the specified style source or source layer.
+    /// Note that updates to feature state are asynchronous, so changes made by this method might not be
+    /// immediately visible using `getStateFeature`.
+    ///
+    /// - Parameters:
+    ///   - sourceId: The style source identifier
+    ///   - sourceLayerId: The style source layer identifier (for multi-layer sources such as vector sources). Defaults to `nil`.
+    ///   - callback: The `feature state operation callback` called when the operation completes or ends.
+    ///
+    /// - Returns: A `cancelable` object that could be used to cancel the pending operation.
+    @discardableResult
+    public func resetFeatureStates(sourceId: String, sourceLayerId: String? = nil, callback: @escaping (Result<NSNull, Error>) -> Void) -> Cancelable {
+        return __map.__resetFeatureStates(forSourceId: sourceId,
+                                          sourceLayerId: sourceLayerId,
+                                          callback: coreAPIClosureAdapter(for: callback,
+                                                                          type: NSNull.self,
+                                                                          concreteErrorType: MapError.self))
+    }
 }
 
 // MARK: - View Annotations
 
 extension MapboxMap {
-
-    internal func setViewAnnotationPositionsUpdateListener(_ listener: ViewAnnotationPositionsUpdateListener?) {
-        __map.setViewAnnotationPositionsUpdateListenerFor(listener)
+    func setViewAnnotationPositionsUpdateCallback(_ callback: ViewAnnotationPositionsUpdateCallback?) {
+        __map.setViewAnnotationPositionsUpdateListenerFor(callback.map {
+            ViewAnnotationPositionsUpdateListenerImpl(callback: $0)
+        })
     }
 
-    internal func addViewAnnotation(withId id: String, options: ViewAnnotationOptions) throws {
-        let expected = __map.addViewAnnotation(forIdentifier: id, options: MapboxCoreMaps.ViewAnnotationOptions(options))
+    func addViewAnnotation(withId id: String, options: ViewAnnotationOptions) throws {
+        let expected = __map.addViewAnnotation(forIdentifier: id, options: CoreViewAnnotationOptions(options))
         if expected.isError(), let reason = expected.error {
             throw MapError(coreError: reason)
         }
     }
 
-    internal func updateViewAnnotation(withId id: String, options: ViewAnnotationOptions) throws {
-        let expected = __map.updateViewAnnotation(forIdentifier: id, options: MapboxCoreMaps.ViewAnnotationOptions(options))
+    func updateViewAnnotation(withId id: String, options: ViewAnnotationOptions) throws {
+        let expected = __map.updateViewAnnotation(forIdentifier: id, options: CoreViewAnnotationOptions(options))
         if expected.isError(), let reason = expected.error {
             throw MapError(coreError: reason)
         }
     }
 
-    internal func removeViewAnnotation(withId id: String) throws {
+    func removeViewAnnotation(withId id: String) throws {
         let expected = __map.removeViewAnnotation(forIdentifier: id)
         if expected.isError(), let reason = expected.error {
             throw MapError(coreError: reason)
         }
     }
 
-    internal func options(forViewAnnotationWithId id: String) throws -> ViewAnnotationOptions {
+    func options(forViewAnnotationWithId id: String) throws -> ViewAnnotationOptions {
         let expected = __map.getViewAnnotationOptions(forIdentifier: id)
         if expected.isError(), let reason = expected.error {
             throw MapError(coreError: reason)
@@ -1110,17 +1352,58 @@ extension MapboxMap {
 
 }
 
-// MARK: - Map Recorder
+// MARK: - TileCover
+
 extension MapboxMap {
-    internal func makeRecorder() -> MapRecorder {
-        MapRecorder(mapView: __map)
+
+    /// Returns array of tile identifiers that cover current map camera.
+    ///
+    /// - Parameters:
+    ///   - options: Options for the tile cover method.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func tileCover(for options: TileCoverOptions) -> [CanonicalTileID] {
+        __map.__tileCover(
+            for: CoreTileCoverOptions(options),
+            cameraOptions: nil)
+    }
+}
+
+// MARK: - Map Recorder
+
+extension MapboxMap {
+
+    /// Create a ``MapRecorder`` to record the current MapboxMap
+    @_spi(Experimental) public final func makeRecorder() throws -> MapRecorder {
+        try MapRecorder(mapView: __map)
     }
 }
 
 // MARK: - Testing only!
 
 extension MapboxMap {
-    internal var __testingMap: Map {
+    internal var __testingMap: CoreMap {
         return __map
+    }
+}
+
+extension CGPoint {
+    func fit(to boundingSize: CGSize) -> CGPoint {
+        var x = self.x
+        var y = self.y
+
+        // Round only when value is out of the bounding box
+        if x < 0 || x > boundingSize.width {
+            x.round(.toNearestOrAwayFromZero)
+        }
+        if y < 0 || y > boundingSize.height {
+            y.round(.toNearestOrAwayFromZero)
+        }
+
+        if (0...boundingSize.width).contains(x) && (0...boundingSize.height).contains(y) {
+            return CGPoint(x: x, y: y)
+        }
+
+        return CGPoint(x: -1, y: -1)
     }
 }

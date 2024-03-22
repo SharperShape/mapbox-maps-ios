@@ -1,4 +1,4 @@
-import Foundation
+import UIKit
 @testable import MapboxMaps
 
 final class MockCameraAnimator: NSObject, CameraAnimatorProtocol {
@@ -15,6 +15,8 @@ final class MockCameraAnimator: NSObject, CameraAnimatorProtocol {
     @Stubbed var state: UIViewAnimatingState = .inactive
 
     @Stubbed var owner: AnimationOwner = .random()
+
+    @Stubbed var animationType: AnimationType = .unspecified
 
     @Stubbed var delegate: CameraAnimatorDelegate?
 

@@ -1,11 +1,10 @@
 import UIKit
 import MapboxMaps
 
-@objc(CustomPointAnnotationExample)
 final class CustomPointAnnotationExample: UIViewController, ExampleProtocol {
-
     private var mapView: MapView!
-    private let customImage = UIImage(named: "star")!
+    private let customImage = UIImage(named: "dest-pin")!
+    private var cancelables = Set<AnyCancelable>()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -20,19 +19,19 @@ final class CustomPointAnnotationExample: UIViewController, ExampleProtocol {
         view.addSubview(mapView)
 
         // Allows the delegate to receive information about map events.
-        mapView.mapboxMap.onNext(event: .mapLoaded) { [weak self] _ in
+        mapView.mapboxMap.onMapLoaded.observeNext { [weak self] _ in
             guard let self = self else { return }
             self.setupExample()
 
             // The following line is just for testing purposes.
             self.finish()
-        }
+        }.store(in: &cancelables)
     }
 
     private func setupExample() {
 
         // We want to display the annotation at the center of the map's current viewport
-        let centerCoordinate = mapView.cameraState.center
+        let centerCoordinate = mapView.mapboxMap.cameraState.center
 
         // Make a `PointAnnotationManager` which will be responsible for managing
         // a collection of `PointAnnotion`s.
@@ -45,6 +44,20 @@ final class CustomPointAnnotationExample: UIViewController, ExampleProtocol {
         // and configure it with a custom image (sourced from the asset catalogue)
         var customPointAnnotation = PointAnnotation(coordinate: centerCoordinate)
         customPointAnnotation.image = .init(image: customImage, name: "my-custom-image-name")
+        customPointAnnotation.isDraggable = true
+        customPointAnnotation.iconOffset = [0, 12]
+        customPointAnnotation.tapHandler = { [id = customPointAnnotation.id] _ in
+            print("tapped annotation: \(id)")
+            return true
+        }
+
+        customPointAnnotation.dragBeginHandler = { annotation, _ in
+            annotation.iconSize = 1.2
+            return true // allow drag gesture begin
+        }
+        customPointAnnotation.dragEndHandler = { annotation, _ in
+            annotation.iconSize = 1
+        }
 
         // Add the annotation to the manager in order to render it on the map.
         pointAnnotationManager.annotations = [customPointAnnotation]

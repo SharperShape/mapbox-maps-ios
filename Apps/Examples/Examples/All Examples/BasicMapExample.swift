@@ -1,9 +1,7 @@
 import UIKit
 import MapboxMaps
 
-@objc(BasicMapExample)
 final class BasicMapExample: UIViewController, ExampleProtocol {
-
     private var mapView: MapView!
 
     override func viewDidLoad() {

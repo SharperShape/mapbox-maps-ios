@@ -6,11 +6,14 @@ xcuserdata
 node_modules
 developer.xcconfig
 Carthage
+Cartfile*
 api-docs
 MapboxAccessToken
 scripts/release/packager/artifacts
 scripts/release/packager/build
 scripts/xcparty/.swiftpm
 MapboxMaps.xcodeproj
+*.doccarchive
+Sources/MapboxMaps/Documentation.docc/*.html
 
 .vscode

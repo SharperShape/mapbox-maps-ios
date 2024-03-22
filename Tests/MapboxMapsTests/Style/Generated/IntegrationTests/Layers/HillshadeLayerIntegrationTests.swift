@@ -9,27 +9,25 @@ final class HillshadeLayerIntegrationTests: MapViewIntegrationTestCase {
     }
 
     internal func testWaitForIdle() throws {
-        let style = try XCTUnwrap(self.style)
-
         let successfullyAddedLayerExpectation = XCTestExpectation(description: "Successfully added HillshadeLayer to Map")
         successfullyAddedLayerExpectation.expectedFulfillmentCount = 1
 
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved HillshadeLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        style.uri = .streets
+        mapView.mapboxMap.styleURI = .streets
 
-        didFinishLoadingStyle = { _ in
+        didFinishLoadingStyle = { mapView in
 
-            var layer = HillshadeLayer(id: "test-id")
-            layer.source = "some-source"
-            layer.sourceLayer = nil
+            var layer = HillshadeLayer(id: "test-id", source: "source")
             layer.minZoom = 10.0
             layer.maxZoom = 20.0
             layer.visibility = .constant(.visible)
 
             layer.hillshadeAccentColor = Value<StyleColor>.testConstantValue()
             layer.hillshadeAccentColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
+            layer.hillshadeEmissiveStrength = Value<Double>.testConstantValue()
+            layer.hillshadeEmissiveStrengthTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.hillshadeExaggeration = Value<Double>.testConstantValue()
             layer.hillshadeExaggerationTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.hillshadeHighlightColor = Value<StyleColor>.testConstantValue()
@@ -41,7 +39,7 @@ final class HillshadeLayerIntegrationTests: MapViewIntegrationTestCase {
 
             // Add the layer
             do {
-                try style.addLayer(layer)
+                try mapView.mapboxMap.addLayer(layer)
                 successfullyAddedLayerExpectation.fulfill()
             } catch {
                 XCTFail("Failed to add HillshadeLayer because of error: \(error)")
@@ -49,7 +47,7 @@ final class HillshadeLayerIntegrationTests: MapViewIntegrationTestCase {
 
             // Retrieve the layer
             do {
-                _ = try style.layer(withId: "test-id", type: HillshadeLayer.self)
+                _ = try mapView.mapboxMap.layer(withId: "test-id", type: HillshadeLayer.self)
                 successfullyRetrievedLayerExpectation.fulfill()
             } catch {
                 XCTFail("Failed to retrieve HillshadeLayer because of error: \(error)")

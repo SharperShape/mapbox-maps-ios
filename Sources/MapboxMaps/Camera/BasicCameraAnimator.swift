@@ -1,12 +1,17 @@
 import UIKit
 
-public final class BasicCameraAnimator: NSObject, CameraAnimator, CameraAnimatorProtocol {
+public final class BasicCameraAnimator: CameraAnimator, CameraAnimatorProtocol {
 
     private let impl: BasicCameraAnimatorProtocol
 
     /// The animator's owner.
     public var owner: AnimationOwner {
         impl.owner
+    }
+
+    /// Type of the embeded animation
+    internal var animationType: AnimationType {
+        impl.animationType
     }
 
     internal weak var delegate: CameraAnimatorDelegate?
@@ -46,7 +51,6 @@ public final class BasicCameraAnimator: NSObject, CameraAnimator, CameraAnimator
 
     internal init(impl: BasicCameraAnimatorProtocol) {
         self.impl = impl
-        super.init()
         impl.delegate = self
     }
 

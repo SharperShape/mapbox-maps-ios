@@ -1,14 +1,12 @@
 import UIKit
 import MapboxMaps
 
-@objc(SnapshotterCoreGraphicsExample)
+final class SnapshotterCoreGraphicsExample: UIViewController, NonMapViewExampleProtocol {
+    private var snapshotter: Snapshotter!
+    private var snapshotView: UIImageView!
+    private var cancelables = Set<AnyCancelable>()
 
-public class SnapshotterCoreGraphicsExample: UIViewController, ExampleProtocol {
-    internal var mapView: MapView!
-    public var snapshotter: Snapshotter!
-    public var snapshotView: UIImageView!
-
-    override public func viewDidLoad() {
+    override func viewDidLoad() {
         super.viewDidLoad()
 
         // Add the `UIImageView` that will eventually render the snapshot.
@@ -28,14 +26,15 @@ public class SnapshotterCoreGraphicsExample: UIViewController, ExampleProtocol {
                                                       height: view.bounds.height),
                                          pixelRatio: 4)
         snapshotter = Snapshotter(options: options)
-        snapshotter.style.uri = .dark
+        snapshotter.styleURI = .dark
+        snapshotter.setCamera(to: CameraOptions(center: CLLocationCoordinate2D(latitude: 51.180885866921386, longitude: 16.26129435178828), zoom: 4))
 
-        snapshotter.onNext(event: .styleLoaded) { [weak self] _ in
+        snapshotter.onStyleLoaded.observeNext { [weak self] _ in
             self?.startSnapshot()
-        }
+        }.store(in: &cancelables)
     }
 
-    public func startSnapshot() {
+    private func startSnapshot() {
         // Begin the snapshot after the style is loaded into the `Snapshotter`.
         // The `SnapshotOverlay` object contains references to the current
         // graphics context being used by the Snapshotter and provides closures to
@@ -56,15 +55,15 @@ public class SnapshotterCoreGraphicsExample: UIViewController, ExampleProtocol {
             context.move(to: berlin)
             context.addLine(to: krakow)
             context.strokePath()
-        } completion: { ( result ) in
+        } completion: { [weak self] result in
             switch result {
             case .success(let image):
-                self.snapshotView.image = image
+                self?.snapshotView.image = image
             case .failure(let error):
                 print("Error generating snapshot: \(error)")
             }
             // The below line is used for internal testing purposes only.
-            self.finish()
+            self?.finish()
         }
     }
 }

@@ -17,11 +17,10 @@ custom_categories:
       - MapView
       - MapInitOptions
       - MapInitOptionsProvider
-      - ResourceOptions
-      - ResourceOptionsManager
+      - MapboxMapsOptions
+      - MapViewDebugOptions
       - MapOptions
       - GlyphsRasterizationOptions
-      - InterfaceOrientationProvider
       - AttributionURLOpener
 
   - name: Snapshotter
@@ -47,23 +46,34 @@ custom_categories:
       - FeatureExtensionValue
       - MapError
       - MapLoadingError
-      - MapProjection
-      - GlobeMapProjection
-      - MercatorMapProjection
-      - MapProjectionError
+      - TileCoverOptions
 
   - name: Style
     children:
-      - Style
+      - StyleManager
       - StyleURI
+      - MapStyle
+      - StandardLightPreset
+      - StyleImportConfiguration
       - LayerPosition
       - TransitionOptions
-      - Light
       - Terrain
+      - Atmosphere
+      - StyleProjection
+      - StyleProjectionName
       - StyleDecodable
       - StyleEncodable
       - StyleError
       - TypeConversionError
+
+  - name: Lights
+    children:
+      - Light
+      - AmbientLight
+      - DirectionalLight
+      - FlatLight
+      - LightType
+      - LightInfo
 
   - name: Sources
     children:
@@ -99,6 +109,7 @@ custom_categories:
       - SkyLayer
       - SymbolLayer
       - ModelLayer
+      - CustomLayer
 
   - name: Layer Property Values
     children:
@@ -135,6 +146,7 @@ custom_categories:
       - TextTranslateAnchor
       - TextWritingMode
       - Visibility
+      - ModelScaleMode
 
   - name: Expressions
     children:
@@ -158,9 +170,13 @@ custom_categories:
       - PolygonAnnotationManager
       - PolylineAnnotation
       - PolylineAnnotationManager
+      - ClusterOptions
 
   - name: View Annotations
     children:
+      - ViewAnnotation
+      - AnnotatedFeature
+      - ViewAnnotationAnchorConfig
       - ViewAnnotationManager
       - ViewAnnotationUpdateObserver
       - ViewAnnotationOptions
@@ -195,26 +211,36 @@ custom_categories:
       - PinchGestureBehavior
       - GestureManagerDelegate
       - GestureType
+      - MapContentGestureContext
+      - MapLayerGestureHandler
 
   - name: Location
     children:
       - LocationManager
       - LocationOptions
-      - PuckType
-      - Puck2DConfiguration
-      - Puck3DConfiguration
       - Model
-      - PuckBearingSource
       - Location
+      - Heading
       - LocationConsumer
       - LocationPermissionsDelegate
       - LocationProvider
       - LocationProviderDelegate
       - AppleLocationProvider
+      - AppleLocationProviderDelegate
+      - HeadingObserver
+      - HeadingProvider
+
+  - name: Location Indicator
+    children:
+      - PuckType
+      - Puck2DConfiguration
+      - Puck3DConfiguration
+      - PuckBearing
+      - PuckRenderingData
 
   - name: Viewport
     children:
-      - Viewport
+      - ViewportManager
       - ViewportOptions
       - ViewportStatus
       - ViewportStatusObserver
@@ -245,13 +271,6 @@ custom_categories:
       - TileStore
       - TileStoreObserver
 
-  - name: Custom Networking Stack
-    children:
-      - DownloadError
-      - DownloadStatus
-      - HttpRequestError
-      - HttpResponse
-
   - name: GeoJSON
     children:
       - Feature
@@ -261,8 +280,35 @@ custom_categories:
     children:
       - CompassDirectionFormatter
       - Projection
+      - MapRecorder
+      - MapRecorderOptions
+      - MapPlayerOptions
+      - Tracing
 
   - name: Other
     children:
       - Cancelable
+      - AnyCancelable
+      - Signal
+      
+  
+  - name: SwiftUI
+    children:
+      - Map
+      - MapReader
+      - MapProxy
+      - MapContent
+      - MapContentBuilder
+      - Viewport
+      - ViewportAnimation
+      - Puck2D
+      - Puck3D
+      - PolygonAnnotationGroup
+      - PolylineAnnotationGroup
+      - PointAnnotationGroup
+      - CircleAnnotationGroup
+      - MapViewAnnotation
+      - ForEvery
+      - LocationUpdateAction
+      - MapURLOpener
 ...

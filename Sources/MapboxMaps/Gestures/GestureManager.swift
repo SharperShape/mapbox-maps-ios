@@ -1,4 +1,5 @@
 import UIKit
+import os
 
 public protocol GestureManagerDelegate: AnyObject {
 
@@ -22,7 +23,7 @@ public final class GestureManager: GestureHandlerDelegate {
             pinchGestureRecognizer.isEnabled = newValue.pinchEnabled
             rotateGestureRecognizer.isEnabled = newValue.rotateEnabled
             pinchGestureHandler.zoomEnabled = newValue.pinchZoomEnabled
-            pinchGestureHandler.panEnabled = newValue.pinchPanEnabled
+            panGestureHandler.multiFingerPanEnabled = newValue.pinchPanEnabled
             pinchGestureHandler.simultaneousRotateAndPinchZoomEnabled = newValue.simultaneousRotateAndPinchZoomEnabled
             rotateGestureHandler.simultaneousRotateAndPinchZoomEnabled = newValue.simultaneousRotateAndPinchZoomEnabled
             pitchGestureRecognizer.isEnabled = newValue.pitchEnabled
@@ -43,7 +44,7 @@ public final class GestureManager: GestureHandlerDelegate {
             gestureOptions.pinchEnabled = pinchGestureRecognizer.isEnabled
             gestureOptions.rotateEnabled = rotateGestureRecognizer.isEnabled
             gestureOptions.pinchZoomEnabled = pinchGestureHandler.zoomEnabled
-            gestureOptions.pinchPanEnabled = pinchGestureHandler.panEnabled
+            gestureOptions.pinchPanEnabled = panGestureHandler.multiFingerPanEnabled
             gestureOptions.simultaneousRotateAndPinchZoomEnabled = pinchGestureHandler.simultaneousRotateAndPinchZoomEnabled
             gestureOptions.pitchEnabled = pitchGestureRecognizer.isEnabled
             gestureOptions.doubleTapToZoomInEnabled = doubleTapToZoomInGestureRecognizer.isEnabled
@@ -103,8 +104,35 @@ public final class GestureManager: GestureHandlerDelegate {
         return anyTouchGestureHandler.gestureRecognizer
     }
 
+    /// A stream of single tap events on the map.
+    ///
+    //// This event is called when the user taps the map and no annotations or layers handled the gesture.
+    public var onMapTap: Signal<MapContentGestureContext> { mapContentGestureManager.onMapTap }
+
+    /// A stream of long press events.
+    ///
+    /// This event is called when the user long-presses the map and no annotations or layers handled the gesture.
+    public var onMapLongPress: Signal<MapContentGestureContext> { mapContentGestureManager.onMapLongPress }
+
+    /// Adds a tap handler to the specified layer.
+    ///
+    /// The handler will be called in the event, starting with the topmost layer and propagating down to each layer under the tap in order.
+    public func onLayerTap(_ layerId: String, handler: @escaping MapLayerGestureHandler) -> AnyCancelable {
+        mapContentGestureManager.onLayerTap(layerId, handler: handler)
+    }
+
+    /// Adds a long press handler for the layer with `layerId`.
+    ///
+    /// The handler will be called in the event, starting with the topmost layer and propagating down to each layer under the tap in order.
+    public func onLayerLongPress(_ layerId: String, handler: @escaping MapLayerGestureHandler) -> AnyCancelable {
+        mapContentGestureManager.onLayerLongPress(layerId, handler: handler)
+    }
+
     /// Set this delegate to be called back if a gesture begins
     public weak var delegate: GestureManagerDelegate?
+
+    // Gesture handlers for SwiftUI
+    var gestureHandlers = MapGestureHandlers()
 
     private let panGestureHandler: PanGestureHandlerProtocol
     private let pinchGestureHandler: PinchGestureHandlerProtocol
@@ -115,18 +143,24 @@ public final class GestureManager: GestureHandlerDelegate {
     private let quickZoomGestureHandler: FocusableGestureHandlerProtocol
     private let singleTapGestureHandler: GestureHandler
     private let anyTouchGestureHandler: GestureHandler
+    private let interruptDecelerationGestureHandler: GestureHandler
     private let mapboxMap: MapboxMapProtocol
+    private let mapContentGestureManager: MapContentGestureManagerProtocol
 
-    internal init(panGestureHandler: PanGestureHandlerProtocol,
-                  pinchGestureHandler: PinchGestureHandlerProtocol,
-                  rotateGestureHandler: RotateGestureHandlerProtocol,
-                  pitchGestureHandler: GestureHandler,
-                  doubleTapToZoomInGestureHandler: FocusableGestureHandlerProtocol,
-                  doubleTouchToZoomOutGestureHandler: FocusableGestureHandlerProtocol,
-                  quickZoomGestureHandler: FocusableGestureHandlerProtocol,
-                  singleTapGestureHandler: GestureHandler,
-                  anyTouchGestureHandler: GestureHandler,
-                  mapboxMap: MapboxMapProtocol) {
+    init(
+        panGestureHandler: PanGestureHandlerProtocol,
+        pinchGestureHandler: PinchGestureHandlerProtocol,
+        rotateGestureHandler: RotateGestureHandlerProtocol,
+        pitchGestureHandler: GestureHandler,
+        doubleTapToZoomInGestureHandler: FocusableGestureHandlerProtocol,
+        doubleTouchToZoomOutGestureHandler: FocusableGestureHandlerProtocol,
+        quickZoomGestureHandler: FocusableGestureHandlerProtocol,
+        singleTapGestureHandler: GestureHandler,
+        anyTouchGestureHandler: GestureHandler,
+        interruptDecelerationGestureHandler: GestureHandler,
+        mapboxMap: MapboxMapProtocol,
+        mapContentGestureManager: MapContentGestureManagerProtocol
+    ) {
         self.panGestureHandler = panGestureHandler
         self.pinchGestureHandler = pinchGestureHandler
         self.pitchGestureHandler = pitchGestureHandler
@@ -136,7 +170,9 @@ public final class GestureManager: GestureHandlerDelegate {
         self.singleTapGestureHandler = singleTapGestureHandler
         self.anyTouchGestureHandler = anyTouchGestureHandler
         self.rotateGestureHandler = rotateGestureHandler
+        self.interruptDecelerationGestureHandler = interruptDecelerationGestureHandler
         self.mapboxMap = mapboxMap
+        self.mapContentGestureManager = mapContentGestureManager
 
         panGestureHandler.delegate = self
         pinchGestureHandler.delegate = self
@@ -147,8 +183,7 @@ public final class GestureManager: GestureHandlerDelegate {
         quickZoomGestureHandler.delegate = self
         singleTapGestureHandler.delegate = self
 
-        pinchGestureHandler.gestureRecognizer.require(toFail: panGestureHandler.gestureRecognizer)
-        pitchGestureHandler.gestureRecognizer.require(toFail: panGestureHandler.gestureRecognizer)
+        panGestureHandler.gestureRecognizer.require(toFail: pitchGestureHandler.gestureRecognizer)
         quickZoomGestureHandler.gestureRecognizer.require(toFail: doubleTapToZoomInGestureHandler.gestureRecognizer)
         singleTapGestureHandler.gestureRecognizer.require(toFail: doubleTapToZoomInGestureHandler.gestureRecognizer)
 
@@ -156,47 +191,42 @@ public final class GestureManager: GestureHandlerDelegate {
         self.options = GestureOptions()
     }
 
-    private var pinchBeganCallCount = 0
+    func gestureBegan(for gestureType: GestureType) {
+        OSLog.poi.signpostEvent("Gesture began", message: "type: \(gestureType)")
 
-    internal func gestureBegan(for gestureType: GestureType) {
-        // filter out duplicate pinch events coming from pinch and rotate handlers
-        // TODO: Remove this once GestureType.rotate is added
-        if gestureType == .pinch {
-            pinchBeganCallCount += 1
-
-            guard pinchBeganCallCount == 1 else {
-                return
-            }
+        if gestureType.isContinuous {
+            mapboxMap.beginGesture()
         }
-
-        mapboxMap.beginGesture()
         delegate?.gestureManager(self, didBegin: gestureType)
+        gestureHandlers.onBegin?(gestureType)
     }
 
-    internal func gestureEnded(for gestureType: GestureType, willAnimate: Bool) {
-        // filter out duplicate pinch events coming from pinch and rotate handlers
-        // TODO: Remove this once GestureType.rotate is added
-        if gestureType == .pinch {
-            assert(pinchBeganCallCount > 0)
-            pinchBeganCallCount -= 1
+    func gestureEnded(for gestureType: GestureType, willAnimate: Bool) {
+        OSLog.poi.signpostEvent("Gesture ended", message: "type: \(gestureType)")
 
-            guard pinchBeganCallCount == 0 else {
-                return
-            }
+        if gestureType.isContinuous, !willAnimate {
+            mapboxMap.endGesture()
         }
-        mapboxMap.endGesture()
         delegate?.gestureManager(self, didEnd: gestureType, willAnimate: willAnimate)
+        gestureHandlers.onEnd?(gestureType, willAnimate)
     }
 
-    internal func animationEnded(for gestureType: GestureType) {
+    func animationEnded(for gestureType: GestureType) {
+        if gestureType.isContinuous {
+            mapboxMap.endGesture()
+        }
         delegate?.gestureManager(self, didEndAnimatingFor: gestureType)
+        gestureHandlers.onAnimationEnd?(gestureType)
     }
 }
 
-extension GestureManager: PinchGestureHandlerDelegate {
-    func pinchGestureHandlerDidUpdateGesture(_ handler: PinchGestureHandlerProtocol) {
-        // Because of a bug in core maps camera state has to be reset before updating pinch drag.
-        // This call will make sure that bearing is set to correct value after pinch dragging.
-        rotateGestureHandler.scheduleRotationUpdateIfNeeded()
-    }
+protocol GestureManagerProtocol: AnyObject {
+    var gestureHandlers: MapGestureHandlers { get set }
+    var options: GestureOptions { get set }
+    var onMapTap: Signal<MapContentGestureContext> { get }
+    var onMapLongPress: Signal<MapContentGestureContext> { get }
+    func onLayerTap(_ layerId: String, handler: @escaping MapLayerGestureHandler) -> AnyCancelable
+    func onLayerLongPress(_ layerId: String, handler: @escaping MapLayerGestureHandler) -> AnyCancelable
 }
+
+extension GestureManager: GestureManagerProtocol {}

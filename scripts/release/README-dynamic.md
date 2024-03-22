@@ -1,4 +1,4 @@
-# Mapbox Maps SDK v10 for iOS
+# Mapbox Maps SDK v11 for iOS
 
 ## Xcode Installation Instructions
 
@@ -8,7 +8,6 @@
     - `MapboxCommon.xcframework`
     - `MapboxCoreMaps.xcframework`
     - `MapboxMaps.xcframework`
-    - `MapboxMobileEvents.xcframework`
     - `Turf.xcframework`
 
 2. On the General tab for the target, scroll to the section labeled "Frameworks,
@@ -18,5 +17,5 @@
 
 4. Add `import MapboxMaps` to your Swift source file.
 
-5. Please see the [Migration Guide](https://docs.mapbox.com/ios/maps/guides/migrate-to-v10/)
+5. Please see the [Migration Guide](https://docs.mapbox.com/ios/maps/guides/migrate-to-v11/)
    for further guidelines.

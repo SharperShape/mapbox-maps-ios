@@ -1,15 +1,7 @@
-import Foundation
+import UIKit
 import MapboxMaps
 
-@objc(AddOneMarkerSymbolExample)
 final class AddOneMarkerSymbolExample: UIViewController, ExampleProtocol {
-    private enum Constants {
-        static let BLUE_ICON_ID = "blue"
-        static let SOURCE_ID = "source_id"
-        static let LAYER_ID = "layer_id"
-        static let coordinate = CLLocationCoordinate2D(latitude: 55.665957, longitude: 12.550343)
-    }
-
     private lazy var mapView: MapView = {
         let options = MapInitOptions(cameraOptions: CameraOptions(center: Constants.coordinate, zoom: 8))
 
@@ -22,26 +14,35 @@ final class AddOneMarkerSymbolExample: UIViewController, ExampleProtocol {
         mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(mapView)
 
-        mapView.mapboxMap.loadStyleURI(.streets) { result in
-            guard let style = try? result.get() else { return }
+        mapView.mapboxMap.loadStyle(.standard) { [weak self] error in
+            guard error == nil else { return }
 
-            self.addMarkerAnnotation(toStyle: style)
+            self?.addMarkerAnnotation()
             // The following line is just for testing purposes.
-            self.finish()
+            self?.finish()
         }
     }
 
-    private func addMarkerAnnotation(toStyle style: Style) {
-        try? style.addImage(UIImage(named: "blue_marker_view")!, id: Constants.BLUE_ICON_ID)
+    private func addMarkerAnnotation() {
+        try? mapView.mapboxMap.addImage(UIImage(named: "dest-pin")!, id: Constants.RED_ICON_ID)
 
-        var source = GeoJSONSource()
+        var source = GeoJSONSource(id: Constants.SOURCE_ID)
         source.data = .geometry(Geometry.point(Point(Constants.coordinate)))
-        try? style.addSource(source, id: Constants.SOURCE_ID)
+        try? mapView.mapboxMap.addSource(source)
 
-        var layer = SymbolLayer(id: Constants.LAYER_ID)
-        layer.source = Constants.SOURCE_ID
-        layer.iconImage = .constant(.name(Constants.BLUE_ICON_ID))
+        var layer = SymbolLayer(id: Constants.LAYER_ID, source: Constants.SOURCE_ID)
+        layer.iconImage = .constant(.name(Constants.RED_ICON_ID))
         layer.iconAnchor = .constant(.bottom)
-        try? style.addLayer(layer)
+        layer.iconOffset = .constant([0, 12])
+        try? mapView.mapboxMap.addLayer(layer)
+    }
+}
+
+extension AddOneMarkerSymbolExample {
+    private enum Constants {
+        static let RED_ICON_ID = "red"
+        static let SOURCE_ID = "source_id"
+        static let LAYER_ID = "layer_id"
+        static let coordinate = CLLocationCoordinate2D(latitude: 55.665957, longitude: 12.550343)
     }
 }

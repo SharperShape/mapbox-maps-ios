@@ -1,11 +1,12 @@
 import MapboxMaps
+import UIKit
 
-@objc(AnimateImageLayerExample)
-class AnimateImageLayerExample: UIViewController, ExampleProtocol {
-    var mapView: MapView!
-    var sourceId = "radar-source"
-    var timer: Timer?
-    var imageNumber = 0
+final class AnimateImageLayerExample: UIViewController, ExampleProtocol {
+    private var mapView: MapView!
+    private let sourceId = "radar-source"
+    private var timer: Timer?
+    private var imageNumber = 0
+    private var cancelables = Set<AnyCancelable>()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -27,20 +28,18 @@ class AnimateImageLayerExample: UIViewController, ExampleProtocol {
 
         view.addSubview(mapView)
 
-        mapView.mapboxMap.onNext(event: .mapLoaded) { _ in
+        mapView.mapboxMap.onMapLoaded.observeNext { _ in
             self.addImageLayer()
 
             // The following line is just for testing purposes.
             self.finish()
-        }
+        }.store(in: &cancelables)
     }
 
     func addImageLayer() {
-        let style = mapView.mapboxMap.style
-
         // Create an `ImageSource`. This will manage the image displayed in the `RasterLayer` as well
         // as the location of that image on the map.
-        var imageSource = ImageSource()
+        var imageSource = ImageSource(id: sourceId)
 
         // Set the `coordinates` property to an array of longitude, latitude pairs.
         imageSource.coordinates = [
@@ -51,30 +50,32 @@ class AnimateImageLayerExample: UIViewController, ExampleProtocol {
         ]
 
         // Get the file path for the first radar image, then set the `url` for the `ImageSource` to that path.
-        let path = Bundle.main.path(forResource: "radar0", ofType: "gif")!
-        imageSource.url = path
+        let path = Bundle.main.url(forResource: "radar0", withExtension: "gif")
+        imageSource.url = path?.absoluteString
 
         // Create a `RasterLayer` that will display the images from the `ImageSource`
-        var imageLayer = RasterLayer(id: "radar-layer")
-        imageLayer.source = sourceId
+        var imageLayer = RasterLayer(id: "radar-layer", source: sourceId)
 
         // Set `rasterFadeDuration` to `0`. This prevents visible transitions when the image is updated.
         imageLayer.rasterFadeDuration = .constant(0)
 
         do {
-            try style.addSource(imageSource, id: sourceId)
-            try style.addLayer(imageLayer)
+            try mapView.mapboxMap.addSource(imageSource)
+            try mapView.mapboxMap.addLayer(imageLayer)
 
-            // Add a tap gesture recognizer that will allow the animation to be stopped and started.
-            let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(manageTimer))
-            mapView.addGestureRecognizer(tapGestureRecognizer)
         } catch {
             print("Failed to add the source or layer to style. Error: \(error)")
         }
+
+        // Add a tap gesture handler that will allow the animation to be stopped and started.
+        mapView.gestures.onMapTap.observe {[weak self] _ in
+            self?.manageTimer()
+        }.store(in: &cancelables)
+
         manageTimer()
     }
 
-    @objc func manageTimer() {
+    func manageTimer() {
         if timer == nil {
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
                 guard let self = self else { return }
@@ -87,12 +88,12 @@ class AnimateImageLayerExample: UIViewController, ExampleProtocol {
                     self.imageNumber = 0
                 }
                 // Create a `UIImage` from the file at the specified path.
-                let path = Bundle.main.path(forResource: "radar\(self.imageNumber)", ofType: "gif")
-                let image = UIImage(contentsOfFile: path!)
+                let path = Bundle.main.url(forResource: "radar\(self.imageNumber)", withExtension: "gif")
+                let image = UIImage(contentsOfFile: path!.relativePath)
 
                 do {
                     // Update the image used by the `ImageSource`.
-                    try self.mapView.mapboxMap.style.updateImageSource(withId: self.sourceId, image: image!)
+                    try self.mapView.mapboxMap.updateImageSource(withId: self.sourceId, image: image!)
                 } catch {
                     print("Failed to update style image. Error: \(error)")
                 }

@@ -11,7 +11,6 @@ LINK_TYPE=${1:-"dynamic"}
 step 'Reading from versions.json'
 CORE_VERSION=$(jq -r '.MapboxCoreMaps' ./versions.json)
 COMMON_VERSION=$(jq -r '.MapboxCommon' ./versions.json)
-MME_VERSION=$(jq -r '.MapboxMobileEvents' ./versions.json)
 TURF_VERSION=$(jq -r '.Turf' ./versions.json)
 
 step 'Cleaning up dependencies directory'
@@ -38,15 +37,13 @@ fi
 
 ../download-dependency.sh mapbox-common "$COMMON_ARTIFACT" "$COMMON_VERSION"
 ../download-dependency.sh mobile-maps-core "$CORE_ARTIFACT" "$CORE_VERSION"
-../build-dependency.sh MapboxMobileEvents 'https://github.com/mapbox/mapbox-events-ios.git' "$MME_VERSION" "$LINK_TYPE"
-../build-dependency.sh Turf 'https://github.com/mapbox/turf-swift.git' "$TURF_VERSION" "$LINK_TYPE" "Turf iOS"
+../build-dependency.sh Turf 'https://github.com/mapbox/turf-swift.git' "v$TURF_VERSION" "$LINK_TYPE"
 
 step 'Creating MapboxMaps.xcodeproj'
 mkdir .xcode
 cp ../project.yml .xcode/
 pushd .xcode
-ln -s ../../../../../Sources
-ln -s ../../../../../Configurations
+ln -s ../../../../../../mapbox-maps-ios .
 xcodegen
 popd
 

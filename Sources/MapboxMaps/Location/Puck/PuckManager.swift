@@ -2,66 +2,98 @@ import CoreLocation
 import MapboxCoreMaps
 import UIKit
 
-internal protocol PuckManagerProtocol: AnyObject {
-    var puckType: PuckType? { get set }
-    var puckBearingSource: PuckBearingSource { get set }
-    var puckBearingEnabled: Bool { get set }
-}
+final class PuckManager<Renderer2D: PuckRenderer, Renderer3D: PuckRenderer>
+where Renderer2D.Configuration == Puck2DConfiguration, Renderer3D.Configuration == Puck3DConfiguration {
+    var locationOptions: LocationOptions {
+        get { locationOptionsSubject.value }
+        set {
+            locationOptionsSubject.value = newValue
+            subscribeOnUpdates()
+        }
+    }
 
-internal final class PuckManager: PuckManagerProtocol {
+    private var renderer2D: Renderer2D?
+    private var renderer3D: Renderer3D?
 
-    internal var puckType: PuckType? {
-        didSet {
-            // if puckType is nil, set puck to nil and return early
-            guard let puckType = puckType else {
-                puck = nil
-                return
+    private let make2DRenderer: () -> Renderer2D
+    private let make3DRenderer: () -> Renderer3D
+
+    private let onPuckRender: Signal<PuckRenderingData>
+    private let locationOptionsSubject: CurrentValueSignalSubject<LocationOptions>
+    private var cancellables = Set<AnyCancelable>()
+
+    init(
+        locationOptionsSubject: CurrentValueSignalSubject<LocationOptions>,
+        onPuckRender: Signal<PuckRenderingData>,
+        make2DRenderer: @escaping () -> Renderer2D,
+        make3DRenderer: @escaping () -> Renderer3D
+    ) {
+        self.locationOptionsSubject = locationOptionsSubject
+        self.onPuckRender = onPuckRender
+        self.make2DRenderer = make2DRenderer
+        self.make3DRenderer = make3DRenderer
+    }
+
+    private func subscribeOnUpdates() {
+        guard cancellables.isEmpty else { return }
+
+        Signal.combineLatest(
+            onPuckRender.skipRepeats(),
+            locationOptionsSubject.signal.skipRepeats()
+        )
+        .observe { [weak self] (data, locationOptions) in
+            self?.startRendering(data: data, locationOptions: locationOptions)
+        }
+        .store(in: &cancellables)
+    }
+
+    private func startRendering(
+        data: PuckRenderingData,
+        locationOptions: LocationOptions
+    ) {
+        switch locationOptions.puckType {
+        case .none:
+            stopRendering()
+            cancellables.removeAll()
+
+        case let .puck2D(configuration):
+            if renderer3D != nil {
+                stopRendering()
             }
-            // if the non-nil puckType hasn't changed, return early
-            guard puckType != oldValue else {
-                return
+
+            if renderer2D == nil {
+                renderer2D = make2DRenderer()
             }
-            // otherwise, recreate the puck
-            let puck: Puck
-            switch puckType {
-            case .puck2D(let configuration):
-                puck = puck2DProvider(configuration)
-            case .puck3D(let configuration):
-                puck = puck3DProvider(configuration)
+
+            renderer2D?.state = PuckRendererState(
+                data: data,
+                bearingEnabled: locationOptions.puckBearingEnabled,
+                bearingType: locationOptions.puckBearing,
+                configuration: configuration
+            )
+
+        case let .puck3D(configuration):
+            if renderer2D != nil {
+                stopRendering()
             }
-            puck.puckBearingSource = puckBearingSource
-            puck.puckBearingEnabled = puckBearingEnabled
-            self.puck = puck
+
+            if renderer3D == nil {
+                renderer3D = make3DRenderer()
+            }
+
+            renderer3D?.state = PuckRendererState(
+                data: data,
+                bearingEnabled: locationOptions.puckBearingEnabled,
+                bearingType: locationOptions.puckBearing,
+                configuration: configuration
+            )
         }
     }
 
-    internal var puckBearingSource: PuckBearingSource = .heading {
-        didSet {
-            puck?.puckBearingSource = puckBearingSource
-        }
-    }
-
-    internal var puckBearingEnabled: Bool = true {
-        didSet {
-            puck?.puckBearingEnabled = puckBearingEnabled
-        }
-    }
-
-    private var puck: Puck? {
-        didSet {
-            // this order is important so that if they're the same type of puck,
-            // the old one doesn't remove the layer/source added by the new one.
-            oldValue?.isActive = false
-            puck?.isActive = true
-        }
-    }
-
-    private let puck2DProvider: (Puck2DConfiguration) -> Puck
-    private let puck3DProvider: (Puck3DConfiguration) -> Puck
-
-    internal init(puck2DProvider: @escaping (Puck2DConfiguration) -> Puck,
-                  puck3DProvider: @escaping (Puck3DConfiguration) -> Puck) {
-        self.puck2DProvider = puck2DProvider
-        self.puck3DProvider = puck3DProvider
+    private func stopRendering() {
+        renderer2D?.state = nil
+        renderer2D = nil
+        renderer3D?.state = nil
+        renderer3D = nil
     }
 }

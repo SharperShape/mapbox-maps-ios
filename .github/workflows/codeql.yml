@@ -1,0 +1,16 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: ['main', 'publisher-production', 'release/*', 'lts/*']
+  pull_request:
+    branches: ['main', 'publisher-production', 'release/*', 'lts/*']
+  schedule:
+    - cron: "16 20 * * 4"
+
+jobs:
+  analyze:
+    uses: ./.github/workflows/analyze.yml
+    with:
+      project-path: Apps/Examples/Examples.xcodeproj
+    secrets: inherit

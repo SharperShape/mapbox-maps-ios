@@ -1,18 +1,13 @@
 import UIKit
-@_spi(Experimental) import MapboxMaps
+import MapboxMaps
 
 final class NavigationSimulatorExample: UIViewController, ExampleProtocol {
-    private enum ID {
-        static let routeSource = "route-line-source-id"
-        static let routeLineLayer = "route-line-layer-id"
-        static let casingLineLayer = "route-casing-layer-id"
-    }
-
     private var mapView: MapView!
     private var navigationSimulator: NavigationSimulator!
+    private var cancelables = Set<AnyCancelable>()
 
     private lazy var routeSource: Source = {
-        var source = GeoJSONSource()
+        var source = GeoJSONSource(id: ID.routeSource)
         source.data = .geometry(Geometry(sampleRouteLine))
         source.lineMetrics = true
 
@@ -41,15 +36,19 @@ final class NavigationSimulatorExample: UIViewController, ExampleProtocol {
     private func configureMap() {
         navigationSimulator = NavigationSimulator(viewport: mapView.viewport, route: sampleRouteLine)
 
-        mapView.location.options.puckType = .puck2D(.makeDefault(showBearing: true))
-        mapView.location.options.puckBearingSource = .course
-        mapView.location.overrideLocationProvider(with: navigationSimulator)
-        mapView.location.addPuckLocationConsumer(self)
+        let configuration = Puck2DConfiguration(topImage: UIImage(named: "dash-puck")!)
+        mapView.location.options.puckType = .puck2D(configuration)
+        mapView.location.options.puckBearing = .course
+        mapView.location.options.puckBearingEnabled = true
+        mapView.location.override(locationProvider: navigationSimulator)
+        mapView.location.onPuckRender.observe { [weak self] in
+            self?.onPuckRender(data: $0)
+        }.store(in: &cancelables)
 
         do {
-            try mapView.mapboxMap.style.addSource(routeSource, id: ID.routeSource)
-            try mapView.mapboxMap.style.addPersistentLayer(makeCasingLayer())
-            try mapView.mapboxMap.style.addPersistentLayer(makeRouteLineLayer())
+            try mapView.mapboxMap.addSource(routeSource)
+            try mapView.mapboxMap.addPersistentLayer(makeCasingLayer())
+            try mapView.mapboxMap.addPersistentLayer(makeRouteLineLayer())
 
             navigationSimulator.start()
         } catch {
@@ -60,8 +59,7 @@ final class NavigationSimulatorExample: UIViewController, ExampleProtocol {
     // MARK: - Util
 
     private func makeRouteLineLayer() -> LineLayer {
-        var routeLayer = LineLayer(id: ID.routeLineLayer)
-        routeLayer.source = ID.routeSource
+        var routeLayer = LineLayer(id: ID.routeLineLayer, source: ID.routeSource)
         routeLayer.lineCap = .constant(.round)
         routeLayer.lineJoin = .constant(.round)
         routeLayer.lineWidth = .expression(
@@ -125,8 +123,7 @@ final class NavigationSimulatorExample: UIViewController, ExampleProtocol {
     }
 
     private func makeCasingLayer() -> LineLayer {
-        var casingLayer = LineLayer(id: ID.casingLineLayer)
-        casingLayer.source = ID.routeSource
+        var casingLayer = LineLayer(id: ID.casingLineLayer, source: ID.routeSource)
         casingLayer.lineCap = .constant(.round)
         casingLayer.lineJoin = .constant(.round)
 
@@ -197,15 +194,19 @@ final class NavigationSimulatorExample: UIViewController, ExampleProtocol {
             fatalError("Unable to decode Route GeoJSON source")
         }
     }()
+
+    private func onPuckRender(data: PuckRenderingData) {
+        let progress = navigationSimulator.progressFromStart(to: data.location)
+
+        try? mapView.mapboxMap.setLayerProperty(for: ID.routeLineLayer, property: "line-trim-offset", value: [0, progress])
+        try? mapView.mapboxMap.setLayerProperty(for: ID.casingLineLayer, property: "line-trim-offset", value: [0, progress])
+    }
 }
 
-extension NavigationSimulatorExample: PuckLocationConsumer {
-
-    func puckLocationUpdate(newLocation: Location) {
-        let style = mapView.mapboxMap.style
-        let progress = navigationSimulator.progressFromStart(to: newLocation)
-
-        try? style.setLayerProperty(for: ID.routeLineLayer, property: "line-trim-offset", value: [0, progress])
-        try? style.setLayerProperty(for: ID.casingLineLayer, property: "line-trim-offset", value: [0, progress])
+extension NavigationSimulatorExample {
+    private enum ID {
+        static let routeSource = "route-line-source-id"
+        static let routeLineLayer = "route-line-layer-id"
+        static let casingLineLayer = "route-casing-layer-id"
     }
 }

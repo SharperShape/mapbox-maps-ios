@@ -1,8 +1,9 @@
 import MapboxMaps
+import UIKit
 
-@objc(PolygonAnnotationExample)
 final class PolygonAnnotationExample: UIViewController, ExampleProtocol {
     private var mapView: MapView!
+    private var cancelables = Set<AnyCancelable>()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -15,12 +16,12 @@ final class PolygonAnnotationExample: UIViewController, ExampleProtocol {
         view.addSubview(mapView)
 
         // Allows the delegate to receive information about map events.
-        mapView.mapboxMap.onNext(event: .mapLoaded) { _ in
+        mapView.mapboxMap.onMapLoaded.observeNext { _ in
             self.setupExample()
 
             // The below line is used for internal testing purposes only.
             self.finish()
-        }
+        }.store(in: &cancelables)
     }
 
     // Wait for the map to load before adding an annotation.
@@ -31,7 +32,6 @@ final class PolygonAnnotationExample: UIViewController, ExampleProtocol {
         // (`mapView.annotations`) until you explicitly destroy them
         // by calling `mapView.annotations.removeAnnotationManager(withId:)`
         let polygonAnnotationManager = mapView.annotations.makePolygonAnnotationManager()
-        polygonAnnotationManager.delegate = self
 
         // Create the polygon annotation
         var polygonAnnotation = PolygonAnnotation(polygon: makePolygon())
@@ -39,6 +39,14 @@ final class PolygonAnnotationExample: UIViewController, ExampleProtocol {
         // Style the polygon annotation
         polygonAnnotation.fillColor = StyleColor(.red)
         polygonAnnotation.fillOpacity = 0.8
+
+        // Enable the polygon annotation to be dragged
+        polygonAnnotation.isDraggable = true
+
+        polygonAnnotation.tapHandler = { _ in
+            print("polygon is tapped")
+            return true
+        }
 
         // Add the polygon annotation to the manager
         polygonAnnotationManager.annotations = [polygonAnnotation]
@@ -69,11 +77,5 @@ final class PolygonAnnotationExample: UIViewController, ExampleProtocol {
         let innerRing = Ring(coordinates: innerRingCoords)
 
         return Polygon(outerRing: outerRing, innerRings: [innerRing])
-    }
-}
-
-extension PolygonAnnotationExample: AnnotationInteractionDelegate {
-    func annotationManager(_ manager: AnnotationManager, didDetectTappedAnnotations annotations: [Annotation]) {
-        print("AnnotationManager did detect tapped annotations: \(annotations)")
     }
 }

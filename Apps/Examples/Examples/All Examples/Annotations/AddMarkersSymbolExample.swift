@@ -1,19 +1,9 @@
-import Foundation
+import UIKit
 import MapboxMaps
 
-@objc(AddMarkersSymbolExample)
 final class AddMarkersSymbolExample: UIViewController, ExampleProtocol {
-    private enum Constants {
-        static let ICON_KEY = "icon_key"
-        static let BLUE_MARKER_PROPERTY = "icon_blue_property"
-        static let RED_MARKER_PROPERTY = "icon_red_property"
-        static let BLUE_ICON_ID = "blue"
-        static let RED_ICON_ID = "red"
-        static let SOURCE_ID = "source_id"
-        static let LAYER_ID = "layer_id"
-    }
-
     private var mapView: MapView!
+    private var cancelables = Set<AnyCancelable>()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -25,23 +15,22 @@ final class AddMarkersSymbolExample: UIViewController, ExampleProtocol {
         mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(mapView)
 
-        mapView.mapboxMap.onNext(event: .mapLoaded) { [weak self] _ in
+        mapView.mapboxMap.onMapLoaded.observeNext { [weak self] _ in
             guard let self = self else { return }
             self.prepareStyle()
 
             // The following line is just for testing purposes.
             self.finish()
-        }
+        }.store(in: &cancelables)
 
-        mapView.mapboxMap.style.uri = .streets
+        mapView.mapboxMap.styleURI = .streets
     }
 
     // MARK: - Style management
 
     private func prepareStyle() {
-        let style = mapView.mapboxMap.style
-        try? style.addImage(UIImage(named: "blue_marker_view")!, id: Constants.BLUE_ICON_ID)
-        try? style.addImage(UIImage(named: "red_marker")!, id: Constants.RED_ICON_ID)
+        try? mapView.mapboxMap.addImage(UIImage(named: "intermediate-pin")!, id: Constants.BLUE_ICON_ID)
+        try? mapView.mapboxMap.addImage(UIImage(named: "dest-pin")!, id: Constants.RED_ICON_ID)
 
         var features = [Feature]()
         var feature = Feature(geometry: Point(LocationCoordinate2D(latitude: 55.608166, longitude: 12.65147)))
@@ -52,9 +41,9 @@ final class AddMarkersSymbolExample: UIViewController, ExampleProtocol {
         feature1.properties = [Constants.ICON_KEY: .string(Constants.RED_MARKER_PROPERTY)]
         features.append(feature1)
 
-        var source = GeoJSONSource()
+        var source = GeoJSONSource(id: Constants.SOURCE_ID)
         source.data = .featureCollection(FeatureCollection(features: features))
-        try? style.addSource(source, id: Constants.SOURCE_ID)
+        try? mapView.mapboxMap.addSource(source)
 
         let rotateExpression = Exp(.match) {
             Exp(.get) { Constants.ICON_KEY }
@@ -70,12 +59,25 @@ final class AddMarkersSymbolExample: UIViewController, ExampleProtocol {
             Constants.RED_ICON_ID
             Constants.RED_ICON_ID
         }
-        var layer = SymbolLayer(id: Constants.LAYER_ID)
-        layer.source = Constants.SOURCE_ID
+        var layer = SymbolLayer(id: Constants.LAYER_ID, source: Constants.SOURCE_ID)
         layer.iconImage = .expression(imageExpression)
         layer.iconAnchor = .constant(.bottom)
         layer.iconAllowOverlap = .constant(false)
         layer.iconRotate = .expression(rotateExpression)
-        try? style.addLayer(layer)
+        // Add Y-offset so icon will point to exact location.
+        layer.iconOffset = .constant([0, 12])
+        try? mapView.mapboxMap.addLayer(layer)
+    }
+}
+
+extension AddMarkersSymbolExample {
+    private enum Constants {
+        static let ICON_KEY = "icon_key"
+        static let BLUE_MARKER_PROPERTY = "icon_blue_property"
+        static let RED_MARKER_PROPERTY = "icon_red_property"
+        static let BLUE_ICON_ID = "blue"
+        static let RED_ICON_ID = "red"
+        static let SOURCE_ID = "source_id"
+        static let LAYER_ID = "layer_id"
     }
 }

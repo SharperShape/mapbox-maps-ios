@@ -1,15 +1,13 @@
 import UIKit
 import MapboxMaps
 
-@objc(SkyLayerExample)
+final class SkyLayerExample: UIViewController, ExampleProtocol {
+    private var mapView: MapView!
+    private var skyLayer: SkyLayer!
+    private var segmentedControl = UISegmentedControl()
+    private var cancelables = Set<AnyCancelable>()
 
-public class SkyLayerExample: UIViewController, ExampleProtocol {
-
-    internal var mapView: MapView!
-    internal var skyLayer: SkyLayer!
-    internal var segmentedControl = UISegmentedControl()
-
-    override public func viewDidLoad() {
+    override func viewDidLoad() {
         super.viewDidLoad()
 
         // Set the initial camera and style URI by creating a `MapInitOptions` object.
@@ -30,14 +28,14 @@ public class SkyLayerExample: UIViewController, ExampleProtocol {
         addSegmentedControl()
 
         // Add a custom `SkyLayer` once the map's style is finished loading.
-        mapView.mapboxMap.onNext(event: .styleLoaded) { _ in
+        mapView.mapboxMap.onStyleLoaded.observeNext { _ in
             self.addSkyLayer()
 
             // Add a terrain layer.
             self.addTerrainLayer()
 
             self.finish()
-        }
+        }.store(in: &cancelables)
     }
 
     func addSkyLayer() {
@@ -65,7 +63,7 @@ public class SkyLayerExample: UIViewController, ExampleProtocol {
         skyLayer.skyAtmosphereHaloColor = .constant(StyleColor(.lightPink))
 
         do {
-            try mapView.mapboxMap.style.addLayer(skyLayer)
+            try mapView.mapboxMap.addLayer(skyLayer)
         } catch {
             print("Failed to add sky layer to the map's style.")
         }
@@ -82,7 +80,7 @@ public class SkyLayerExample: UIViewController, ExampleProtocol {
 
         // Update the sky layer based on the updated segmented control value.
         do {
-            try mapView.mapboxMap.style.updateLayer(withId: skyLayer.id, type: SkyLayer.self) { layer in
+            try mapView.mapboxMap.updateLayer(withId: skyLayer.id, type: SkyLayer.self) { layer in
                 layer.skyType = skyType
             }
         } catch {
@@ -92,17 +90,17 @@ public class SkyLayerExample: UIViewController, ExampleProtocol {
 
     func addTerrainLayer() {
         // Add a `RasterDEMSource`. This will be used to create and add a terrain layer.
-        var demSource = RasterDemSource()
+        var demSource = RasterDemSource(id: "mapbox-dem")
         demSource.url = "mapbox://mapbox.mapbox-terrain-dem-v1"
         demSource.tileSize = 514
         demSource.maxzoom = 14.0
-        try! mapView.mapboxMap.style.addSource(demSource, id: "mapbox-dem")
+        try! mapView.mapboxMap.addSource(demSource)
 
-        var terrain = Terrain(sourceId: "mapbox-dem")
+        var terrain = Terrain(sourceId: demSource.id)
         terrain.exaggeration = .constant(1.5)
 
         do {
-            try mapView.mapboxMap.style.setTerrain(terrain)
+            try mapView.mapboxMap.setTerrain(terrain)
         } catch {
             print("Failed to add a terrain layer to the map's style.")
         }

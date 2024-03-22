@@ -1,9 +1,13 @@
 import Foundation
 @_implementationOnly import MapboxCommon_Private
 
-extension TileStore {
+internal protocol TileStoreProtocol: AnyObject {
+    func __removeObserver(for observer: MapboxCommon_Private.TileStoreObserver)
+}
 
-    /// Returns a shared TileStore instance at the default location. Creates a
+extension TileStore: TileStoreProtocol {
+
+    /// Returns a shared `TileStore` instance at the default location. Creates a
     /// new one if one doesn't yet exist.
     ///
     /// - See Also:
@@ -12,7 +16,7 @@ extension TileStore {
         return TileStore.__create()
     }
 
-    /// Gets a TileStore instance for the given storage path. Creates a new one
+    /// Gets a `TileStore` instance for the given storage path. Creates a new one
     /// if one doesn't exist.
     ///
     /// If the given path is empty, the tile store at the default location is
@@ -44,21 +48,21 @@ extension TileStore {
     ///
     /// Creating of a new region requires providing both geometry and tileset
     /// descriptors to the given load options, otherwise the load request fails
-    /// with RegionNotFound error.
+    /// with `RegionNotFound` error.
     ///
     /// If a tile region with the given id already exists, it gets updated with
     /// the values provided to the given load options. The missing resources get
     /// loaded and the expired resources get updated.
     ///
-    /// If there no values provided to the given load options, the existing tile
+    /// If there are no values provided to the given load options, the existing tile
     /// region gets refreshed: the missing resources get loaded and the expired
     /// resources get updated.
     ///
-    /// A failed load request can be reattempted with another loadTileRegion() call.
+    /// A failed load request can be reattempted with another `loadTileRegion()` call.
     ///
     /// If there is already a pending loading operation for the tile region with
     /// the given id, the pending loading operation will fail with an error of
-    /// Canceled type.
+    /// `Canceled` type.
     ///
     /// - Note:
     ///     The user-provided callbacks will be executed on a
@@ -80,13 +84,56 @@ extension TileStore {
             return __loadTileRegion(forId: id,
                                     loadOptions: loadOptions,
                                     onProgress: progress,
-                                    onFinished: tileStoreClosureAdapter(for: completion, type: TileRegion.self)).asCancelable()
+                                    onFinished: tileStoreClosureAdapter(for: completion, type: TileRegion.self))
         }
         // Use overloaded version
         else {
             return __loadTileRegion(forId: id,
                                     loadOptions: loadOptions,
-                                    onFinished: tileStoreClosureAdapter(for: completion, type: TileRegion.self)).asCancelable()
+                                    onFinished: tileStoreClosureAdapter(for: completion, type: TileRegion.self))
+        }
+    }
+
+    /// Estimates the storage and transfer size of a tile region.
+    ///
+    /// - Parameters:
+    ///  - id The tile region identifier.
+    ///  - loadOptions The tile region load options.
+    ///  - estimateOptions The options for the estimate operation. Optional, default values will be aplied if nil.
+    ///  - onProgress Invoked multiple times to report progess of the estimate operation.
+    ///  - onFinished Invoked only once upon success, failure, or cancelation of the estimate operation.
+    /// - Returns: a `Cancelable` object to cancel the estimate request
+    ///
+    /// This can be used for estimating existing or new tile regions. For new tile
+    /// regions, both geometry and tileset descriptors need to be provided to the
+    /// given load options.  If a tile region with the given id already exists, its
+    /// geometry and tileset descriptors are reused unless a different value is
+    /// provided in the region load options.
+    ///
+    /// Estimating a tile region does not mutate exising tile regions on the tile store.
+    ///
+    /// - Note:
+    ///     The user-provided callbacks will be executed on a TileStore-controlled worker thread;
+    ///     it is the responsibility of the user to dispatch to a user-controlled thread.
+    @discardableResult
+    public func estimateTileRegion(forId id: String,
+                                   loadOptions: TileRegionLoadOptions,
+                                   estimateOptions: TileRegionEstimateOptions? = nil,
+                                   progress: @escaping TileRegionEstimateProgressCallback,
+                                   completion: @escaping (Result<TileRegionEstimateResult, Error>) -> Void) -> Cancelable {
+        if let estimateOptions = estimateOptions {
+            return __estimateTileRegion(forId: id,
+                                        loadOptions: loadOptions,
+                                        estimateOptions: estimateOptions,
+                                        onProgress: progress,
+                                        onFinished: tileStoreClosureAdapter(for: completion, type: TileRegionEstimateResult.self))
+        }
+        // Use overloaded version
+        else {
+            return __estimateTileRegion(forId: id,
+                                        options: loadOptions,
+                                        onProgress: progress,
+                                        onFinished: tileStoreClosureAdapter(for: completion, type: TileRegionEstimateResult.self))
         }
     }
 
@@ -184,6 +231,15 @@ extension TileStore {
         let wrapper = TileStoreObserverWrapper(observer)
         __addObserver(for: wrapper)
         return TileStoreObserverCancelable(observer: wrapper, tileStore: self)
+    }
+
+    /// An overloaded version of `removeTileRegion(forId:)` with a callback for feedback.
+    /// On successful tile region removal, the given callback is invoked with the removed tile region.
+    /// Otherwise, the given callback is invoked with an error.
+    /// - Parameter id: The tile region identifier.
+    /// - Parameter callback A callback to be invoked when a tile region was removed.
+    public func removeRegion(forId id: String, completion: @escaping (Result<TileRegion, Error>) -> Void) {
+        __removeTileRegion(forId: id, callback: tileStoreClosureAdapter(for: completion, type: TileRegion.self))
     }
 }
 

@@ -1,8 +1,28 @@
-@testable import MapboxMaps
-@_implementationOnly import MapboxCoreMaps_Private
+@testable @_spi(Experimental) import MapboxMaps
 import CoreLocation
+import UIKit
 
 final class MockMapboxMap: MapboxMapProtocol {
+    var options: MapOptions = MapOptions()
+
+    let events = MapEvents(makeGenericSubject: { _ in
+        return SignalSubject<GenericEvent>()
+    })
+
+    var onMapLoaded: Signal<MapLoaded> { events.signal(for: \.onMapLoaded) }
+    var onMapLoadingError: Signal<MapLoadingError> { events.signal(for: \.onMapLoadingError) }
+    var onStyleLoaded: Signal<StyleLoaded> { events.signal(for: \.onStyleLoaded) }
+    var onStyleDataLoaded: Signal<StyleDataLoaded> { events.signal(for: \.onStyleDataLoaded) }
+    var onCameraChanged: Signal<CameraChanged> { events.signal(for: \.onCameraChanged) }
+    var onMapIdle: Signal<MapIdle> { events.signal(for: \.onMapIdle) }
+    var onSourceAdded: Signal<SourceAdded> { events.signal(for: \.onSourceAdded) }
+    var onSourceRemoved: Signal<SourceRemoved> { events.signal(for: \.onSourceRemoved) }
+    var onSourceDataLoaded: Signal<SourceDataLoaded> { events.signal(for: \.onSourceDataLoaded) }
+    var onStyleImageMissing: Signal<StyleImageMissing> { events.signal(for: \.onStyleImageMissing) }
+    var onStyleImageRemoveUnused: Signal<StyleImageRemoveUnused> { events.signal(for: \.onStyleImageRemoveUnused) }
+    var onRenderFrameStarted: Signal<RenderFrameStarted> { events.signal(for: \.onRenderFrameStarted) }
+    var onRenderFrameFinished: Signal<RenderFrameFinished> { events.signal(for: \.onRenderFrameFinished) }
+    var onResourceRequest: Signal<ResourceRequest> { events.signal(for: \.onResourceRequest) }
 
     var size: CGSize = .zero
 
@@ -19,18 +39,7 @@ final class MockMapboxMap: MapboxMapProtocol {
         maxPitch: 50,
         minPitch: 0)
 
-    var cameraState = CameraState(
-        center: CLLocationCoordinate2D(
-            latitude: 0,
-            longitude: 0),
-        padding: UIEdgeInsets(
-            top: 0,
-            left: 0,
-            bottom: 0,
-            right: 0),
-        zoom: 0,
-        bearing: 0,
-        pitch: 0)
+    var cameraState = CameraState.zero
 
     var anchor = CGPoint.zero
 
@@ -39,9 +48,9 @@ final class MockMapboxMap: MapboxMapProtocol {
         setCameraStub.call(with: cameraOptions)
     }
 
-    let dragStartStub = Stub<CGPoint, Void>()
-    func dragStart(for point: CGPoint) {
-        dragStartStub.call(with: point)
+    let coordinateForPointStub = Stub<CGPoint, CLLocationCoordinate2D>(defaultReturnValue: .random())
+    func coordinate(for point: CGPoint) -> CLLocationCoordinate2D {
+        coordinateForPointStub.call(with: point)
     }
 
     struct DragCameraOptionsParams: Equatable {
@@ -51,22 +60,6 @@ final class MockMapboxMap: MapboxMapProtocol {
     let dragCameraOptionsStub = Stub<DragCameraOptionsParams, MapboxMaps.CameraOptions>(defaultReturnValue: CameraOptions())
     func dragCameraOptions(from: CGPoint, to: CGPoint) -> MapboxMaps.CameraOptions {
         dragCameraOptionsStub.call(with: DragCameraOptionsParams(from: from, to: to))
-    }
-
-    let dragEndStub = Stub<Void, Void>()
-    func dragEnd() {
-        dragEndStub.call()
-    }
-
-    struct OnEveryParams {
-        var eventName: String
-        var handler: (Any) -> Void
-    }
-    let onEveryStub = Stub<OnEveryParams, Cancelable>(defaultReturnValue: MockCancelable())
-    @discardableResult
-    func onEvery<Payload>(event: MapEvents.Event<Payload>, handler: @escaping (MapEvent<Payload>) -> Void) -> Cancelable {
-        // swiftlint:disable:next force_cast
-        onEveryStub.call(with: OnEveryParams(eventName: event.name, handler: { handler($0 as! MapEvent<Payload>)}))
     }
 
     let beginAnimationStub = Stub<Void, Void>()
@@ -89,9 +82,14 @@ final class MockMapboxMap: MapboxMapProtocol {
         endGestureStub.call()
     }
 
-    let setViewAnnotationPositionsUpdateListenerStub = Stub<ViewAnnotationPositionsUpdateListener?, Void>()
-    func setViewAnnotationPositionsUpdateListener(_ listener: ViewAnnotationPositionsUpdateListener?) {
-        setViewAnnotationPositionsUpdateListenerStub.call(with: listener)
+    let setViewAnnotationPositionsUpdateCallbackStub = Stub<ViewAnnotationPositionsUpdateCallback?, Void>()
+
+    func setViewAnnotationPositionsUpdateCallback(_ callback: ViewAnnotationPositionsUpdateCallback?) {
+        setViewAnnotationPositionsUpdateCallbackStub.call(with: callback)
+    }
+
+    func simulateAnnotationPositionsUpdate(_ positions: [ViewAnnotationPositionDescriptor]) {
+        setViewAnnotationPositionsUpdateCallbackStub.invocations.last?.parameters?(positions)
     }
 
     struct ViewAnnotationModificationOptions: Equatable {
@@ -124,22 +122,39 @@ final class MockMapboxMap: MapboxMapProtocol {
         pointIsAboveHorizonStub.call(with: point)
     }
 
-    struct CameraForGeometryParams {
-        var geometry: Geometry
-        var padding: UIEdgeInsets
-        var bearing: CGFloat?
-        var pitch: CGFloat?
+    struct CameraForCoordinateBoundsParams {
+        var coordinateBounds: CoordinateBounds
+        var padding: UIEdgeInsets?
+        var bearing: Double?
+        var pitch: Double?
+        var maxZoom: Double?
+        var offset: CGPoint?
     }
-    let cameraForGeometryStub = Stub<CameraForGeometryParams, MapboxMaps.CameraOptions>(defaultReturnValue: .random())
-    func camera(for geometry: Geometry,
-                padding: UIEdgeInsets,
-                bearing: CGFloat?,
-                pitch: CGFloat?) -> MapboxMaps.CameraOptions {
-        cameraForGeometryStub.call(with: .init(
-            geometry: geometry,
-            padding: padding,
-            bearing: bearing,
-            pitch: pitch))
+    let cameraForCoordinateBoundsStub = Stub<CameraForCoordinateBoundsParams, MapboxMaps.CameraOptions>(defaultReturnValue: .random())
+    // swiftlint:disable:next function_parameter_count
+    func camera(for coordinateBounds: CoordinateBounds, padding: UIEdgeInsets?, bearing: Double?, pitch: Double?, maxZoom: Double?, offset: CGPoint?) -> MapboxMaps.CameraOptions {
+        cameraForCoordinateBoundsStub.call(with: .init(coordinateBounds: coordinateBounds, padding: padding, bearing: bearing, pitch: pitch, maxZoom: maxZoom, offset: offset))
+    }
+
+    struct CameraForCoordinatesParams {
+        var coordinates: [CLLocationCoordinate2D]
+        var camera: MapboxMaps.CameraOptions
+        var coordinatesPadding: UIEdgeInsets?
+        var maxZoom: Double?
+        var offset: CGPoint?
+    }
+    let cameraForCoordinatesStub = Stub<CameraForCoordinatesParams, MapboxMaps.CameraOptions>(defaultReturnValue: .random())
+    func camera(for coordinates: [CLLocationCoordinate2D],
+                camera: MapboxMaps.CameraOptions,
+                coordinatesPadding: UIEdgeInsets?,
+                maxZoom: Double?,
+                offset: CGPoint?) throws -> MapboxMaps.CameraOptions {
+        var cameraOptions = cameraForCoordinatesStub.call(with: .init(coordinates: coordinates, camera: camera, coordinatesPadding: coordinatesPadding, maxZoom: maxZoom, offset: offset))
+        // simulate core method behavior
+        cameraOptions.padding = camera.padding
+        cameraOptions.bearing = camera.bearing
+        cameraOptions.pitch = camera.pitch
+        return cameraOptions
     }
 
     let pointStub = Stub<CLLocationCoordinate2D, CGPoint>(defaultReturnValue: .random())
@@ -147,14 +162,42 @@ final class MockMapboxMap: MapboxMapProtocol {
         pointStub.call(with: coordinate)
     }
 
-    // not using Stub here since the block is not escaping
-    var performWithoutNotifyingInvocationCount = 0
-    var performWithoutNotifyingWillInvokeBlock = {}
-    var performWithoutNotifyingDidInvokeBlock = {}
-    func performWithoutNotifying(_ block: () -> Void) {
-        performWithoutNotifyingInvocationCount += 1
-        performWithoutNotifyingWillInvokeBlock()
-        block()
-        performWithoutNotifyingDidInvokeBlock()
+    let setCameraBoundsStub = Stub<MapboxMaps.CameraBoundsOptions, Void>()
+    func setCameraBounds(with options: MapboxMaps.CameraBoundsOptions) throws {
+        setCameraBoundsStub.call(with: options)
+    }
+
+    let northOrientationStub = Stub<NorthOrientation, Void>()
+    func setNorthOrientation(_ northOrientation: NorthOrientation) {
+        northOrientationStub.call(with: northOrientation)
+    }
+
+    let setConstraintModeStub = Stub<ConstrainMode, Void>()
+    func setConstrainMode(_ constrainMode: ConstrainMode) {
+        setConstraintModeStub.call(with: constrainMode)
+    }
+
+    let setViewportModeStub = Stub<ViewportMode, Void>()
+    func setViewportMode(_ viewportMode: ViewportMode) {
+        setViewportModeStub.call(with: viewportMode)
+    }
+
+    struct QRFParameters {
+        var point: CGPoint
+        var options: RenderedQueryOptions?
+        var completion: (Result<[QueriedRenderedFeature], Error>) -> Void
+    }
+    let qrfStub = Stub<QRFParameters, Cancelable>(defaultReturnValue: MockCancelable())
+    func queryRenderedFeatures(with point: CGPoint, options: RenderedQueryOptions?, completion: @escaping (Result<[QueriedRenderedFeature], Error>) -> Void) -> Cancelable {
+        qrfStub.call(with: QRFParameters(point: point, options: options, completion: completion))
+    }
+
+    struct PerformanceStatisticsParameters {
+        let options: PerformanceStatisticsOptions
+        let callback: (PerformanceStatistics) -> Void
+    }
+    let collectPerformanceStatisticsStub = Stub<PerformanceStatisticsParameters, AnyCancelable>(defaultReturnValue: MockCancelable().erased)
+    func collectPerformanceStatistics(_ options: PerformanceStatisticsOptions, callback: @escaping (PerformanceStatistics) -> Void) -> AnyCancelable {
+        collectPerformanceStatisticsStub.call(with: PerformanceStatisticsParameters(options: options, callback: callback))
     }
 }

@@ -1,16 +1,26 @@
 import UIKit
 
+/// Options used to configure the corner position of an ornament
 public enum OrnamentPosition: String, Equatable {
     // Clockwise from top left
     case topLeft
     case topRight
     case bottomRight
     case bottomLeft
+
+    case topLeading
+    case topTrailing
+    case bottomLeading
+    case bottomTrailing
 }
 
+/// Options used to configure the visibility of an ornament
 public enum OrnamentVisibility: String, Equatable {
+    /// Shows the ornament when relevant
     case adaptive
+    /// Hides the ornament
     case hidden
+    /// Shows the ornament
     case visible
 }
 
@@ -19,9 +29,10 @@ internal struct Ornaments {
     static let telemetryURL = "https://www.mapbox.com/telemetry/"
 }
 
-public class OrnamentsManager: NSObject {
+/// APIs for managing map ornaments
+public final class OrnamentsManager {
 
-    /// The `OrnamentOptions` object that is used to set up and update the required ornaments on the map.
+    /// The ``OrnamentOptions`` object that is used to set up and update the required ornaments on the map.
     public var options: OrnamentOptions {
         didSet {
             updateOrnaments()
@@ -44,7 +55,7 @@ public class OrnamentsManager: NSObject {
 
     /// The view for the compass ornament. This view can be used to position other views relative to the
     /// compass ornament, but it should not be manipulated. Use ``OrnamentOptions/compass`` to
-    /// configure the compass presentation if customization is needed..
+    /// configure the compass presentation if customization is needed.
     public var compassView: UIView {
         return _compassView
     }
@@ -52,21 +63,60 @@ public class OrnamentsManager: NSObject {
     /// The view for the attribution button ornament. This view can be used to position other views relative
     /// to the attribution button ornament, but it should not be manipulated. Use
     /// ``OrnamentOptions/attributionButton`` to configure the attribution button presentation
-    /// if customization is needed..
+    /// if customization is needed.
     public var attributionButton: UIView {
         return _attributionButton
     }
+    private var cachedCamera: CameraState?
 
+    private var cameraDebugView: CameraDebugView?
+
+    internal var showCameraDebug: Bool = false {
+        didSet {
+            guard showCameraDebug != oldValue else { return }
+            if showCameraDebug {
+                let debugView = CameraDebugView()
+                debugView.translatesAutoresizingMaskIntoConstraints = false
+                debugView.cameraState = cachedCamera
+                view?.addSubview(debugView)
+                cameraDebugView = debugView
+                updateOrnaments()
+            } else {
+                cameraDebugView?.removeFromSuperview()
+                cameraDebugView = nil
+            }
+        }
+    }
+
+    private var paddingDebugView: PaddingDebugView?
+    var showPaddingDebug: Bool = false {
+        didSet {
+            guard showPaddingDebug != oldValue else { return }
+            if showPaddingDebug, let superview = self.view {
+                let view = PaddingDebugView(padding: cachedCamera?.padding)
+                self.paddingDebugView = view
+                view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                view.frame = superview.bounds
+                superview.addSubview(view)
+            } else {
+                paddingDebugView?.removeFromSuperview()
+                paddingDebugView = nil
+            }
+        }
+    }
+
+    private weak var view: UIView?
     private let _logoView: LogoView
     private let _scaleBarView: MapboxScaleBarOrnamentView
     private let _compassView: MapboxCompassOrnamentView
     private let _attributionButton: InfoButtonOrnament
 
     private var constraints = [NSLayoutConstraint]()
+    private var cancellables = Set<AnyCancelable>()
 
     internal init(options: OrnamentOptions,
                   view: UIView,
-                  mapboxMap: MapboxMapProtocol,
+                  onCameraChanged: Signal<CameraChanged>,
                   cameraAnimationsManager: CameraAnimationsManagerProtocol,
                   infoButtonOrnamentDelegate: InfoButtonOrnamentDelegate,
                   logoView: LogoView,
@@ -74,6 +124,7 @@ public class OrnamentsManager: NSObject {
                   compassView: MapboxCompassOrnamentView,
                   attributionButton: InfoButtonOrnament) {
         self.options = options
+        self.view = view
 
         // Logo View
         logoView.translatesAutoresizingMaskIntoConstraints = false
@@ -106,32 +157,26 @@ public class OrnamentsManager: NSObject {
         view.addSubview(attributionButton)
         self._attributionButton = attributionButton
 
-        super.init()
-
         _attributionButton.delegate = infoButtonOrnamentDelegate
 
         updateOrnaments()
 
-        // Subscribe to updates for scalebar and compass
-        // MapboxMap should not be allowed to own a strong ref to compassView
-        // since compassView owns a tapAction that captures a strong ref to
-        // cameraAnimationsManager which has a strong ref to mapboxMap.
-        mapboxMap.onEvery(event: .cameraChanged) { [weak mapboxMap, weak scaleBarView, weak compassView] _ in
-            guard let mapboxMap = mapboxMap,
-                  let scaleBarView = scaleBarView,
-                  let compassView = compassView else {
-                return
-            }
-            let cameraState = mapboxMap.cameraState
+        onCameraChanged.observe { [weak self] event in
+            guard let self else { return }
+            self.cachedCamera = event.cameraState
 
             // Update the scale bar
-            scaleBarView.metersPerPoint = Projection.metersPerPoint(
-                for: cameraState.center.latitude,
-                zoom: cameraState.zoom)
+            self._scaleBarView.metersPerPoint = Projection.metersPerPoint(
+                for: event.cameraState.center.latitude,
+                zoom: event.cameraState.zoom)
 
             // Update the compass
-            compassView.currentBearing = Double(cameraState.bearing)
-        }
+            self._compassView.currentBearing = Double(event.cameraState.bearing)
+
+            // Update debug views
+            self.cameraDebugView?.cameraState = event.cameraState
+            self.paddingDebugView?.padding = event.cameraState.padding
+        }.store(in: &cancellables)
     }
 
     private func updateOrnaments() {
@@ -162,6 +207,16 @@ public class OrnamentsManager: NSObject {
                                                        margins: options.attributionButton.margins)
         constraints.append(contentsOf: attributionButtonConstraints)
 
+        if let cameraDebugView {
+            let cameraDebugViewConstraints = constraints(with: cameraDebugView,
+                                                         position: .topLeft,
+                                                         margins: CGPoint(x: 8, y: 48))
+            constraints.append(contentsOf: cameraDebugViewConstraints)
+        }
+
+        // Update the image of compass
+        _compassView.updateImage(image: options.compass.image)
+
         // Activate new constraints
         NSLayoutConstraint.activate(constraints)
 
@@ -191,6 +246,22 @@ public class OrnamentsManager: NSObject {
         case .bottomRight:
             return [
                 view.rightAnchor.constraint(equalTo: layoutGuide.rightAnchor, constant: -margins.x),
+                view.bottomAnchor.constraint(equalTo: layoutGuide.bottomAnchor, constant: -margins.y)]
+        case .topLeading:
+            return [
+                view.leadingAnchor.constraint(equalTo: layoutGuide.leadingAnchor, constant: margins.x),
+                view.topAnchor.constraint(equalTo: layoutGuide.topAnchor, constant: margins.y)]
+        case .topTrailing:
+            return  [
+                view.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -margins.x),
+                view.topAnchor.constraint(equalTo: layoutGuide.topAnchor, constant: margins.y)]
+        case .bottomLeading:
+            return [
+                view.leadingAnchor.constraint(equalTo: layoutGuide.leadingAnchor, constant: margins.x),
+                view.bottomAnchor.constraint(equalTo: layoutGuide.bottomAnchor, constant: -margins.y)]
+        case .bottomTrailing:
+            return [
+                view.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -margins.x),
                 view.bottomAnchor.constraint(equalTo: layoutGuide.bottomAnchor, constant: -margins.y)]
         }
     }

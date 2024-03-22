@@ -3,7 +3,6 @@ import CoreLocation
 import UIKit
 @testable import MapboxMaps
 
-// swiftlint:disable explicit_top_level_acl explicit_acl
 class MapboxMapsFoundationTests: XCTestCase {
 
     var mapView: MapView!
@@ -19,8 +18,7 @@ class MapboxMapsFoundationTests: XCTestCase {
         /**
          Test with offset bounds
          */
-        let mapInitOptions = MapInitOptions(resourceOptions: ResourceOptions(accessToken: "a1b2c3"),
-                                            styleURI: nil)
+        let mapInitOptions = MapInitOptions(styleURI: nil)
 
         mapView = MapView(frame: CGRect(x: 10, y: 10, width: 100, height: 100),
                               mapInitOptions: mapInitOptions)
@@ -87,6 +85,31 @@ class MapboxMapsFoundationTests: XCTestCase {
         XCTAssertEqual(coordinate.longitude, CLLocationDegrees(0), accuracy: accuracy)
     }
 
+    func testPointToCoordinateInfo() {
+        let subView = UIView(frame: mapView.bounds)
+        mapView.addSubview(subView)
+
+        // Convert the subview's center to a coordinate.
+        // The subview's center is expected to be at the center coordinate of the map.
+        let center = CGPoint(x: subView.bounds.midX, y: subView.bounds.midY)
+        let coordinateInfo = mapView.mapboxMap.coordinateInfo(for: center)
+
+        XCTAssertEqual(coordinateInfo.coordinate.latitude, CLLocationDegrees(0), accuracy: accuracy)
+        XCTAssertEqual(coordinateInfo.coordinate.longitude, CLLocationDegrees(0), accuracy: accuracy)
+        XCTAssertTrue(coordinateInfo.isOnSurface)
+    }
+
+    func testPointToCoordinateInfoOffscreen() {
+        let subView = UIView(frame: mapView.bounds)
+        mapView.addSubview(subView)
+
+        let coordinateInfo = mapView.mapboxMap.coordinateInfo(for: .init(x: .max, y: .max))
+
+        XCTAssertEqual(coordinateInfo.coordinate.latitude, CLLocationDegrees(-90), accuracy: accuracy)
+        XCTAssertEqual(coordinateInfo.coordinate.longitude, CLLocationDegrees(140), accuracy: accuracy)
+        XCTAssertFalse(coordinateInfo.isOnSurface)
+    }
+
     func testPointToCoordinateWithBoundsShifted() {
         // Shift bounds down and right 1/2 of the map's size
         mapView.bounds = CGRect(x: mapView.frame.midX,
@@ -140,6 +163,33 @@ class MapboxMapsFoundationTests: XCTestCase {
 
         XCTAssertEqual(originalPoint.x, point.x, accuracy: CGFloat(accuracy))
         XCTAssertEqual(originalPoint.y, point.y, accuracy: CGFloat(accuracy))
+    }
+
+    func testCoordinatesToPoints() {
+        let centerCoordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
+
+        let maxPoint = CGPoint(x: mapView.bounds.maxX, y: mapView.bounds.maxY)
+        let boundaryCoordinate = mapView.mapboxMap.coordinate(for: maxPoint)
+
+        let outOfBoundsCoordinate = CLLocationCoordinate2D(
+            latitude: boundaryCoordinate.latitude + 1,
+            longitude: boundaryCoordinate.longitude + 1)
+
+        let convertedPoints = mapView.mapboxMap.points(for: [
+            centerCoordinate,
+            boundaryCoordinate,
+            outOfBoundsCoordinate,
+        ])
+
+        // Center point.
+        XCTAssertEqual(convertedPoints[0].x, mapView.bounds.midX, accuracy: 0.01)
+        XCTAssertEqual(convertedPoints[0].y, mapView.bounds.midY, accuracy: 0.01)
+        // Edges.
+        XCTAssertEqual(convertedPoints[1].x, maxPoint.x, accuracy: 0.01)
+        XCTAssertEqual(convertedPoints[1].y, maxPoint.y, accuracy: 0.01)
+        // Out of bounds.
+        XCTAssertEqual(convertedPoints[2].x, -1.0)
+        XCTAssertEqual(convertedPoints[2].y, -1.0)
     }
 
     // MARK: Converting between CGRect and coordinate bounds
@@ -212,25 +262,59 @@ class MapboxMapsFoundationTests: XCTestCase {
 
     func testImageConversion() {
         guard let original = UIImage(named: "green-star", in: .mapboxMapsTests, compatibleWith: nil) else {
-            XCTFail("Could not load test image from bundle")
+            XCTFail("Couldn't not load test image from bundle")
             return
         }
 
-        guard let mbxImage = Image(uiImage: original) else {
-            XCTFail("Could generate Image (\"MBXImage\") from UIImage")
+        guard let mbmImage = CoreMapsImage(uiImage: original) else {
+            XCTFail("Couldn't generate Image (\"MBMImage\") from UIImage")
             return
         }
 
-        guard let roundtripped = UIImage(mbxImage: mbxImage) else {
-            XCTFail("Could generate UIImage from Image (\"MBXImage\")")
+        guard let roundtripped = UIImage(mbmImage: mbmImage) else {
+            XCTFail("Couldn't generate UIImage from Image (\"MBMImage\")")
             return
         }
 
-         XCTAssertEqual(original.size, roundtripped.size)
+        XCTAssertEqual(original.size, roundtripped.size)
+        XCTAssertEqual(original.imageOrientation, roundtripped.imageOrientation)
+        XCTAssertEqual(original.ciImage, roundtripped.ciImage)
+        XCTAssertEqual(original.cgImage?.width, roundtripped.cgImage?.width)
+        XCTAssertEqual(original.cgImage?.height, roundtripped.cgImage?.height)
+        XCTAssertEqual(original.cgImage?.bytesPerRow, roundtripped.cgImage?.bytesPerRow)
+        XCTAssertEqual(original.cgImage?.dataProvider?.data, roundtripped.cgImage?.dataProvider?.data)
+        XCTAssertNotNil(original.cgImage?.dataProvider?.data)
+    }
+
+    func testImageConversionPNG() {
+        guard let original = UIImage(named: "mapbox-icon", in: .mapboxMapsTests, compatibleWith: nil) else {
+            XCTFail("Couldn't not load test image from bundle")
+            return
+        }
+
+        guard let mbmImage = CoreMapsImage(uiImage: original) else {
+            XCTFail("Couldn't generate Image (\"MBMImage\") from UIImage")
+            return
+        }
+
+        guard let roundtripped = UIImage(mbmImage: mbmImage, scale: 2) else { // Original asset is 2x scale
+            XCTFail("Couldn't generate UIImage from Image (\"MBMImage\")")
+            return
+        }
+
+        XCTAssertEqual(original.size, roundtripped.size)
+        XCTAssertEqual(original.imageOrientation, roundtripped.imageOrientation)
+        XCTAssertEqual(original.ciImage, roundtripped.ciImage)
+        XCTAssertEqual(original.cgImage?.width, roundtripped.cgImage?.width)
+        XCTAssertEqual(original.cgImage?.height, roundtripped.cgImage?.height)
+        XCTAssertEqual(original.cgImage?.bytesPerRow, roundtripped.cgImage?.bytesPerRow)
+        XCTAssertEqual(original.cgImage?.dataProvider?.data, roundtripped.cgImage?.dataProvider?.data)
+        XCTAssertNotNil(original.cgImage?.dataProvider?.data)
     }
 
 // MARK: Debug options
-    func testDebugOptions() {
+    @available(*, deprecated)
+    func testDeprecatedDebugOptions() {
         let initialOptions = mapView.mapboxMap.debugOptions
         XCTAssertEqual(initialOptions, [], "The initial debug options should be an empty array.")
 
@@ -247,5 +331,37 @@ class MapboxMapsFoundationTests: XCTestCase {
         mapView.mapboxMap.debugOptions = []
         let getOptions3 = mapView.mapboxMap.debugOptions
         XCTAssert(getOptions3.isEmpty, "The array of debug options should be empty.")
+    }
+
+    func testDebugOptions() {
+        let initialOptions = mapView.debugOptions
+        XCTAssertEqual(initialOptions, [], "The initial debug options should be an empty.")
+
+        let setOptions1: MapViewDebugOptions = [.tileBorders, .timestamps]
+        let nativeOptions1: [MapDebugOptions] = [.tileBorders, .timestamps]
+        mapView.debugOptions = setOptions1
+        let getOptions1 =  mapView.debugOptions
+        let getNativeOptions1 = mapView.debugOptions.nativeDebugOptions
+        XCTAssertEqual(setOptions1, getOptions1, "Tile borders and timestamp should be enabled.")
+        XCTAssertEqual(nativeOptions1, getNativeOptions1, "Tile borders and timestamp should be seen in the native debug options.")
+
+        let setOptions2: MapViewDebugOptions = [.tileBorders]
+        mapView.debugOptions = setOptions2
+        let getOptions2 = mapView.debugOptions
+        XCTAssertEqual(setOptions2, getOptions2, "Tile borders should be enabled.")
+
+        mapView.debugOptions = []
+        let getOptions3 = mapView.debugOptions
+        XCTAssert(getOptions3.isEmpty, "The array of debug options should be empty.")
+
+        let setOptions4: MapViewDebugOptions = [.tileBorders, .timestamps, .camera]
+        mapView.debugOptions = setOptions4
+        let getOptions4 =  mapView.debugOptions
+        XCTAssertEqual(setOptions4, getOptions4, "Tile borders, timestamp, and camera should be enabled.")
+        XCTAssertEqual(nativeOptions1, getNativeOptions1, "Tile borders and timestamp should be seen in the native debug options, but not camera.")
+
+        mapView.debugOptions = []
+        let getOptions5 = mapView.debugOptions
+        XCTAssert(getOptions5.isEmpty, "The array of debug options should be empty after camera is unset.")
     }
 }

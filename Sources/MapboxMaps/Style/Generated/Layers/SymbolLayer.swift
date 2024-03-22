@@ -7,16 +7,37 @@ import Foundation
 public struct SymbolLayer: Layer {
 
     // MARK: - Conformance to `Layer` protocol
+    /// Unique layer name
     public var id: String
+
+    /// Rendering type of this layer.
     public let type: LayerType
+
+    /// An expression specifying conditions on source features.
+    /// Only features that match the filter are displayed.
     public var filter: Expression?
+
+    /// Name of a source description to be used for this layer.
+    /// Required for all layer types except ``BackgroundLayer``, ``SkyLayer``, and ``LocationIndicatorLayer``.
     public var source: String?
+
+    /// Layer to use from a vector tile source.
+    ///
+    /// Required for vector tile sources.
+    /// Prohibited for all other source types, including GeoJSON sources.
     public var sourceLayer: String?
+
+    /// The slot this layer is assigned to. If specified, and a slot with that name exists, it will be placed at that position in the layer order.
+    public var slot: Slot?
+
+    /// The minimum zoom level for the layer. At zoom levels less than the minzoom, the layer will be hidden.
     public var minZoom: Double?
+
+    /// The maximum zoom level for the layer. At zoom levels equal to or greater than the maxzoom, the layer will be hidden.
     public var maxZoom: Double?
 
     /// Whether this layer is displayed.
-    public var visibility: Value<Visibility>?
+    public var visibility: Value<Visibility>
 
     /// If true, the icon will be visible even if it collides with other previously drawn symbols.
     public var iconAllowOverlap: Value<Bool>?
@@ -66,11 +87,14 @@ public struct SymbolLayer: Layer {
     /// Label placement relative to its geometry.
     public var symbolPlacement: Value<SymbolPlacement>?
 
-    /// Sorts features in ascending order based on this value. Features with lower sort keys are drawn and placed first.  When `icon-allow-overlap` or `text-allow-overlap` is `false`, features with a lower sort key will have priority during placement. When `icon-allow-overlap` or `text-allow-overlap` is set to `true`, features with a higher sort key will overlap over features with a lower sort key.
+    /// Sorts features in ascending order based on this value. Features with lower sort keys are drawn and placed first. When `icon-allow-overlap` or `text-allow-overlap` is `false`, features with a lower sort key will have priority during placement. When `icon-allow-overlap` or `text-allow-overlap` is set to `true`, features with a higher sort key will overlap over features with a lower sort key.
     public var symbolSortKey: Value<Double>?
 
     /// Distance between two symbol anchors.
     public var symbolSpacing: Value<Double>?
+
+    /// Position symbol on buildings (both fill extrusions and models) rooftops. In order to have minimal impact on performance, this is supported only when `fill-extrusion-height` is not zoom-dependent and remains unchanged. For fading in buildings when zooming in, fill-extrusion-vertical-scale should be used and symbols would raise with building rooftops. Symbols are sorted by elevation, except in cases when `viewport-y` sorting or `symbol-sort-key` are applied.
+    public var symbolZElevate: Value<Bool>?
 
     /// Determines whether overlapping symbols in the same layer are rendered in the order that they appear in the data source or by their y-position relative to the viewport. To control the order and prioritization of symbols otherwise, use `symbol-sort-key`.
     public var symbolZOrder: Value<SymbolZOrder>?
@@ -147,6 +171,18 @@ public struct SymbolLayer: Layer {
     /// Transition options for `iconColor`.
     public var iconColorTransition: StyleTransition?
 
+    /// Controls saturation level of the symbol icon. With the default value of 1 the icon color is preserved while with a value of 0 it is fully desaturated and looks black and white.
+    public var iconColorSaturation: Value<Double>?
+
+    /// Transition options for `iconColorSaturation`.
+    public var iconColorSaturationTransition: StyleTransition?
+
+    /// Controls the intensity of light emitted on the source features.
+    public var iconEmissiveStrength: Value<Double>?
+
+    /// Transition options for `iconEmissiveStrength`.
+    public var iconEmissiveStrengthTransition: StyleTransition?
+
     /// Fade out the halo towards the outside.
     public var iconHaloBlur: Value<Double>?
 
@@ -164,6 +200,12 @@ public struct SymbolLayer: Layer {
 
     /// Transition options for `iconHaloWidth`.
     public var iconHaloWidthTransition: StyleTransition?
+
+    /// Controls the transition progress between the image variants of icon-image. Zero means the first variant is used, one is the second, and in between they are blended together.
+    public var iconImageCrossFade: Value<Double>?
+
+    /// Transition options for `iconImageCrossFade`.
+    public var iconImageCrossFadeTransition: StyleTransition?
 
     /// The opacity at which the icon will be drawn.
     public var iconOpacity: Value<Double>?
@@ -185,6 +227,12 @@ public struct SymbolLayer: Layer {
 
     /// Transition options for `textColor`.
     public var textColorTransition: StyleTransition?
+
+    /// Controls the intensity of light emitted on the source features.
+    public var textEmissiveStrength: Value<Double>?
+
+    /// Transition options for `textEmissiveStrength`.
+    public var textEmissiveStrengthTransition: StyleTransition?
 
     /// The halo's fadeout distance towards the outside.
     public var textHaloBlur: Value<Double>?
@@ -219,7 +267,8 @@ public struct SymbolLayer: Layer {
     /// Controls the frame of reference for `text-translate`.
     public var textTranslateAnchor: Value<TextTranslateAnchor>?
 
-    public init(id: String) {
+    public init(id: String, source: String) {
+        self.source = source
         self.id = id
         self.type = LayerType.symbol
         self.visibility = .constant(.visible)
@@ -232,18 +281,25 @@ public struct SymbolLayer: Layer {
         try container.encodeIfPresent(filter, forKey: .filter)
         try container.encodeIfPresent(source, forKey: .source)
         try container.encodeIfPresent(sourceLayer, forKey: .sourceLayer)
+        try container.encodeIfPresent(slot, forKey: .slot)
         try container.encodeIfPresent(minZoom, forKey: .minZoom)
         try container.encodeIfPresent(maxZoom, forKey: .maxZoom)
 
         var paintContainer = container.nestedContainer(keyedBy: PaintCodingKeys.self, forKey: .paint)
         try paintContainer.encodeIfPresent(iconColor, forKey: .iconColor)
         try paintContainer.encodeIfPresent(iconColorTransition, forKey: .iconColorTransition)
+        try paintContainer.encodeIfPresent(iconColorSaturation, forKey: .iconColorSaturation)
+        try paintContainer.encodeIfPresent(iconColorSaturationTransition, forKey: .iconColorSaturationTransition)
+        try paintContainer.encodeIfPresent(iconEmissiveStrength, forKey: .iconEmissiveStrength)
+        try paintContainer.encodeIfPresent(iconEmissiveStrengthTransition, forKey: .iconEmissiveStrengthTransition)
         try paintContainer.encodeIfPresent(iconHaloBlur, forKey: .iconHaloBlur)
         try paintContainer.encodeIfPresent(iconHaloBlurTransition, forKey: .iconHaloBlurTransition)
         try paintContainer.encodeIfPresent(iconHaloColor, forKey: .iconHaloColor)
         try paintContainer.encodeIfPresent(iconHaloColorTransition, forKey: .iconHaloColorTransition)
         try paintContainer.encodeIfPresent(iconHaloWidth, forKey: .iconHaloWidth)
         try paintContainer.encodeIfPresent(iconHaloWidthTransition, forKey: .iconHaloWidthTransition)
+        try paintContainer.encodeIfPresent(iconImageCrossFade, forKey: .iconImageCrossFade)
+        try paintContainer.encodeIfPresent(iconImageCrossFadeTransition, forKey: .iconImageCrossFadeTransition)
         try paintContainer.encodeIfPresent(iconOpacity, forKey: .iconOpacity)
         try paintContainer.encodeIfPresent(iconOpacityTransition, forKey: .iconOpacityTransition)
         try paintContainer.encodeIfPresent(iconTranslate, forKey: .iconTranslate)
@@ -251,6 +307,8 @@ public struct SymbolLayer: Layer {
         try paintContainer.encodeIfPresent(iconTranslateAnchor, forKey: .iconTranslateAnchor)
         try paintContainer.encodeIfPresent(textColor, forKey: .textColor)
         try paintContainer.encodeIfPresent(textColorTransition, forKey: .textColorTransition)
+        try paintContainer.encodeIfPresent(textEmissiveStrength, forKey: .textEmissiveStrength)
+        try paintContainer.encodeIfPresent(textEmissiveStrengthTransition, forKey: .textEmissiveStrengthTransition)
         try paintContainer.encodeIfPresent(textHaloBlur, forKey: .textHaloBlur)
         try paintContainer.encodeIfPresent(textHaloBlurTransition, forKey: .textHaloBlurTransition)
         try paintContainer.encodeIfPresent(textHaloColor, forKey: .textHaloColor)
@@ -264,7 +322,7 @@ public struct SymbolLayer: Layer {
         try paintContainer.encodeIfPresent(textTranslateAnchor, forKey: .textTranslateAnchor)
 
         var layoutContainer = container.nestedContainer(keyedBy: LayoutCodingKeys.self, forKey: .layout)
-        try layoutContainer.encodeIfPresent(visibility, forKey: .visibility)
+        try layoutContainer.encode(visibility, forKey: .visibility)
         try layoutContainer.encodeIfPresent(iconAllowOverlap, forKey: .iconAllowOverlap)
         try layoutContainer.encodeIfPresent(iconAnchor, forKey: .iconAnchor)
         try layoutContainer.encodeIfPresent(iconIgnorePlacement, forKey: .iconIgnorePlacement)
@@ -283,6 +341,7 @@ public struct SymbolLayer: Layer {
         try layoutContainer.encodeIfPresent(symbolPlacement, forKey: .symbolPlacement)
         try layoutContainer.encodeIfPresent(symbolSortKey, forKey: .symbolSortKey)
         try layoutContainer.encodeIfPresent(symbolSpacing, forKey: .symbolSpacing)
+        try layoutContainer.encodeIfPresent(symbolZElevate, forKey: .symbolZElevate)
         try layoutContainer.encodeIfPresent(symbolZOrder, forKey: .symbolZOrder)
         try layoutContainer.encodeIfPresent(textAllowOverlap, forKey: .textAllowOverlap)
         try layoutContainer.encodeIfPresent(textAnchor, forKey: .textAnchor)
@@ -315,18 +374,25 @@ public struct SymbolLayer: Layer {
         filter = try container.decodeIfPresent(Expression.self, forKey: .filter)
         source = try container.decodeIfPresent(String.self, forKey: .source)
         sourceLayer = try container.decodeIfPresent(String.self, forKey: .sourceLayer)
+        slot = try container.decodeIfPresent(Slot.self, forKey: .slot)
         minZoom = try container.decodeIfPresent(Double.self, forKey: .minZoom)
         maxZoom = try container.decodeIfPresent(Double.self, forKey: .maxZoom)
 
         if let paintContainer = try? container.nestedContainer(keyedBy: PaintCodingKeys.self, forKey: .paint) {
             iconColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .iconColor)
             iconColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .iconColorTransition)
+            iconColorSaturation = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .iconColorSaturation)
+            iconColorSaturationTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .iconColorSaturationTransition)
+            iconEmissiveStrength = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .iconEmissiveStrength)
+            iconEmissiveStrengthTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .iconEmissiveStrengthTransition)
             iconHaloBlur = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .iconHaloBlur)
             iconHaloBlurTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .iconHaloBlurTransition)
             iconHaloColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .iconHaloColor)
             iconHaloColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .iconHaloColorTransition)
             iconHaloWidth = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .iconHaloWidth)
             iconHaloWidthTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .iconHaloWidthTransition)
+            iconImageCrossFade = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .iconImageCrossFade)
+            iconImageCrossFadeTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .iconImageCrossFadeTransition)
             iconOpacity = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .iconOpacity)
             iconOpacityTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .iconOpacityTransition)
             iconTranslate = try paintContainer.decodeIfPresent(Value<[Double]>.self, forKey: .iconTranslate)
@@ -334,6 +400,8 @@ public struct SymbolLayer: Layer {
             iconTranslateAnchor = try paintContainer.decodeIfPresent(Value<IconTranslateAnchor>.self, forKey: .iconTranslateAnchor)
             textColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .textColor)
             textColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .textColorTransition)
+            textEmissiveStrength = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .textEmissiveStrength)
+            textEmissiveStrengthTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .textEmissiveStrengthTransition)
             textHaloBlur = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .textHaloBlur)
             textHaloBlurTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .textHaloBlurTransition)
             textHaloColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .textHaloColor)
@@ -347,8 +415,9 @@ public struct SymbolLayer: Layer {
             textTranslateAnchor = try paintContainer.decodeIfPresent(Value<TextTranslateAnchor>.self, forKey: .textTranslateAnchor)
         }
 
+        var visibilityEncoded: Value<Visibility>?
         if let layoutContainer = try? container.nestedContainer(keyedBy: LayoutCodingKeys.self, forKey: .layout) {
-            visibility = try layoutContainer.decodeIfPresent(Value<Visibility>.self, forKey: .visibility)
+            visibilityEncoded = try layoutContainer.decodeIfPresent(Value<Visibility>.self, forKey: .visibility)
             iconAllowOverlap = try layoutContainer.decodeIfPresent(Value<Bool>.self, forKey: .iconAllowOverlap)
             iconAnchor = try layoutContainer.decodeIfPresent(Value<IconAnchor>.self, forKey: .iconAnchor)
             iconIgnorePlacement = try layoutContainer.decodeIfPresent(Value<Bool>.self, forKey: .iconIgnorePlacement)
@@ -367,6 +436,7 @@ public struct SymbolLayer: Layer {
             symbolPlacement = try layoutContainer.decodeIfPresent(Value<SymbolPlacement>.self, forKey: .symbolPlacement)
             symbolSortKey = try layoutContainer.decodeIfPresent(Value<Double>.self, forKey: .symbolSortKey)
             symbolSpacing = try layoutContainer.decodeIfPresent(Value<Double>.self, forKey: .symbolSpacing)
+            symbolZElevate = try layoutContainer.decodeIfPresent(Value<Bool>.self, forKey: .symbolZElevate)
             symbolZOrder = try layoutContainer.decodeIfPresent(Value<SymbolZOrder>.self, forKey: .symbolZOrder)
             textAllowOverlap = try layoutContainer.decodeIfPresent(Value<Bool>.self, forKey: .textAllowOverlap)
             textAnchor = try layoutContainer.decodeIfPresent(Value<TextAnchor>.self, forKey: .textAnchor)
@@ -391,6 +461,7 @@ public struct SymbolLayer: Layer {
             textVariableAnchor = try layoutContainer.decodeIfPresent(Value<[TextAnchor]>.self, forKey: .textVariableAnchor)
             textWritingMode = try layoutContainer.decodeIfPresent(Value<[TextWritingMode]>.self, forKey: .textWritingMode)
         }
+        visibility = visibilityEncoded ?? .constant(.visible)
     }
 
     enum RootCodingKeys: String, CodingKey {
@@ -399,6 +470,7 @@ public struct SymbolLayer: Layer {
         case filter = "filter"
         case source = "source"
         case sourceLayer = "source-layer"
+        case slot = "slot"
         case minZoom = "minzoom"
         case maxZoom = "maxzoom"
         case layout = "layout"
@@ -424,6 +496,7 @@ public struct SymbolLayer: Layer {
         case symbolPlacement = "symbol-placement"
         case symbolSortKey = "symbol-sort-key"
         case symbolSpacing = "symbol-spacing"
+        case symbolZElevate = "symbol-z-elevate"
         case symbolZOrder = "symbol-z-order"
         case textAllowOverlap = "text-allow-overlap"
         case textAnchor = "text-anchor"
@@ -453,12 +526,18 @@ public struct SymbolLayer: Layer {
     enum PaintCodingKeys: String, CodingKey {
         case iconColor = "icon-color"
         case iconColorTransition = "icon-color-transition"
+        case iconColorSaturation = "icon-color-saturation"
+        case iconColorSaturationTransition = "icon-color-saturation-transition"
+        case iconEmissiveStrength = "icon-emissive-strength"
+        case iconEmissiveStrengthTransition = "icon-emissive-strength-transition"
         case iconHaloBlur = "icon-halo-blur"
         case iconHaloBlurTransition = "icon-halo-blur-transition"
         case iconHaloColor = "icon-halo-color"
         case iconHaloColorTransition = "icon-halo-color-transition"
         case iconHaloWidth = "icon-halo-width"
         case iconHaloWidthTransition = "icon-halo-width-transition"
+        case iconImageCrossFade = "icon-image-cross-fade"
+        case iconImageCrossFadeTransition = "icon-image-cross-fade-transition"
         case iconOpacity = "icon-opacity"
         case iconOpacityTransition = "icon-opacity-transition"
         case iconTranslate = "icon-translate"
@@ -466,6 +545,8 @@ public struct SymbolLayer: Layer {
         case iconTranslateAnchor = "icon-translate-anchor"
         case textColor = "text-color"
         case textColorTransition = "text-color-transition"
+        case textEmissiveStrength = "text-emissive-strength"
+        case textEmissiveStrengthTransition = "text-emissive-strength-transition"
         case textHaloBlur = "text-halo-blur"
         case textHaloBlurTransition = "text-halo-blur-transition"
         case textHaloColor = "text-halo-color"
