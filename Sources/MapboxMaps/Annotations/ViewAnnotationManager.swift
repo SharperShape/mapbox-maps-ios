@@ -538,11 +538,11 @@ extension ViewAnnotationManager {
     /// - Parameter zoom: The zoom level to calculate coordinate bounds.
     /// - Returns: The ``CoordinateBounds`` of the `corner` at the given `zoom` if presented. else returns the ``CoordinateBounds``consisting of a single point at corner's anchor.
     private func coordinateBounds(for corner: CoordinateBoundsCorner, zoom: CGFloat?) -> CoordinateBounds {
-        guard let zoom = zoom else { return CoordinateBounds.__singleton(forPoint: corner.anchorPoint) }
+        guard let zoom = zoom else { return CoordinateBounds.__singleton(forPoint: corner.anchorPoint.coordinate2D) }
 
         let anchorPoint = corner.anchorPoint, frame = corner.frame
         // Calculates distance for anchor's coordinate in meters.
-        let anchorProjectedMeters = Projection.projectedMeters(for: anchorPoint)
+        let anchorProjectedMeters = Projection.projectedMeters(for: anchorPoint.coordinate2D)
         let metersPerPoint = Projection.metersPerPoint(for: anchorPoint.latitude, zoom: zoom)
 
         // Shift anchor's projected meters by distance of frame's minY to anchor.

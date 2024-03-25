@@ -83,8 +83,8 @@ internal extension Projection {
     ///
     /// - Returns: The mercator coordinate representing the shift between startPoint and endPoint.
     static func calculateMercatorCoordinateShift(startPoint: Point, endPoint: Point, zoomLevel: Double) -> MercatorCoordinate {
-        let centerMercatorCoordinate = Projection.project(startPoint.coordinates, zoomScale: zoomLevel)
-        let targetMercatorCoordinate = Projection.project(endPoint.coordinates, zoomScale: zoomLevel)
+        let centerMercatorCoordinate = Projection.project(startPoint.coordinates.coordinate2D, zoomScale: zoomLevel)
+        let targetMercatorCoordinate = Projection.project(endPoint.coordinates.coordinate2D, zoomScale: zoomLevel)
         return MercatorCoordinate(
             x: targetMercatorCoordinate.x - centerMercatorCoordinate.x,
             y: targetMercatorCoordinate.y - centerMercatorCoordinate.y
@@ -100,7 +100,7 @@ internal extension Projection {
     ///
     /// - Returns: A shifted point with the applied shiftMercatorCoordinate.
     static func shiftPointWithMercatorCoordinate(point: Point, shiftMercatorCoordinate: MercatorCoordinate, zoomLevel: Double) -> Point {
-        let mercatorCoordinate = Projection.project(point.coordinates, zoomScale: zoomLevel)
+        let mercatorCoordinate = Projection.project(point.coordinates.coordinate2D, zoomScale: zoomLevel)
         let shiftedMercatorCoordinate = MercatorCoordinate(
             x: mercatorCoordinate.x + shiftMercatorCoordinate.x,
             y: mercatorCoordinate.y + shiftMercatorCoordinate.y
