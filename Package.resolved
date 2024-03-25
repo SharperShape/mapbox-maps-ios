@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SharperShape/turf-swift.git",
       "state" : {
-        "branch" : "v2-new",
-        "revision" : "132d57f6ea978dfb5c1b5f46315db1bbca91588e"
+        "branch" : "v2-new-new",
+        "revision" : "ffb59b0957082c311303abb0e752faf846228d19"
       }
     }
   ],
