@@ -47,14 +47,13 @@ final class Puck2DRenderer: PuckRenderer {
     // MARK: State handling
 
     private func startRendering(newState: PuckRendererState<Puck2DConfiguration>, oldState: PuckRendererState<Puck2DConfiguration>?) throws {
-        let newConfiguration = newState.configuration
-        if newConfiguration != oldState?.configuration || newState.accuracyAuthorization != oldState?.accuracyAuthorization {
+        if newState.configuration != oldState?.configuration || newState.accuracyAuthorization != oldState?.accuracyAuthorization {
             try updateLayer(newState: newState, oldState: oldState)
         } else {
             try updateLayerFastPath(with: newState)
         }
 
-        if let pulsing = newConfiguration.pulsing, pulsing.isEnabled, displayLinkToken == nil {
+        if let pulsing = newState.configuration.pulsing, pulsing.isEnabled, displayLinkToken == nil {
             displayLinkToken = displayLink.observe { [weak self] in
                 do {
                     try self?.renderPulsing()
@@ -98,7 +97,7 @@ final class Puck2DRenderer: PuckRenderer {
 
     // MARK: Layer
 
-    // swiftlint:disable:next function_body_length
+    // swiftlint:disable:next function_body_length cyclomatic_complexity
     private func updateLayer(newState: PuckRendererState<Puck2DConfiguration>, oldState: PuckRendererState<Puck2DConfiguration>?) throws {
         let newConfiguration = newState.configuration
         var newLayerLayoutProperties = [LocationIndicatorLayer.LayoutCodingKeys: Any]()
@@ -235,13 +234,21 @@ final class Puck2DRenderer: PuckRenderer {
         // https://github.com/mapbox/mapbox-maps-ios/issues/860
         try updateImages(newConfiguration: newConfiguration, oldConfiguration: oldState?.configuration)
 
+        if newConfiguration.slot != oldState?.configuration.slot {
+            allLayerProperties[LocationIndicatorLayer.RootCodingKeys.slot.rawValue] = newConfiguration.slot?.rawValue ?? ""
+        }
+
         // Update or add the layer
         if style.layerExists(withId: Self.layerID) {
             try style.setLayerProperties(for: Self.layerID, properties: allLayerProperties)
         } else {
             allLayerProperties[LocationIndicatorLayer.RootCodingKeys.id.rawValue] = Self.layerID
             allLayerProperties[LocationIndicatorLayer.RootCodingKeys.type.rawValue] = LayerType.locationIndicator.rawValue
-            try style.addPersistentLayer(with: allLayerProperties, layerPosition: nil)
+            try style.addPersistentLayer(with: allLayerProperties, layerPosition: newConfiguration.layerPosition)
+        }
+
+        if newConfiguration.layerPosition != oldState?.configuration.layerPosition {
+            try style.moveLayer(withId: Self.layerID, to: newConfiguration.layerPosition ?? .default)
         }
     }
 
@@ -323,13 +330,8 @@ final class Puck2DRenderer: PuckRenderer {
 }
 
 private extension Puck2DConfiguration {
-    var resolvedTopImage: UIImage {
-        topImage ?? UIImage(named: "location-dot-inner", in: .mapboxMaps, compatibleWith: nil)!
-    }
-
-    var resolvedScale: Value<Double> {
-        scale ?? .constant(1.0)
-    }
+    var resolvedTopImage: UIImage { topImage ?? UIImage(named: "location-dot-inner", in: .mapboxMaps, compatibleWith: nil)! }
+    var resolvedScale: Value<Double> { scale ?? .constant(1.0) }
 }
 
 private extension Puck2DConfiguration.Pulsing.Radius {
@@ -344,10 +346,8 @@ private extension Puck2DConfiguration.Pulsing.Radius {
     }
 }
 
-internal extension ClosedRange where Bound: AdditiveArithmetic {
-    var magnitude: Bound {
-        return upperBound - lowerBound
-    }
+extension ClosedRange where Bound: AdditiveArithmetic {
+    var magnitude: Bound { upperBound - lowerBound }
 }
 
 private extension Puck2DRenderer {

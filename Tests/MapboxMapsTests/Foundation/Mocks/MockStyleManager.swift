@@ -49,7 +49,7 @@ class MockStyleManager: StyleManagerProtocol {
     }
 
     let getStyleTransitionStub = Stub<Void, MapboxCoreMaps.TransitionOptions>(
-        defaultReturnValue: TransitionOptions(duration: nil, delay: nil, enablePlacementTransitions: nil)
+        defaultReturnValue: .init(TransitionOptions())
     )
     func getStyleTransition() -> MapboxCoreMaps.TransitionOptions {
         getStyleTransitionStub.call()
@@ -75,6 +75,11 @@ class MockStyleManager: StyleManagerProtocol {
     let getStyleLayersStub = Stub<Void, [MapboxCoreMaps.StyleObjectInfo]>(defaultReturnValue: [])
     func getStyleLayers() -> [MapboxCoreMaps.StyleObjectInfo] {
         getStyleLayersStub.call()
+    }
+
+    let getStyleSlotsStub = Stub<Void, [String]>(defaultReturnValue: [])
+    func getStyleSlots() -> [String] {
+        getStyleSlotsStub.call()
     }
 
     typealias GetStyleLayerPropertyParameters = (layerID: String, property: String)
@@ -243,6 +248,10 @@ class MockStyleManager: StyleManagerProtocol {
     struct AddStyleLayerParameters {
         let properties: Any
         let layerPosition: CoreLayerPosition?
+
+        var layerId: String? {
+            (properties as? [String: Any])?["id"] as? String
+        }
     }
     let addStyleLayerStub = Stub<AddStyleLayerParameters, Expected<NSNull, NSString>>(
         defaultReturnValue: .init(value: NSNull())
@@ -407,6 +416,11 @@ class MockStyleManager: StyleManagerProtocol {
     let removeStyleSourceStub = Stub<String, Expected<NSNull, NSString>>(defaultReturnValue: .init(value: NSNull()))
     func removeStyleSource(forSourceId sourceId: String) -> Expected<NSNull, NSString> {
         removeStyleSourceStub.call(with: sourceId)
+    }
+
+    let removeStyleSourceUncheckedStub = Stub<String, Expected<NSNull, NSString>>(defaultReturnValue: .init(value: NSNull()))
+    func removeStyleSourceUnchecked(forSourceId sourceId: String) -> Expected<NSNull, NSString> {
+        removeStyleSourceUncheckedStub.call(with: sourceId)
     }
 
     struct SetStylePropertyParameters {
@@ -690,6 +704,84 @@ class MockStyleManager: StyleManagerProtocol {
     func removeGeoJSONSourceFeatures(forSourceId sourceId: String, dataId: String, featureIds: [String]) -> Expected<NSNull, NSString> {
         removeGeoJSONSourceFeaturesStub.call(with: .init(sourceId: sourceId, featureIds: featureIds, dataId: dataId))
     }
+
+    // MARK: - Import
+
+    struct AddStyleImportFromJSONParams {
+        let forImportId: String
+        let json: String, config: [String: Any]?
+        let importPosition: MapboxMaps.CoreImportPosition?
+    }
+    let addStyleImportFromJSONStub = Stub<AddStyleImportFromJSONParams, Expected<NSNull, NSString>>(
+        defaultReturnValue: .init(value: NSNull()))
+
+    func addStyleImportFromJSON(
+        forImportId: String,
+        json: String, config: [String: Any]?,
+        importPosition: MapboxMaps.CoreImportPosition?
+    ) -> Expected<NSNull, NSString> {
+        addStyleImportFromJSONStub.call(with: AddStyleImportFromJSONParams(forImportId: forImportId, json: json, config: config, importPosition: importPosition))
+    }
+
+    struct AddStyleImportFromURIParams {
+        let forImportId: String
+        let uri: String
+        let importPosition: MapboxMaps.CoreImportPosition?
+    }
+    let addStyleImportFromURIStub = Stub<AddStyleImportFromURIParams, Expected<NSNull, NSString>>(
+        defaultReturnValue: .init(value: NSNull()))
+
+    func addStyleImportFromURI(
+        forImportId: String,
+        uri: String,
+        config: [String: Any]?,
+        importPosition: MapboxMaps.CoreImportPosition?
+    ) -> Expected<NSNull, NSString> {
+        addStyleImportFromURIStub.call(with: AddStyleImportFromURIParams(forImportId: forImportId, uri: uri, importPosition: importPosition))
+    }
+
+    struct UpdateStyleImportWithURIParams {
+        let forImportId: String
+        let uri: String
+        let config: [String: Any]?
+    }
+    let updateStyleImportWithURIStub = Stub<UpdateStyleImportWithURIParams, Expected<NSNull, NSString>>(
+        defaultReturnValue: .init(value: NSNull()))
+
+    func updateStyleImportWithURI(
+        forImportId: String,
+        uri: String,
+        config: [String: Any]?
+    ) -> Expected<NSNull, NSString> {
+        updateStyleImportWithURIStub.call(with: UpdateStyleImportWithURIParams(forImportId: forImportId, uri: uri, config: config))
+    }
+
+    struct UpdateStyleImportWithJSONParams {
+        let forImportId: String
+        let json: String
+        let config: [String: Any]?
+    }
+    let updateStyleImportWithJSONStub = Stub<UpdateStyleImportWithJSONParams, Expected<NSNull, NSString>>(
+        defaultReturnValue: .init(value: NSNull()))
+
+    func updateStyleImportWithJSON(
+        forImportId: String,
+        json: String,
+        config: [String: Any]?
+    ) -> Expected<NSNull, NSString> {
+        updateStyleImportWithJSONStub.call(with: UpdateStyleImportWithJSONParams(forImportId: forImportId, json: json, config: config))
+    }
+
+    struct MoveStyleImportParams {
+        let forImportId: String
+        let importPosition: MapboxMaps.CoreImportPosition?
+    }
+    let moveStyleImportStub = Stub<MoveStyleImportParams, Expected<NSNull, NSString>>(
+        defaultReturnValue: .init(value: NSNull()))
+
+    func moveStyleImport(forImportId: String, importPosition: MapboxMaps.CoreImportPosition?) -> Expected<NSNull, NSString> {
+        moveStyleImportStub.call(with: MoveStyleImportParams(forImportId: forImportId, importPosition: importPosition))
+    }
 }
 
 struct NonEncodableLayer: Layer {
@@ -702,6 +794,7 @@ struct NonEncodableLayer: Layer {
     var minZoom: Double?
     var maxZoom: Double?
     var slot: Slot?
+    var layerPosition: LayerPosition?
 
     init() {}
 

@@ -2,6 +2,7 @@ import CoreLocation
 @_spi(Experimental) import MapboxMaps
 
 extension CLLocationCoordinate2D {
+    static let apple = CLLocationCoordinate2D(latitude: 37.3326, longitude: -122.0304)
     static let zero = CLLocationCoordinate2D(latitude: 0, longitude: 0)
     static let helsinki = CLLocationCoordinate2D(latitude: 60.167488, longitude: 24.942747)
     static let berlin = CLLocationCoordinate2D(latitude: 52.5170365, longitude: 13.3888599)
@@ -14,6 +15,8 @@ extension CLLocationCoordinate2D {
     static let bangkok = CLLocationCoordinate2D(latitude: 13.756331, longitude: 100.501762)
     static let jakarta = CLLocationCoordinate2D(latitude: -6.175110, longitude: 106.865036)
     static let kyiv = CLLocationCoordinate2D(latitude: 50.541, longitude: 30.498)
+    static let tunis = CLLocationCoordinate2D(latitude: 36.806, longitude: 10.1815)
+    static let barcelona = CLLocationCoordinate2D(latitude: 41.3874, longitude: 2.168)
 }
 
 

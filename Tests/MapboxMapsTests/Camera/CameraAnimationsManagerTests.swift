@@ -6,6 +6,7 @@ final class CameraAnimationsManagerTests: XCTestCase {
 
     var impl: MockCameraAnimationsManager!
     var cameraAnimationsManager: CameraAnimationsManager!
+    var cancelables: Set<AnyCancelable> = []
 
     override func setUp() {
         super.setUp()
@@ -16,6 +17,7 @@ final class CameraAnimationsManagerTests: XCTestCase {
     override func tearDown() {
         cameraAnimationsManager = nil
         impl = nil
+        cancelables = []
         super.tearDown()
     }
 
@@ -234,5 +236,52 @@ final class CameraAnimationsManagerTests: XCTestCase {
 
         XCTAssertEqual(impl.makeAnimatorWithDampingRatioStub.invocations.count, 1)
         XCTAssertEqual(impl.makeAnimatorWithDampingRatioStub.invocations.first?.parameters.animationOwner, .unspecified)
+    }
+
+    func testObservingCameraAnimatorStarted() {
+        let mockAnimator = MockCameraAnimator()
+        var isStarted = false
+        cameraAnimationsManager.onCameraAnimatorStarted.observe { animator in
+            XCTAssertIdentical(animator, mockAnimator)
+            isStarted = true
+        }.store(in: &cancelables)
+
+        impl.$onCameraAnimatorStatusChanged.send((mockAnimator, .started))
+
+        XCTAssertTrue(isStarted)
+    }
+
+    func testObservingCameraAnimatorFinished() {
+        let mockAnimator = MockCameraAnimator()
+
+        var isFinished = false
+        cameraAnimationsManager.onCameraAnimatorFinished.observe { animator in
+            XCTAssertIdentical(animator, mockAnimator)
+            isFinished = true
+        }.store(in: &cancelables)
+        cameraAnimationsManager.onCameraAnimatorCancelled.observe { _ in
+            XCTFail("Animator is not cancelled")
+        }.store(in: &cancelables)
+
+        impl.$onCameraAnimatorStatusChanged.send((mockAnimator, .stopped(reason: .finished)))
+
+        XCTAssertTrue(isFinished)
+    }
+
+    func testObservingCameraAnimatorCancelled() {
+        let mockAnimator = MockCameraAnimator()
+
+        var isCancelled = false
+        cameraAnimationsManager.onCameraAnimatorCancelled.observe { animator in
+            XCTAssertIdentical(animator, mockAnimator)
+            isCancelled = true
+        }.store(in: &cancelables)
+        cameraAnimationsManager.onCameraAnimatorFinished.observe { _ in
+            XCTFail("Animator is not finished")
+        }.store(in: &cancelables)
+
+        impl.$onCameraAnimatorStatusChanged.send((mockAnimator, .stopped(reason: .cancelled)))
+
+        XCTAssertTrue(isCancelled)
     }
 }

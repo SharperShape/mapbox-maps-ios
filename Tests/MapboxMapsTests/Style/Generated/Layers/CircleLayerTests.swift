@@ -1,6 +1,6 @@
 // This file is generated
 import XCTest
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 final class CircleLayerTests: XCTestCase {
 
@@ -9,17 +9,20 @@ final class CircleLayerTests: XCTestCase {
         var layer = CircleLayer(id: "test-id", source: "source")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
+        layer.slot = .testConstantValue()
 
         XCTAssertEqual(layer.id, "test-id")
         XCTAssertEqual(layer.type, LayerType.circle)
         XCTAssertEqual(layer.minZoom, 10.0)
         XCTAssertEqual(layer.maxZoom, 20.0)
+        XCTAssertEqual(layer.slot, Slot.testConstantValue())
     }
 
     func testEncodingAndDecodingOfLayerProtocolProperties() {
         var layer = CircleLayer(id: "test-id", source: "source")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
+        layer.slot = .testConstantValue()
 
         var data: Data?
         do {
@@ -40,6 +43,7 @@ final class CircleLayerTests: XCTestCase {
             XCTAssert(decodedLayer.source == "source")
             XCTAssertEqual(decodedLayer.minZoom, 10.0)
             XCTAssertEqual(decodedLayer.maxZoom, 20.0)
+            XCTAssertEqual(layer.slot, Slot.testConstantValue())
         } catch {
             XCTFail("Failed to decode CircleLayer")
         }
@@ -125,6 +129,49 @@ final class CircleLayerTests: XCTestCase {
        } catch {
            XCTFail("Failed to decode CircleLayer")
        }
+    }
+
+    func testSetPropertyValueWithFunction() {
+        let layer = CircleLayer(id: "test-id", source: "source")
+            .filter(Expression.testConstantValue())
+            .source(String.testConstantValue())
+            .sourceLayer(String.testConstantValue())
+            .slot(Slot.testConstantValue())
+            .minZoom(Double.testConstantValue())
+            .maxZoom(Double.testConstantValue())
+            .circleSortKey(Double.testConstantValue())
+            .circleBlur(Double.testConstantValue())
+            .circleColor(StyleColor.testConstantValue())
+            .circleEmissiveStrength(Double.testConstantValue())
+            .circleOpacity(Double.testConstantValue())
+            .circlePitchAlignment(CirclePitchAlignment.testConstantValue())
+            .circlePitchScale(CirclePitchScale.testConstantValue())
+            .circleRadius(Double.testConstantValue())
+            .circleStrokeColor(StyleColor.testConstantValue())
+            .circleStrokeOpacity(Double.testConstantValue())
+            .circleStrokeWidth(Double.testConstantValue())
+            .circleTranslate(x: 0, y: 1)
+            .circleTranslateAnchor(CircleTranslateAnchor.testConstantValue())
+
+        XCTAssertEqual(layer.filter, Expression.testConstantValue())
+        XCTAssertEqual(layer.source, String.testConstantValue())
+        XCTAssertEqual(layer.sourceLayer, String.testConstantValue())
+        XCTAssertEqual(layer.slot, Slot.testConstantValue())
+        XCTAssertEqual(layer.minZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.maxZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.circleSortKey, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.circleBlur, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.circleColor, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.circleEmissiveStrength, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.circleOpacity, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.circlePitchAlignment, Value.constant(CirclePitchAlignment.testConstantValue()))
+        XCTAssertEqual(layer.circlePitchScale, Value.constant(CirclePitchScale.testConstantValue()))
+        XCTAssertEqual(layer.circleRadius, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.circleStrokeColor, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.circleStrokeOpacity, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.circleStrokeWidth, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.circleTranslate, Value.constant([0, 1]))
+        XCTAssertEqual(layer.circleTranslateAnchor, Value.constant(CircleTranslateAnchor.testConstantValue()))
     }
 }
 

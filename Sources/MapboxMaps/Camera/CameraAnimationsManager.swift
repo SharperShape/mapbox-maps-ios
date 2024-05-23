@@ -174,4 +174,31 @@ public final class CameraAnimationsManager {
             animationOwner: animationOwner,
             animations: animations)
     }
+
+    /// A stream that  emits an event  when a ``CameraAnimator`` has started
+    public var onCameraAnimatorStarted: Signal<CameraAnimator> {
+        impl.onCameraAnimatorStatusChanged
+            .compactMap { (animator, status) in
+                guard status == .started else { return nil }
+                return animator
+            }
+    }
+
+    /// A stream that  emits an event  when a ``CameraAnimator`` has finished.
+    public var onCameraAnimatorFinished: Signal<CameraAnimator> {
+        impl.onCameraAnimatorStatusChanged
+            .compactMap { (animator, status) in
+                guard status == .stopped(reason: .finished) else { return nil }
+                return animator
+            }
+    }
+
+    /// A stream that  emits an event  when a ``CameraAnimator`` has cancelled.
+    public var onCameraAnimatorCancelled: Signal<CameraAnimator> {
+        impl.onCameraAnimatorStatusChanged
+            .compactMap { (animator, status) in
+                guard status == .stopped(reason: .cancelled) else { return nil }
+                return animator
+            }
+    }
 }

@@ -1,6 +1,6 @@
 // This file is generated
 import XCTest
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 final class FillLayerTests: XCTestCase {
 
@@ -9,17 +9,20 @@ final class FillLayerTests: XCTestCase {
         var layer = FillLayer(id: "test-id", source: "source")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
+        layer.slot = .testConstantValue()
 
         XCTAssertEqual(layer.id, "test-id")
         XCTAssertEqual(layer.type, LayerType.fill)
         XCTAssertEqual(layer.minZoom, 10.0)
         XCTAssertEqual(layer.maxZoom, 20.0)
+        XCTAssertEqual(layer.slot, Slot.testConstantValue())
     }
 
     func testEncodingAndDecodingOfLayerProtocolProperties() {
         var layer = FillLayer(id: "test-id", source: "source")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
+        layer.slot = .testConstantValue()
 
         var data: Data?
         do {
@@ -40,6 +43,7 @@ final class FillLayerTests: XCTestCase {
             XCTAssert(decodedLayer.source == "source")
             XCTAssertEqual(decodedLayer.minZoom, 10.0)
             XCTAssertEqual(decodedLayer.maxZoom, 20.0)
+            XCTAssertEqual(layer.slot, Slot.testConstantValue())
         } catch {
             XCTFail("Failed to decode FillLayer")
         }
@@ -113,6 +117,41 @@ final class FillLayerTests: XCTestCase {
        } catch {
            XCTFail("Failed to decode FillLayer")
        }
+    }
+
+    func testSetPropertyValueWithFunction() {
+        let layer = FillLayer(id: "test-id", source: "source")
+            .filter(Expression.testConstantValue())
+            .source(String.testConstantValue())
+            .sourceLayer(String.testConstantValue())
+            .slot(Slot.testConstantValue())
+            .minZoom(Double.testConstantValue())
+            .maxZoom(Double.testConstantValue())
+            .fillSortKey(Double.testConstantValue())
+            .fillAntialias(Bool.testConstantValue())
+            .fillColor(StyleColor.testConstantValue())
+            .fillEmissiveStrength(Double.testConstantValue())
+            .fillOpacity(Double.testConstantValue())
+            .fillOutlineColor(StyleColor.testConstantValue())
+            .fillPattern(String.testConstantValue())
+            .fillTranslate(x: 0, y: 1)
+            .fillTranslateAnchor(FillTranslateAnchor.testConstantValue())
+
+        XCTAssertEqual(layer.filter, Expression.testConstantValue())
+        XCTAssertEqual(layer.source, String.testConstantValue())
+        XCTAssertEqual(layer.sourceLayer, String.testConstantValue())
+        XCTAssertEqual(layer.slot, Slot.testConstantValue())
+        XCTAssertEqual(layer.minZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.maxZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.fillSortKey, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.fillAntialias, Value.constant(Bool.testConstantValue()))
+        XCTAssertEqual(layer.fillColor, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.fillEmissiveStrength, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.fillOpacity, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.fillOutlineColor, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.fillPattern, Value<ResolvedImage>.constant(.name(String.testConstantValue())))
+        XCTAssertEqual(layer.fillTranslate, Value.constant([0, 1]))
+        XCTAssertEqual(layer.fillTranslateAnchor, Value.constant(FillTranslateAnchor.testConstantValue()))
     }
 }
 

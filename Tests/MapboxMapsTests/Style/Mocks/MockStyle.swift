@@ -7,6 +7,18 @@ final class MockStyle: StyleProtocol {
 
     var mapStyle: MapStyle?
 
+    private(set)var isMapContentSet: Bool = false
+    @available(iOS 13.0, *)
+    func setMapContent(_ content: () -> any MapContent) {
+        isMapContentSet.toggle()
+    }
+
+    let setMapContentDependenciesStub = Stub<MapContentDependencies, Void>()
+    @available(iOS 13.0, *)
+    func setMapContentDependencies(_ dependencies: MapContentDependencies) {
+        setMapContentDependenciesStub.call(with: dependencies)
+    }
+
     @Stubbed var isStyleLoaded: Bool = false
     @Stubbed var styleDefaultCamera: MapboxMaps.CameraOptions = .init()
     @Stubbed var uri: StyleURI? = .streets
@@ -14,7 +26,6 @@ final class MockStyle: StyleProtocol {
         let sourceId: String
         let features: [Feature]
         let dataId: String?
-
     }
     let addGeoJSONSourceFeaturesStub = Stub<AddGeoJSONSourceFeaturesParams, Void>()
     func addGeoJSONSourceFeatures(forSourceId sourceId: String, features: [Feature], dataId: String?) {
@@ -74,6 +85,15 @@ final class MockStyle: StyleProtocol {
     let addPersistentLayerStub = Stub<AddPersistentLayerParams, Void>()
     func addPersistentLayer(_ layer: Layer, layerPosition: LayerPosition?) throws {
         addPersistentLayerStub.call(with: .init(layer: layer, layerPosition: layerPosition))
+    }
+
+    struct MoveLayerParams {
+        var id: String
+        var position: LayerPosition
+    }
+    let moveLayerStub = Stub<MoveLayerParams, Void>()
+    func moveLayer(withId id: String, to position: LayerPosition) throws {
+        moveLayerStub.call(with: MoveLayerParams(id: id, position: position))
     }
 
     struct AddPersistentLayerWithPropertiesParams {

@@ -27,8 +27,6 @@ internal protocol StyleManagerProtocol {
     func getStyleTransition() -> MapboxCoreMaps.TransitionOptions
     func setStyleTransitionFor(_ transitionOptions: MapboxCoreMaps.TransitionOptions)
 
-    func getStyleImports() -> [StyleObjectInfo]
-    func removeStyleImport(forImportId importId: String) -> Expected<NSNull, NSString>
     func getStyleImportSchema(forImportId importId: String) -> Expected<AnyObject, NSString>
     func getStyleImportConfigProperties(forImportId importId: String) -> Expected<NSDictionary, NSString>
     func getStyleImportConfigProperty(
@@ -37,8 +35,17 @@ internal protocol StyleManagerProtocol {
     func setStyleImportConfigPropertiesForImportId(_ importId: String, configs: [String: Any]) -> Expected<NSNull, NSString>
     func setStyleImportConfigPropertyForImportId(_  importId: String, config: String, value: Any) -> Expected<NSNull, NSString>
 
+    func getStyleImports() -> [StyleObjectInfo]
+    func addStyleImportFromJSON(forImportId: String, json: String, config: [String: Any]?, importPosition: CoreImportPosition?) -> Expected<NSNull, NSString>
+    func addStyleImportFromURI(forImportId: String, uri: String, config: [String: Any]?, importPosition: CoreImportPosition?) -> Expected<NSNull, NSString>
+    func updateStyleImportWithURI(forImportId: String, uri: String, config: [String: Any]?) -> Expected<NSNull, NSString>
+    func updateStyleImportWithJSON(forImportId: String, json: String, config: [String: Any]?) -> Expected<NSNull, NSString>
+    func moveStyleImport(forImportId: String, importPosition: CoreImportPosition?) -> Expected<NSNull, NSString>
+    func removeStyleImport(forImportId importId: String) -> Expected<NSNull, NSString>
+
     func styleLayerExists(forLayerId layerId: String) -> Bool
     func getStyleLayers() -> [MapboxCoreMaps.StyleObjectInfo]
+    func getStyleSlots() -> [String]
 
     func getStyleLayerProperty(forLayerId layerId: String, property: String) -> MapboxCoreMaps.StylePropertyValue
 
@@ -111,6 +118,7 @@ internal protocol StyleManagerProtocol {
         image: CoreMapsImage) -> Expected<NSNull, NSString>
 
     func removeStyleSource(forSourceId sourceId: String) -> Expected<NSNull, NSString>
+    func removeStyleSourceUnchecked(forSourceId sourceId: String) -> Expected<NSNull, NSString>
 
     // 3D Light
     func getStyleLights() -> [StyleObjectInfo]
@@ -234,7 +242,8 @@ extension CoreStyleManager: StyleManagerProtocol {
             canceledCallback: { _ in
                 errorToken?.cancel()
                 callbacks.cancelled?()
-            })
+            },
+            errorCallback: nil)
         if isJson {
             setStyleJSONForJson(style, stylingOptions: options)
         } else {

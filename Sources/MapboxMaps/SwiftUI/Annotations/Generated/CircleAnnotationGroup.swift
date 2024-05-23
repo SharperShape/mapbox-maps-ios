@@ -35,10 +35,11 @@
 ///     .slot("top")
 /// }
 /// ```
-    @_documentation(visibility: public)
+@_documentation(visibility: public)
 @_spi(Experimental)
-public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>: PrimitiveMapContent {
-    let store: ForEvery<CircleAnnotation, Data, ID>
+@available(iOS 13.0, *)
+public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
+    let annotations: [(ID, CircleAnnotation)]
 
     /// Creates a group that identifies data by given key path.
     ///
@@ -48,7 +49,9 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>:
     ///     - content: A closure that creates annotation for a given data item.
     @_documentation(visibility: public)
     public init(_ data: Data, id: KeyPath<Data.Element, ID>, content: @escaping (Data.Element) -> CircleAnnotation) {
-        store = ForEvery(data: data, id: id, content: content)
+        annotations = data.map { element in
+            (element[keyPath: id], content(element))
+        }
     }
 
     /// Creates a group from identifiable data.
@@ -69,21 +72,11 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>:
     @_documentation(visibility: public)
     public init(@ArrayBuilder<CircleAnnotation> content: @escaping () -> [CircleAnnotation?])
         where Data == Array<(Int, CircleAnnotation)>, ID == Int {
-        let annotations = content().enumerated().compactMap {
-            $0.element == nil ? nil : ($0.offset, $0.element!)
-        }
-        self.init(annotations, id: \.0, content: \.1)
-    }
 
-    func _visit(_ visitor: MapContentVisitor) {
-        let group = AnnotationGroup(
-            positionalId: visitor.positionalId,
-            layerId: layerId,
-            layerPosition: layerPosition,
-            store: store,
-            make: { $0.makeCircleAnnotationManager(id: $1, layerPosition: $2) },
-            updateProperties: { self.updateProperties(manager: $0) })
-        visitor.add(annotationGroup: group)
+        let annotations = content()
+            .enumerated()
+            .compactMap { $0.element == nil ? nil : ($0.offset, $0.element!) }
+        self.init(annotations, id: \.0, content: \.1)
     }
 
     private func updateProperties(manager: CircleAnnotationManager) {
@@ -144,21 +137,11 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>:
     }
 
 
-    private var layerPosition: LayerPosition?
-
-    /// Defines relative position of the layers drawing the annotations managed by the current group.
-    ///
-    /// - NOTE: Layer position isn't updatable. Only the first value passed to this function set will take effect.
-    @_documentation(visibility: public)
-    public func layerPosition(_ newValue: LayerPosition) -> Self {
-        with(self, setter(\.layerPosition, newValue))
-    }
-
     private var layerId: String?
 
     /// Specifies identifier for underlying implementation layer.
     ///
-    /// Use the identifier in ``layerPosition(_:)``, or to create view annotations bound the annotations from the group.
+    /// Use the identifier to create view annotations bound the annotations from the group.
     /// For more information, see the ``MapViewAnnotation/init(layerId:featureId:content:)``.
     @_documentation(visibility: public)
     public func layerId(_ layerId: String) -> Self {
@@ -166,13 +149,29 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>:
     }
 }
 
-extension CircleAnnotation: PrimitiveMapContent, MapContentAnnotation {
-    func _visit(_ visitor: MapContentVisitor) {
-        CircleAnnotationGroup { self }
-            ._visit(visitor)
+@available(iOS 13.0, *)
+extension CircleAnnotationGroup: MapContent, PrimitiveMapContent {
+    func visit(_ node: MapContentNode) {
+        let group = MountedAnnotationGroup(
+            layerId: layerId ?? node.id.stringId,
+            clusterOptions: nil,
+            annotations: annotations,
+            updateProperties: updateProperties
+        )
+        node.mount(group)
     }
 }
 
-extension CircleAnnotationManager: MapContentAnnotationManager {}
+@available(iOS 13.0, *)
+extension CircleAnnotationManager: MapContentAnnotationManager {
+    static func make(
+        layerId: String,
+        layerPosition: LayerPosition?,
+        clusterOptions: ClusterOptions? = nil,
+        using orchestrator: AnnotationOrchestrator
+    ) -> Self {
+        orchestrator.makeCircleAnnotationManager(id: layerId, layerPosition: layerPosition) as! Self
+    }
+}
 
 // End of generated file.

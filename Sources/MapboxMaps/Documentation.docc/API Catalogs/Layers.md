@@ -16,6 +16,7 @@
 - ``LineLayer``
 - ``LocationIndicatorLayer``
 - ``RasterLayer``
+- ``RasterParticleLayer``
 - ``SkyLayer``
 - ``SymbolLayer``
 - ``ModelLayer``
@@ -25,3 +26,5 @@
 - ``CustomLayerHost``
 - ``ElevationData``
 - ``Slot``
+- ``SlotLayer``
+- ``LayerAtPosition``

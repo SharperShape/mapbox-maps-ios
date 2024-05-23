@@ -2,8 +2,8 @@
 
 final class MockCameraAnimatorsRunner: CameraAnimatorsRunnerProtocol {
     @Stubbed var isEnabled: Bool = false
-
     @Stubbed var cameraAnimators: [CameraAnimator] = []
+    @TestSignal var onCameraAnimatorStatusChanged: Signal<CameraAnimatorStatusPayload>
 
     let updateStub = Stub<Void, Void>()
     func update() {
