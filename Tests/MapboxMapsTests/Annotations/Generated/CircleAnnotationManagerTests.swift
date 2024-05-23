@@ -766,7 +766,7 @@ final class CircleAnnotationManagerTests: XCTestCase, AnnotationInteractionDeleg
         manager.annotations = [annotation]
 
         mapboxMap.pointStub.defaultReturnValue = CGPoint(x: 0, y: 0)
-        mapboxMap.coordinateForPointStub.defaultReturnValue = .random()
+        mapboxMap.coordinateForPointStub.defaultReturnValue = .init(latitude: 23.5432356, longitude: -12.5326744)
         mapboxMap.cameraState.zoom = 1
 
         var context = MapContentGestureContext(point: CGPoint(x: 0, y: 1), coordinate: .init(latitude: 2, longitude: 3))
@@ -841,7 +841,34 @@ final class CircleAnnotationManagerTests: XCTestCase, AnnotationInteractionDeleg
           annotation1,
           annotation2
       ])
-  }
+    }
+
+    func testSetNewAnnotations() {
+      let annotation1 = CircleAnnotation(id: "A", point: .init(.init(latitude: 1, longitude: 1)), isSelected: false, isDraggable: false)
+      let annotation2 = CircleAnnotation(id: "B", point: .init(.init(latitude: 2, longitude: 2)), isSelected: false, isDraggable: false)
+      let annotation3 = CircleAnnotation(id: "C", point: .init(.init(latitude: 3, longitude: 3)), isSelected: false, isDraggable: false)
+
+        manager.set(newAnnotations: [
+            (1, annotation1),
+            (2, annotation2)
+        ])
+
+        XCTAssertEqual(manager.annotations.map(\.id), ["A", "B"])
+
+        manager.set(newAnnotations: [
+            (1, annotation3),
+            (2, annotation2)
+        ])
+
+        XCTAssertEqual(manager.annotations.map(\.id), ["A", "B"])
+
+        manager.set(newAnnotations: [
+            (3, annotation3),
+            (2, annotation2)
+        ])
+
+        XCTAssertEqual(manager.annotations.map(\.id), ["C", "B"])
+    }
 }
 
 // End of generated file

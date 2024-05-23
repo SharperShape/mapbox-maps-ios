@@ -1,6 +1,6 @@
 // This file is generated
 import XCTest
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 final class SkyLayerTests: XCTestCase {
 
@@ -9,17 +9,20 @@ final class SkyLayerTests: XCTestCase {
         var layer = SkyLayer(id: "test-id")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
+        layer.slot = .testConstantValue()
 
         XCTAssertEqual(layer.id, "test-id")
         XCTAssertEqual(layer.type, LayerType.sky)
         XCTAssertEqual(layer.minZoom, 10.0)
         XCTAssertEqual(layer.maxZoom, 20.0)
+        XCTAssertEqual(layer.slot, Slot.testConstantValue())
     }
 
     func testEncodingAndDecodingOfLayerProtocolProperties() {
         var layer = SkyLayer(id: "test-id")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
+        layer.slot = .testConstantValue()
 
         var data: Data?
         do {
@@ -39,6 +42,7 @@ final class SkyLayerTests: XCTestCase {
             XCTAssertEqual(decodedLayer.type, LayerType.sky)
             XCTAssertEqual(decodedLayer.minZoom, 10.0)
             XCTAssertEqual(decodedLayer.maxZoom, 20.0)
+            XCTAssertEqual(layer.slot, Slot.testConstantValue())
         } catch {
             XCTFail("Failed to decode SkyLayer")
         }
@@ -108,6 +112,35 @@ final class SkyLayerTests: XCTestCase {
        } catch {
            XCTFail("Failed to decode SkyLayer")
        }
+    }
+
+    func testSetPropertyValueWithFunction() {
+        let layer = SkyLayer(id: "test-id")
+            .slot(Slot.testConstantValue())
+            .minZoom(Double.testConstantValue())
+            .maxZoom(Double.testConstantValue())
+            .skyAtmosphereColor(StyleColor.testConstantValue())
+            .skyAtmosphereHaloColor(StyleColor.testConstantValue())
+            .skyAtmosphereSun(azimuthal: 0, polar: 1)
+            .skyAtmosphereSunIntensity(Double.testConstantValue())
+            .skyGradient(StyleColor.testConstantValue())
+            .skyGradientCenter(azimuthal: 0, polar: 1)
+            .skyGradientRadius(Double.testConstantValue())
+            .skyOpacity(Double.testConstantValue())
+            .skyType(SkyType.testConstantValue())
+
+        XCTAssertEqual(layer.slot, Slot.testConstantValue())
+        XCTAssertEqual(layer.minZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.maxZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.skyAtmosphereColor, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.skyAtmosphereHaloColor, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.skyAtmosphereSun, Value.constant([0, 1]))
+        XCTAssertEqual(layer.skyAtmosphereSunIntensity, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.skyGradient, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.skyGradientCenter, Value.constant([0, 1]))
+        XCTAssertEqual(layer.skyGradientRadius, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.skyOpacity, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.skyType, Value.constant(SkyType.testConstantValue()))
     }
 }
 

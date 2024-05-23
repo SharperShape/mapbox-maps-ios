@@ -1,10 +1,10 @@
 // This file is generated.
-import Foundation
+import UIKit
 
 /// The background color or pattern of the map.
 ///
 /// - SeeAlso: [Mapbox Style Specification](https://www.mapbox.com/mapbox-gl-style-spec/#layers-background)
-public struct BackgroundLayer: Layer {
+public struct BackgroundLayer: Layer, Equatable {
 
     // MARK: - Conformance to `Layer` protocol
     /// Unique layer name
@@ -120,6 +120,112 @@ public struct BackgroundLayer: Layer {
         case backgroundOpacity = "background-opacity"
         case backgroundOpacityTransition = "background-opacity-transition"
         case backgroundPattern = "background-pattern"
+    }
+}
+
+@_documentation(visibility: public)
+@_spi(Experimental) extension BackgroundLayer {
+
+    /// The slot this layer is assigned to.
+    /// If specified, and a slot with that name exists, it will be placed at that position in the layer order.
+    @_documentation(visibility: public)
+    public func slot(_ newValue: Slot?) -> Self {
+        with(self, setter(\.slot, newValue))
+    }
+
+    /// The minimum zoom level for the layer. At zoom levels less than the minzoom, the layer will be hidden.
+    @_documentation(visibility: public)
+    public func minZoom(_ newValue: Double) -> Self {
+        with(self, setter(\.minZoom, newValue))
+    }
+
+    /// The maximum zoom level for the layer. At zoom levels equal to or greater than the maxzoom, the layer will be hidden.
+    @_documentation(visibility: public)
+    public func maxZoom(_ newValue: Double) -> Self {
+        with(self, setter(\.maxZoom, newValue))
+    }
+
+    /// The color with which the background will be drawn.
+    @_documentation(visibility: public)
+    public func backgroundColor(_ constant: StyleColor) -> Self {
+        with(self, setter(\.backgroundColor, .constant(constant)))
+    }
+
+    /// The color with which the background will be drawn.
+    @_documentation(visibility: public)
+    public func backgroundColor(_ color: UIColor) -> Self {
+        with(self, setter(\.backgroundColor, .constant(StyleColor(color))))
+    }
+
+    /// Transition property for `backgroundColor`
+    @_documentation(visibility: public)
+    public func backgroundColorTransition(_ transition: StyleTransition) -> Self {
+        with(self, setter(\.backgroundColorTransition, transition))
+    }
+
+    /// The color with which the background will be drawn.
+    @_documentation(visibility: public)
+    public func backgroundColor(_ expression: Expression) -> Self {
+        with(self, setter(\.backgroundColor, .expression(expression)))
+    }
+
+
+    /// Controls the intensity of light emitted on the source features.
+    @_documentation(visibility: public)
+    public func backgroundEmissiveStrength(_ constant: Double) -> Self {
+        with(self, setter(\.backgroundEmissiveStrength, .constant(constant)))
+    }
+
+    /// Transition property for `backgroundEmissiveStrength`
+    @_documentation(visibility: public)
+    public func backgroundEmissiveStrengthTransition(_ transition: StyleTransition) -> Self {
+        with(self, setter(\.backgroundEmissiveStrengthTransition, transition))
+    }
+
+    /// Controls the intensity of light emitted on the source features.
+    @_documentation(visibility: public)
+    public func backgroundEmissiveStrength(_ expression: Expression) -> Self {
+        with(self, setter(\.backgroundEmissiveStrength, .expression(expression)))
+    }
+
+
+    /// The opacity at which the background will be drawn.
+    @_documentation(visibility: public)
+    public func backgroundOpacity(_ constant: Double) -> Self {
+        with(self, setter(\.backgroundOpacity, .constant(constant)))
+    }
+
+    /// Transition property for `backgroundOpacity`
+    @_documentation(visibility: public)
+    public func backgroundOpacityTransition(_ transition: StyleTransition) -> Self {
+        with(self, setter(\.backgroundOpacityTransition, transition))
+    }
+
+    /// The opacity at which the background will be drawn.
+    @_documentation(visibility: public)
+    public func backgroundOpacity(_ expression: Expression) -> Self {
+        with(self, setter(\.backgroundOpacity, .expression(expression)))
+    }
+
+
+    /// Name of image in sprite to use for drawing an image background. For seamless patterns, image width and height must be a factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will be evaluated only at integer zoom levels.
+    @_documentation(visibility: public)
+    public func backgroundPattern(_ constant: String) -> Self {
+        with(self, setter(\.backgroundPattern, .constant(.name(constant))))
+    }
+
+    /// Name of image in sprite to use for drawing an image background. For seamless patterns, image width and height must be a factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will be evaluated only at integer zoom levels.
+    @_documentation(visibility: public)
+    public func backgroundPattern(_ expression: Expression) -> Self {
+        with(self, setter(\.backgroundPattern, .expression(expression)))
+    }
+}
+
+@available(iOS 13.0, *)
+@_spi(Experimental)
+extension BackgroundLayer: MapStyleContent, PrimitiveMapContent {
+    func visit(_ node: MapContentNode) {
+        node.mount(MountedLayer(layer: self))
     }
 }
 

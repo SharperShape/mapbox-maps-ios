@@ -1,6 +1,6 @@
 // This file is generated.
 import XCTest
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 final class GeoJSONSourceTests: XCTestCase {
 
@@ -53,6 +53,17 @@ final class GeoJSONSourceTests: XCTestCase {
         } catch {
             XCTFail("Failed to decode GeoJSONSource.")
         }
+    }
+
+    func testSetPropertyValueWithFunction() {
+        let source = GeoJSONSource(id: "test-source")
+            .data(GeoJSONSourceData.testSourceValue())
+            .prefetchZoomDelta(Double.testSourceValue())
+            .tileCacheBudget(TileCacheBudgetSize.testSourceValue())
+
+        XCTAssertEqual(source.data, GeoJSONSourceData.testSourceValue())
+        XCTAssertEqual(source.prefetchZoomDelta, Double.testSourceValue())
+        XCTAssertEqual(source.tileCacheBudget, TileCacheBudgetSize.testSourceValue())
     }
 }
 

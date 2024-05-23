@@ -1093,7 +1093,7 @@ final class PolylineAnnotationManagerTests: XCTestCase, AnnotationInteractionDel
         manager.annotations = [annotation]
 
         mapboxMap.pointStub.defaultReturnValue = CGPoint(x: 0, y: 0)
-        mapboxMap.coordinateForPointStub.defaultReturnValue = .random()
+        mapboxMap.coordinateForPointStub.defaultReturnValue = .init(latitude: 23.5432356, longitude: -12.5326744)
         mapboxMap.cameraState.zoom = 1
 
         var context = MapContentGestureContext(point: CGPoint(x: 0, y: 1), coordinate: .init(latitude: 2, longitude: 3))
@@ -1171,7 +1171,37 @@ final class PolylineAnnotationManagerTests: XCTestCase, AnnotationInteractionDel
           annotation1,
           annotation2
       ])
-  }
+    }
+
+    func testSetNewAnnotations() {
+      let lineCoordinates1 = [ CLLocationCoordinate2DMake(1, 1), CLLocationCoordinate2DMake(11, 11) ]
+            let annotation1 = PolylineAnnotation(id: "A", lineString: .init(lineCoordinates1), isSelected: false, isDraggable: false)
+      let lineCoordinates2 = [ CLLocationCoordinate2DMake(2, 2), CLLocationCoordinate2DMake(12, 12) ]
+            let annotation2 = PolylineAnnotation(id: "B", lineString: .init(lineCoordinates2), isSelected: false, isDraggable: false)
+      let lineCoordinates3 = [ CLLocationCoordinate2DMake(3, 3), CLLocationCoordinate2DMake(13, 13) ]
+            let annotation3 = PolylineAnnotation(id: "C", lineString: .init(lineCoordinates3), isSelected: false, isDraggable: false)
+
+        manager.set(newAnnotations: [
+            (1, annotation1),
+            (2, annotation2)
+        ])
+
+        XCTAssertEqual(manager.annotations.map(\.id), ["A", "B"])
+
+        manager.set(newAnnotations: [
+            (1, annotation3),
+            (2, annotation2)
+        ])
+
+        XCTAssertEqual(manager.annotations.map(\.id), ["A", "B"])
+
+        manager.set(newAnnotations: [
+            (3, annotation3),
+            (2, annotation2)
+        ])
+
+        XCTAssertEqual(manager.annotations.map(\.id), ["C", "B"])
+    }
 }
 
 // End of generated file

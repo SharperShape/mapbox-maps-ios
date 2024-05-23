@@ -31,5 +31,20 @@ final class CameraAnimationExample: UIViewController, ExampleProtocol {
                 self?.finish()
             }
         }.store(in: &cancelables)
+
+        mapView.camera
+            .onCameraAnimatorStarted
+            .observe { animator in
+                print("Animator started: \(animator.owner)")
+            }
+            .store(in: &cancelables)
+
+        mapView.camera
+            .onCameraAnimatorFinished
+            .owned(by: .compass)
+            .observe { animator in
+                print("Animator finished: \(animator.owner)")
+            }
+            .store(in: &cancelables)
     }
 }

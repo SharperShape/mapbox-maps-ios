@@ -5,6 +5,7 @@ import UIKit
 final class CameraAnimatorsRunnerTests: XCTestCase {
     var mapboxMap: MockMapboxMap!
     var cameraAnimatorsRunner: CameraAnimatorsRunner!
+    var cancelables: Set<AnyCancelable> = []
 
     override func setUp() {
         super.setUp()
@@ -17,6 +18,7 @@ final class CameraAnimatorsRunnerTests: XCTestCase {
     override func tearDown() {
         cameraAnimatorsRunner = nil
         mapboxMap = nil
+        cancelables = []
         super.tearDown()
     }
 
@@ -37,7 +39,7 @@ final class CameraAnimatorsRunnerTests: XCTestCase {
     func testUpdateWithAnimationsEnabled() {
         let animator = MockCameraAnimator()
         cameraAnimatorsRunner.add(animator)
-        cameraAnimatorsRunner.cameraAnimatorDidStartRunning(animator)
+        animator.$onCameraAnimatorStatusChanged.send(.started)
         cameraAnimatorsRunner.isEnabled = true
 
         cameraAnimatorsRunner.update()
@@ -50,7 +52,7 @@ final class CameraAnimatorsRunnerTests: XCTestCase {
     func testUpdateWithAnimationsDisabled() {
         let animator = MockCameraAnimator()
         cameraAnimatorsRunner.add(animator)
-        cameraAnimatorsRunner.cameraAnimatorDidStartRunning(animator)
+        animator.$onCameraAnimatorStatusChanged.send(.started)
 
         cameraAnimatorsRunner.isEnabled = false
 
@@ -226,44 +228,59 @@ final class CameraAnimatorsRunnerTests: XCTestCase {
         XCTAssertEqual(unspecifiedAnimatorThirdOwner.stopAnimationStub.invocations.count, 0)
     }
 
-    func testCameraAnimatorDelegate() {
+    func testCameraAnimatorStatus() {
         let animator1 = MockCameraAnimator()
         let animator2 = MockCameraAnimator()
 
+        cameraAnimatorsRunner.add(animator1)
+        cameraAnimatorsRunner.add(animator2)
+
         // stopping before starting should have no effect
-        cameraAnimatorsRunner.cameraAnimatorDidStopRunning(animator1)
+        animator1.$onCameraAnimatorStatusChanged.send(.stopped(reason: .cancelled))
         XCTAssertEqual(mapboxMap.beginAnimationStub.invocations.count, 0)
         XCTAssertEqual(mapboxMap.endAnimationStub.invocations.count, 0)
 
         // start once
-        cameraAnimatorsRunner.cameraAnimatorDidStartRunning(animator1)
+        animator1.$onCameraAnimatorStatusChanged.send(.started)
         XCTAssertEqual(mapboxMap.beginAnimationStub.invocations.count, 1)
         XCTAssertEqual(mapboxMap.endAnimationStub.invocations.count, 0)
 
         // start twice
-        cameraAnimatorsRunner.cameraAnimatorDidStartRunning(animator1)
+        animator1.$onCameraAnimatorStatusChanged.send(.started)
         XCTAssertEqual(mapboxMap.beginAnimationStub.invocations.count, 1)
         XCTAssertEqual(mapboxMap.endAnimationStub.invocations.count, 0)
 
         // start a second
-        cameraAnimatorsRunner.cameraAnimatorDidStartRunning(animator2)
+        animator2.$onCameraAnimatorStatusChanged.send(.started)
         XCTAssertEqual(mapboxMap.beginAnimationStub.invocations.count, 2)
         XCTAssertEqual(mapboxMap.endAnimationStub.invocations.count, 0)
 
         // end the first
-        cameraAnimatorsRunner.cameraAnimatorDidStopRunning(animator1)
+        animator1.$onCameraAnimatorStatusChanged.send(.stopped(reason: .finished))
         XCTAssertEqual(mapboxMap.beginAnimationStub.invocations.count, 2)
         XCTAssertEqual(mapboxMap.endAnimationStub.invocations.count, 1)
 
         // end the first again
-        cameraAnimatorsRunner.cameraAnimatorDidStopRunning(animator1)
+        animator1.$onCameraAnimatorStatusChanged.send(.stopped(reason: .finished))
         XCTAssertEqual(mapboxMap.beginAnimationStub.invocations.count, 2)
         XCTAssertEqual(mapboxMap.endAnimationStub.invocations.count, 1)
 
         // end the second
-        cameraAnimatorsRunner.cameraAnimatorDidStopRunning(animator2)
+        animator2.$onCameraAnimatorStatusChanged.send(.stopped(reason: .finished))
         XCTAssertEqual(mapboxMap.beginAnimationStub.invocations.count, 2)
         XCTAssertEqual(mapboxMap.endAnimationStub.invocations.count, 2)
+    }
+
+    func testCameraAnimatorPaused() {
+        var mockCameraAnimator = MockCameraAnimator()
+        cameraAnimatorsRunner.isEnabled = true
+        cameraAnimatorsRunner.add(mockCameraAnimator)
+
+        mockCameraAnimator.$onCameraAnimatorStatusChanged.send(.started)
+        XCTAssertEqual(mapboxMap.beginAnimationStub.invocations.count, 1)
+
+        mockCameraAnimator.$onCameraAnimatorStatusChanged.send(.paused)
+        XCTAssertEqual(mapboxMap.endAnimationStub.invocations.count, 1)
     }
 
     func testAddWithAnimationsEnabled() {
@@ -273,7 +290,6 @@ final class CameraAnimatorsRunnerTests: XCTestCase {
 
         cameraAnimatorsRunner.add(animator)
 
-        XCTAssertIdentical(animator.delegate, cameraAnimatorsRunner)
         XCTAssertEqual(animator.stopAnimationStub.invocations.count, 0)
     }
 
@@ -284,7 +300,25 @@ final class CameraAnimatorsRunnerTests: XCTestCase {
 
         cameraAnimatorsRunner.add(animator)
 
-        XCTAssertIdentical(animator.delegate, cameraAnimatorsRunner)
         XCTAssertEqual(animator.stopAnimationStub.invocations.count, 1)
+    }
+
+    func testCameraAnimatorStatusObserver() {
+        let mockCameraAnimator = MockCameraAnimator()
+        cameraAnimatorsRunner.isEnabled = true
+        cameraAnimatorsRunner.add(mockCameraAnimator)
+
+        var animatorStatus: CameraAnimatorStatus!
+        cameraAnimatorsRunner.onCameraAnimatorStatusChanged
+            .observe { (animator, status) in
+                XCTAssertIdentical(animator, mockCameraAnimator)
+                animatorStatus = status
+            }
+            .store(in: &cancelables)
+
+        mockCameraAnimator.$onCameraAnimatorStatusChanged.send(.started)
+        XCTAssertEqual(animatorStatus, .started)
+        mockCameraAnimator.$onCameraAnimatorStatusChanged.send(.stopped(reason: .finished))
+        XCTAssertEqual(animatorStatus, .stopped(reason: .finished))
     }
 }

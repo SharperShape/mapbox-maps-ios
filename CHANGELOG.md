@@ -4,9 +4,111 @@ Mapbox welcomes participation and contributions from everyone.
 
 ## main
 
+## 11.4.0-beta.1 - 24 April, 2024
+
+⚠️⚠️⚠️ Known Issues ⚠️⚠️⚠️
+* In v11.4.0-beta.1, setting a `RasterLayer`’s `rasterColor` property with an expression will block the layer from rendering. This issue will be resolved in v11.4.0-rc.1.
+
+### Experimental API breaking changes ⚠️
+
+In this release, we introduce the new [Declarative Styling API](https://docs.tilestream.net/ios/maps/api/latest/documentation/mapboxmaps/declarative-map-styling) for UIKit and SwiftUI. This change is based on `MapContent` introduced for SwiftUI; therefore, it has been restructured. The changes are compatible; however, in some rare cases, you may need to adjust your code.
+
+* [SwiftUI] `MapContent` now supports custom implementations, similar to SwiftUI views. The `MapContent` protocol now requires the `var body: some MapContent` implementation.
+* [SwiftUI] PointAnnotation and Puck3D property-setters that consumed fixed-length arrays reworked to use named properties or platform types for better readability:
+```swift
+// Before
+PointAnnotation()
+    .iconOffset([10, 20]) // x, y
+    .iconTextFitPadding([1, 2, 3, 4]) // top, right, bottom, left
+Puck3D()
+    .modelScale([1, 2, 3]) // x, y, z
+
+// After
+PointAnnotation()
+    .iconOffset(x: 10, y: 20)
+    .iconTextFitPadding(UIEdgeInsets(top: 1, left: 4, bottom: 3, right: 2))
+Puck3D()
+    .modelScale(x: 1, y: 2, z: 3)
+```
+* `StyleImportConfiguration` was removed from public API, the `MapStyle` now contains the configuration directly.
+* `TransitionOptions` is now a Swift `struct` rather than an Objective-C `class`.
+
+### Features ✨ and improvements 🏁
+
+* All the style primitives can now be used as `MapContent` in SwiftUI.
+```swift
+@_spi(Experimental) MapboxMaps
+Map {
+    LineLayer(id: "traffic")
+        .lineColor(.red)
+        .lineWidth(2)
+}
+```
+
+* UIKit applications can now use the `setMapStyleContent` to use style primitives:
+```swift
+@_spi(Experimental) MapboxMaps
+mapView.mapboxMap.setMapStyleContent {
+    LineLayer(id: "traffic")
+        .lineColor(.red)
+        .lineWidth(2)
+}
+```
+
+* Allow to assign slot to 2D and 3D location indicators.
+* Allow observing start/stop event of `CameraAnimator`
+  You can observe start/stop event of `CameraAnimator` by using new `CameraAnimationsManager` APIs as shown below
+  ```swift
+  // Observe start event of any CameraAnimator owned by AnimationOwner.cameraAnimationsManager
+  mapView.camera
+    .onCameraAnimatorStarted
+    .owned(by: .cameraAnimationsManager)
+    .observe { cameraAnimator in
+      // Handle camera animation started here.
+    }
+    .store(in: &cancelables)
+  // Observe finished events of any CameraAnimator
+  mapView.camera
+    .onCameraAnimatorFinished
+    .observe { animator in
+      // Handle camera animation stopped here.
+    }
+    .store(in: &cancelables)
+  ```
+  You can also observe directly on an instance of `CameraAnimator` when using low-level camera APIs to create a custom animator
+  ```swift
+  // Declare an animator that changes the map's bearing
+  let bearingAnimator = mapView.camera.makeAnimator(duration: 4, curve: .easeInOut) { (transition) in
+    transition.bearing.toValue = -45
+  }
+  bearingAnimator.onStarted.observe {
+    // Bearing animator has started.
+  }.store(in: &cancelables)
+  ```
+* Allow adding slots at runtime.
+* Expose API to interact with style imports using Declarative Styling and regular imperative API.
+* Expose `StyleImport` for declarative styling as `MapStyleContent`.
+* Expose `removeStyleImport`, `moveStyleImport`, `updateStyleImport`, `addStyleImport` methods on `StyleManager`
+* Allow assigning layerPosition to 2D and 3D location indicators in imperative API.
+* Make Puck2D and Puck3D to be positioned according to relative layer position in declarative API instead of always top-most position.
+* Add codesign for XCFrameworks.
+* `MapboxMap.loadStyle()` and `Snapshotter.loadStyle()` now correctly call the `completion` closure.
+
+
+## 11.3.0 - 10 April, 2024
+
+### Features ✨ and improvements 🏁
+
+* Introduce an experimental Style DSL, enabling developers to add map style content like Sources, Layers, Style Images, Terrain, Light and Atmosphere to their map style at runtime in a declarative pattern. See the documentation [here](https://docs.mapbox.com/ios/maps/api/11.2.0-beta.1/documentation/mapboxmaps/style-dsl) for more information. For SwiftUI users, this Style DSL provides a more natural approach to manipulating content.
 [tile store] Expose API for estimating Tile Region downloads and storage size.
 
-# 11.3.0-beta.1 - 14 March, 2024
+## 11.3.0-rc.1 - 27 March, 2024
+
+* [tile store] Expose API for estimating Tile Region downloads and storage size.
+* Remove metal view's contentScaleFactor assertion.
+* Bump core maps version to 11.3.0-rc.1 and common sdk to 24.3.0-rc.1.
+
+## 11.3.0-beta.1 - 14 March, 2024
 
 * Update the minimum Xcode version to 15.2 (Swift 5.9).
 * Add `onClusterTap` and `onClusterLongPress` to AnnotationManagers(UIKit) and AnnotationGroups(SwiftUI) which support clustering

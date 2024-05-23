@@ -1,6 +1,6 @@
 // This file is generated
 import XCTest
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 final class BackgroundLayerTests: XCTestCase {
 
@@ -9,17 +9,20 @@ final class BackgroundLayerTests: XCTestCase {
         var layer = BackgroundLayer(id: "test-id")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
+        layer.slot = .testConstantValue()
 
         XCTAssertEqual(layer.id, "test-id")
         XCTAssertEqual(layer.type, LayerType.background)
         XCTAssertEqual(layer.minZoom, 10.0)
         XCTAssertEqual(layer.maxZoom, 20.0)
+        XCTAssertEqual(layer.slot, Slot.testConstantValue())
     }
 
     func testEncodingAndDecodingOfLayerProtocolProperties() {
         var layer = BackgroundLayer(id: "test-id")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
+        layer.slot = .testConstantValue()
 
         var data: Data?
         do {
@@ -39,6 +42,7 @@ final class BackgroundLayerTests: XCTestCase {
             XCTAssertEqual(decodedLayer.type, LayerType.background)
             XCTAssertEqual(decodedLayer.minZoom, 10.0)
             XCTAssertEqual(decodedLayer.maxZoom, 20.0)
+            XCTAssertEqual(layer.slot, Slot.testConstantValue())
         } catch {
             XCTFail("Failed to decode BackgroundLayer")
         }
@@ -100,6 +104,25 @@ final class BackgroundLayerTests: XCTestCase {
        } catch {
            XCTFail("Failed to decode BackgroundLayer")
        }
+    }
+
+    func testSetPropertyValueWithFunction() {
+        let layer = BackgroundLayer(id: "test-id")
+            .slot(Slot.testConstantValue())
+            .minZoom(Double.testConstantValue())
+            .maxZoom(Double.testConstantValue())
+            .backgroundColor(StyleColor.testConstantValue())
+            .backgroundEmissiveStrength(Double.testConstantValue())
+            .backgroundOpacity(Double.testConstantValue())
+            .backgroundPattern(String.testConstantValue())
+
+        XCTAssertEqual(layer.slot, Slot.testConstantValue())
+        XCTAssertEqual(layer.minZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.maxZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.backgroundColor, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.backgroundEmissiveStrength, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.backgroundOpacity, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.backgroundPattern, Value<ResolvedImage>.constant(.name(String.testConstantValue())))
     }
 }
 

@@ -106,24 +106,26 @@ final class CameraAnimationsManagerImplTests: XCTestCase {
         let duration = TimeInterval.random(in: 0...10)
         let curve = UIView.AnimationCurve.random()
         let completion = Stub<UIViewAnimatingPosition, Void>()
+        let animationOwner = AnimationOwner.random()
 
         let cancelable = impl.ease(
             to: camera,
             duration: duration,
             curve: curve,
+            animationOwner: animationOwner,
             completion: completion.call(with:))
 
         // cancels any existing high-level animator (identified based on the owner)
         XCTAssertEqual(
             runner.cancelAnimationsWithOwnersStub.invocations.map(\.parameters),
-            [[.cameraAnimationsManager]])
+            [[animationOwner]])
 
         // creates the new animator
         XCTAssertEqual(factory.makeBasicCameraAnimatorWithCurveStub.invocations.count, 1)
         let factoryInvocation = try XCTUnwrap(factory.makeBasicCameraAnimatorWithCurveStub.invocations.first)
         XCTAssertEqual(factoryInvocation.parameters.duration, duration)
         XCTAssertEqual(factoryInvocation.parameters.curve, curve)
-        XCTAssertEqual(factoryInvocation.parameters.animationOwner, .cameraAnimationsManager)
+        XCTAssertEqual(factoryInvocation.parameters.animationOwner, animationOwner)
         let animatorImpl = try XCTUnwrap(factoryInvocation.returnValue as? MockBasicCameraAnimator)
 
         // configures the transition in the animations block

@@ -8,6 +8,7 @@ internal protocol CameraAnimatorsRunnerProtocol: AnyObject {
     func cancelAnimations(withOwners owners: [AnimationOwner])
     func cancelAnimations(withOwners owners: [AnimationOwner], andTypes: [AnimationType])
     func add(_ animator: CameraAnimatorProtocol)
+    var onCameraAnimatorStatusChanged: Signal<CameraAnimatorStatusPayload> { get }
 }
 
 internal final class CameraAnimatorsRunner: CameraAnimatorsRunnerProtocol {
@@ -24,6 +25,9 @@ internal final class CameraAnimatorsRunner: CameraAnimatorsRunnerProtocol {
         }
     }
 
+    private var cameraAnimatorStatusSignal = SignalSubject<CameraAnimatorStatusPayload>()
+    var onCameraAnimatorStatusChanged: Signal<CameraAnimatorStatusPayload> { cameraAnimatorStatusSignal.signal }
+
     /// See ``CameraAnimationsManager/cameraAnimators``.
     internal var cameraAnimators: [CameraAnimator] {
         return allCameraAnimators.allObjects
@@ -34,8 +38,8 @@ internal final class CameraAnimatorsRunner: CameraAnimatorsRunnerProtocol {
 
     /// Strong references only to running camera animators
     private var runningCameraAnimators = [CameraAnimatorProtocol]()
-
     private let mapboxMap: MapboxMapProtocol
+    private var cancelables: Set<AnyCancelable> = []
 
     internal init(mapboxMap: MapboxMapProtocol) {
         self.mapboxMap = mapboxMap
@@ -71,16 +75,28 @@ internal final class CameraAnimatorsRunner: CameraAnimatorsRunnerProtocol {
         }
     }
 
-    internal func add(_ animator: CameraAnimatorProtocol) {
-        animator.delegate = self
+    func add(_ animator: CameraAnimatorProtocol) {
         allCameraAnimators.add(animator)
+
+        animator.onCameraAnimatorStatusChanged.observe { [weak self, weak animator] status in
+            guard let animator else { return }
+            switch status {
+            case .started:
+                self?.cameraAnimatorDidStartRunning(animator)
+            case .stopped(let reason):
+                self?.cameraAnimatorDidStopRunning(animator, reason: reason)
+            case .paused:
+                self?.cameraAnimatorDidPause(animator)
+            }
+        }
+        .store(in: &cancelables)
         if !isEnabled {
             animator.stopAnimation()
         }
     }
 }
 
-extension CameraAnimatorsRunner: CameraAnimatorDelegate {
+extension CameraAnimatorsRunner {
     /// When an animator starts running, `CameraAnimationsRunner` takes a strong reference to it
     /// so that it stays alive while it is running. It also calls `beginAnimation` on `MapboxMap`.
     ///
@@ -92,11 +108,12 @@ extension CameraAnimatorsRunner: CameraAnimatorDelegate {
     ///
     /// Moving this responsibility to `CameraAnimationsRunner` means that if the `MapView` is
     /// deallocated, these strong references will be released as well.
-    internal func cameraAnimatorDidStartRunning(_ cameraAnimator: CameraAnimatorProtocol) {
+    private func cameraAnimatorDidStartRunning(_ cameraAnimator: CameraAnimatorProtocol) {
         if !runningCameraAnimators.contains(where: { $0 === cameraAnimator }) {
             runningCameraAnimators.append(cameraAnimator)
             mapboxMap.beginAnimation()
         }
+        cameraAnimatorStatusSignal.send((cameraAnimator, .started))
     }
 
     /// When an animator stops running, `CameraAnimationsRunner` releases its strong reference to
@@ -105,10 +122,25 @@ extension CameraAnimatorsRunner: CameraAnimatorDelegate {
     ///
     /// See `cameraAnimatorDidStartRunning(_:)` for further discussion of the rationale for this
     /// architecture.
-    internal func cameraAnimatorDidStopRunning(_ cameraAnimator: CameraAnimatorProtocol) {
+    private func cameraAnimatorDidStopRunning(_ cameraAnimator: CameraAnimatorProtocol, reason: CameraAnimatorStatus.StopReason) {
         if runningCameraAnimators.contains(where: { $0 === cameraAnimator }) {
             runningCameraAnimators.removeAll { $0 === cameraAnimator }
             mapboxMap.endAnimation()
         }
+        cameraAnimatorStatusSignal.send((cameraAnimator, .stopped(reason: reason)))
+    }
+
+    /// When an animator is paused, `CameraAnimationsRunner` releases its strong reference to
+    /// it so that it can be deinited if there are no other owning references. It also calls `endAnimation`
+    /// on `MapboxMap`, upon resuming, it will be added back to the runner.
+    ///
+    /// See `cameraAnimatorDidStartRunning(_:)` for further discussion of the rationale for this
+    /// architecture.
+    private func cameraAnimatorDidPause(_ cameraAnimator: CameraAnimatorProtocol) {
+        if runningCameraAnimators.contains(where: { $0 === cameraAnimator }) {
+            runningCameraAnimators.removeAll { $0 === cameraAnimator }
+            mapboxMap.endAnimation()
+        }
+        cameraAnimatorStatusSignal.send((cameraAnimator, .paused))
     }
 }

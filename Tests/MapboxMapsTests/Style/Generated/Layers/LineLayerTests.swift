@@ -1,6 +1,6 @@
 // This file is generated
 import XCTest
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 final class LineLayerTests: XCTestCase {
 
@@ -9,17 +9,20 @@ final class LineLayerTests: XCTestCase {
         var layer = LineLayer(id: "test-id", source: "source")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
+        layer.slot = .testConstantValue()
 
         XCTAssertEqual(layer.id, "test-id")
         XCTAssertEqual(layer.type, LayerType.line)
         XCTAssertEqual(layer.minZoom, 10.0)
         XCTAssertEqual(layer.maxZoom, 20.0)
+        XCTAssertEqual(layer.slot, Slot.testConstantValue())
     }
 
     func testEncodingAndDecodingOfLayerProtocolProperties() {
         var layer = LineLayer(id: "test-id", source: "source")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
+        layer.slot = .testConstantValue()
 
         var data: Data?
         do {
@@ -40,6 +43,7 @@ final class LineLayerTests: XCTestCase {
             XCTAssert(decodedLayer.source == "source")
             XCTAssertEqual(decodedLayer.minZoom, 10.0)
             XCTAssertEqual(decodedLayer.maxZoom, 20.0)
+            XCTAssertEqual(layer.slot, Slot.testConstantValue())
         } catch {
             XCTFail("Failed to decode LineLayer")
         }
@@ -143,6 +147,65 @@ final class LineLayerTests: XCTestCase {
        } catch {
            XCTFail("Failed to decode LineLayer")
        }
+    }
+
+    func testSetPropertyValueWithFunction() {
+        let layer = LineLayer(id: "test-id", source: "source")
+            .filter(Expression.testConstantValue())
+            .source(String.testConstantValue())
+            .sourceLayer(String.testConstantValue())
+            .slot(Slot.testConstantValue())
+            .minZoom(Double.testConstantValue())
+            .maxZoom(Double.testConstantValue())
+            .lineCap(LineCap.testConstantValue())
+            .lineJoin(LineJoin.testConstantValue())
+            .lineMiterLimit(Double.testConstantValue())
+            .lineRoundLimit(Double.testConstantValue())
+            .lineSortKey(Double.testConstantValue())
+            .lineBlur(Double.testConstantValue())
+            .lineBorderColor(StyleColor.testConstantValue())
+            .lineBorderWidth(Double.testConstantValue())
+            .lineColor(StyleColor.testConstantValue())
+            .lineDashArray([Double].testConstantValue())
+            .lineDepthOcclusionFactor(Double.testConstantValue())
+            .lineEmissiveStrength(Double.testConstantValue())
+            .lineGapWidth(Double.testConstantValue())
+            .lineGradient(StyleColor.testConstantValue())
+            .lineOffset(Double.testConstantValue())
+            .lineOpacity(Double.testConstantValue())
+            .linePattern(String.testConstantValue())
+            .lineTranslate(x: 0, y: 1)
+            .lineTranslateAnchor(LineTranslateAnchor.testConstantValue())
+            .lineTrimOffset(start: 0, end: 1)
+            .lineWidth(Double.testConstantValue())
+
+        XCTAssertEqual(layer.filter, Expression.testConstantValue())
+        XCTAssertEqual(layer.source, String.testConstantValue())
+        XCTAssertEqual(layer.sourceLayer, String.testConstantValue())
+        XCTAssertEqual(layer.slot, Slot.testConstantValue())
+        XCTAssertEqual(layer.minZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.maxZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.lineCap, Value.constant(LineCap.testConstantValue()))
+        XCTAssertEqual(layer.lineJoin, Value.constant(LineJoin.testConstantValue()))
+        XCTAssertEqual(layer.lineMiterLimit, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.lineRoundLimit, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.lineSortKey, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.lineBlur, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.lineBorderColor, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.lineBorderWidth, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.lineColor, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.lineDasharray, Value.constant([Double].testConstantValue()))
+        XCTAssertEqual(layer.lineDepthOcclusionFactor, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.lineEmissiveStrength, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.lineGapWidth, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.lineGradient, Value.constant(StyleColor.testConstantValue()))
+        XCTAssertEqual(layer.lineOffset, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.lineOpacity, Value.constant(Double.testConstantValue()))
+        XCTAssertEqual(layer.linePattern, Value<ResolvedImage>.constant(.name(String.testConstantValue())))
+        XCTAssertEqual(layer.lineTranslate, Value.constant([0, 1]))
+        XCTAssertEqual(layer.lineTranslateAnchor, Value.constant(LineTranslateAnchor.testConstantValue()))
+        XCTAssertEqual(layer.lineTrimOffset, Value.constant([0, 1]))
+        XCTAssertEqual(layer.lineWidth, Value.constant(Double.testConstantValue()))
     }
 }
 
