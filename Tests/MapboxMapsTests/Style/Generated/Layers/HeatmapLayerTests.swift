@@ -1,6 +1,6 @@
 // This file is generated
 import XCTest
-@_spi(Experimental) @testable import MapboxMaps
+@testable import MapboxMaps
 
 final class HeatmapLayerTests: XCTestCase {
 
@@ -9,20 +9,17 @@ final class HeatmapLayerTests: XCTestCase {
         var layer = HeatmapLayer(id: "test-id", source: "source")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
-        layer.slot = .testConstantValue()
 
         XCTAssertEqual(layer.id, "test-id")
         XCTAssertEqual(layer.type, LayerType.heatmap)
         XCTAssertEqual(layer.minZoom, 10.0)
         XCTAssertEqual(layer.maxZoom, 20.0)
-        XCTAssertEqual(layer.slot, Slot.testConstantValue())
     }
 
     func testEncodingAndDecodingOfLayerProtocolProperties() {
         var layer = HeatmapLayer(id: "test-id", source: "source")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
-        layer.slot = .testConstantValue()
 
         var data: Data?
         do {
@@ -43,7 +40,6 @@ final class HeatmapLayerTests: XCTestCase {
             XCTAssert(decodedLayer.source == "source")
             XCTAssertEqual(decodedLayer.minZoom, 10.0)
             XCTAssertEqual(decodedLayer.maxZoom, 20.0)
-            XCTAssertEqual(layer.slot, Slot.testConstantValue())
         } catch {
             XCTFail("Failed to decode HeatmapLayer")
         }
@@ -107,33 +103,6 @@ final class HeatmapLayerTests: XCTestCase {
        } catch {
            XCTFail("Failed to decode HeatmapLayer")
        }
-    }
-
-    func testSetPropertyValueWithFunction() {
-        let layer = HeatmapLayer(id: "test-id", source: "source")
-            .filter(Expression.testConstantValue())
-            .source(String.testConstantValue())
-            .sourceLayer(String.testConstantValue())
-            .slot(Slot.testConstantValue())
-            .minZoom(Double.testConstantValue())
-            .maxZoom(Double.testConstantValue())
-            .heatmapColor(StyleColor.testConstantValue())
-            .heatmapIntensity(Double.testConstantValue())
-            .heatmapOpacity(Double.testConstantValue())
-            .heatmapRadius(Double.testConstantValue())
-            .heatmapWeight(Double.testConstantValue())
-
-        XCTAssertEqual(layer.filter, Expression.testConstantValue())
-        XCTAssertEqual(layer.source, String.testConstantValue())
-        XCTAssertEqual(layer.sourceLayer, String.testConstantValue())
-        XCTAssertEqual(layer.slot, Slot.testConstantValue())
-        XCTAssertEqual(layer.minZoom, Double.testConstantValue())
-        XCTAssertEqual(layer.maxZoom, Double.testConstantValue())
-        XCTAssertEqual(layer.heatmapColor, Value.constant(StyleColor.testConstantValue()))
-        XCTAssertEqual(layer.heatmapIntensity, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.heatmapOpacity, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.heatmapRadius, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.heatmapWeight, Value.constant(Double.testConstantValue()))
     }
 }
 

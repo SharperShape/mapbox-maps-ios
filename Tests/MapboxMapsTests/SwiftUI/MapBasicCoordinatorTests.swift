@@ -31,21 +31,10 @@ final class MapBasicCoordinatorTests: XCTestCase {
 
     func testStyleURI() {
         update(with: MapDependencies(mapStyle: .light))
-
-        var styleData = mapView.style.mapStyle?.data
-        if case let .uri(styleURI) = styleData {
-            XCTAssertEqual(styleURI.rawValue, "mapbox://styles/mapbox/light-v11")
-        } else {
-            XCTFail("Failed to update mapStyle")
-        }
+        XCTAssertEqual(mapView.style.mapStyle, .light)
 
         update(with: MapDependencies(mapStyle: .dark))
-        styleData = mapView.style.mapStyle?.data
-        if case let .uri(styleURI) = styleData {
-            XCTAssertEqual(styleURI.rawValue, "mapbox://styles/mapbox/dark-v11")
-        } else {
-            XCTFail("Failed to update mapStyle")
-        }
+        XCTAssertEqual(mapView.style.mapStyle, .dark)
     }
 
     func testMapOptions() {
@@ -260,13 +249,7 @@ extension PerformanceStatistics {
         PerformanceStatistics(
             collectionDurationMillis: 1000,
             mapRenderDurationStatistics: DurationStatistics(maxMillis: 0, medianMillis: 0),
-            cumulativeStatistics: CumulativeRenderingStatistics(
-                drawCalls: nil,
-                textureBytes: nil,
-                vertexBytes: nil,
-                graphicsPrograms: nil,
-                graphicsProgramsCreationTimeMillis: nil
-            ),
+            cumulativeStatistics: CumulativeRenderingStatistics(drawCalls: nil, textureBytes: nil, vertexBytes: nil),
             perFrameStatistics: PerFrameRenderingStatistics(
                 topRenderGroups: [],
                 topRenderLayers: [],

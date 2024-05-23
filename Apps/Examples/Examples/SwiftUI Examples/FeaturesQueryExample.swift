@@ -12,7 +12,7 @@ struct FeaturesQueryExample: View {
                     // Annotations that shows tap location.
                     if let queryResult = model.queryResult {
                         CircleAnnotation(centerCoordinate: queryResult.coordinate)
-                            .circleColor(.red)
+                            .circleColor(.init(.red))
                             .circleRadius(8)
                     }
                 }

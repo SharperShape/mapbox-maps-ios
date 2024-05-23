@@ -5,7 +5,7 @@ import Foundation
 /// To add the data, set options with a ``CustomRasterSourceOptions`` with a fetchTileFunction callback
     @_documentation(visibility: public)
 @_spi(Experimental)
-public struct CustomRasterSource: Source, Equatable {
+public struct CustomRasterSource: Source {
 
     /// The Source type
     @_documentation(visibility: public)

@@ -9,20 +9,17 @@ final class FillExtrusionLayerTests: XCTestCase {
         var layer = FillExtrusionLayer(id: "test-id", source: "source")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
-        layer.slot = .testConstantValue()
 
         XCTAssertEqual(layer.id, "test-id")
         XCTAssertEqual(layer.type, LayerType.fillExtrusion)
         XCTAssertEqual(layer.minZoom, 10.0)
         XCTAssertEqual(layer.maxZoom, 20.0)
-        XCTAssertEqual(layer.slot, Slot.testConstantValue())
     }
 
     func testEncodingAndDecodingOfLayerProtocolProperties() {
         var layer = FillExtrusionLayer(id: "test-id", source: "source")
         layer.minZoom = 10.0
         layer.maxZoom = 20.0
-        layer.slot = .testConstantValue()
 
         var data: Data?
         do {
@@ -43,7 +40,6 @@ final class FillExtrusionLayerTests: XCTestCase {
             XCTAssert(decodedLayer.source == "source")
             XCTAssertEqual(decodedLayer.minZoom, 10.0)
             XCTAssertEqual(decodedLayer.maxZoom, 20.0)
-            XCTAssertEqual(layer.slot, Slot.testConstantValue())
         } catch {
             XCTFail("Failed to decode FillExtrusionLayer")
         }
@@ -157,69 +153,6 @@ final class FillExtrusionLayerTests: XCTestCase {
        } catch {
            XCTFail("Failed to decode FillExtrusionLayer")
        }
-    }
-
-    func testSetPropertyValueWithFunction() {
-        let layer = FillExtrusionLayer(id: "test-id", source: "source")
-            .filter(Expression.testConstantValue())
-            .source(String.testConstantValue())
-            .sourceLayer(String.testConstantValue())
-            .slot(Slot.testConstantValue())
-            .minZoom(Double.testConstantValue())
-            .maxZoom(Double.testConstantValue())
-            .fillExtrusionEdgeRadius(Double.testConstantValue())
-            .fillExtrusionAmbientOcclusionGroundAttenuation(Double.testConstantValue())
-            .fillExtrusionAmbientOcclusionGroundRadius(Double.testConstantValue())
-            .fillExtrusionAmbientOcclusionIntensity(Double.testConstantValue())
-            .fillExtrusionAmbientOcclusionRadius(Double.testConstantValue())
-            .fillExtrusionAmbientOcclusionWallRadius(Double.testConstantValue())
-            .fillExtrusionBase(Double.testConstantValue())
-            .fillExtrusionColor(StyleColor.testConstantValue())
-            .fillExtrusionCutoffFadeRange(Double.testConstantValue())
-            .fillExtrusionEmissiveStrength(Double.testConstantValue())
-            .fillExtrusionFloodLightColor(StyleColor.testConstantValue())
-            .fillExtrusionFloodLightGroundAttenuation(Double.testConstantValue())
-            .fillExtrusionFloodLightGroundRadius(Double.testConstantValue())
-            .fillExtrusionFloodLightIntensity(Double.testConstantValue())
-            .fillExtrusionFloodLightWallRadius(Double.testConstantValue())
-            .fillExtrusionHeight(Double.testConstantValue())
-            .fillExtrusionOpacity(Double.testConstantValue())
-            .fillExtrusionPattern(String.testConstantValue())
-            .fillExtrusionRoundedRoof(Bool.testConstantValue())
-            .fillExtrusionTranslate(x: 0, y: 1)
-            .fillExtrusionTranslateAnchor(FillExtrusionTranslateAnchor.testConstantValue())
-            .fillExtrusionVerticalGradient(Bool.testConstantValue())
-            .fillExtrusionVerticalScale(Double.testConstantValue())
-
-        XCTAssertEqual(layer.filter, Expression.testConstantValue())
-        XCTAssertEqual(layer.source, String.testConstantValue())
-        XCTAssertEqual(layer.sourceLayer, String.testConstantValue())
-        XCTAssertEqual(layer.slot, Slot.testConstantValue())
-        XCTAssertEqual(layer.minZoom, Double.testConstantValue())
-        XCTAssertEqual(layer.maxZoom, Double.testConstantValue())
-        XCTAssertEqual(layer.fillExtrusionEdgeRadius, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionAmbientOcclusionGroundAttenuation, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionAmbientOcclusionGroundRadius, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionAmbientOcclusionIntensity, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionAmbientOcclusionRadius, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionAmbientOcclusionWallRadius, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionBase, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionColor, Value.constant(StyleColor.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionCutoffFadeRange, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionEmissiveStrength, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionFloodLightColor, Value.constant(StyleColor.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionFloodLightGroundAttenuation, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionFloodLightGroundRadius, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionFloodLightIntensity, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionFloodLightWallRadius, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionHeight, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionOpacity, Value.constant(Double.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionPattern, Value<ResolvedImage>.constant(.name(String.testConstantValue())))
-        XCTAssertEqual(layer.fillExtrusionRoundedRoof, Value.constant(Bool.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionTranslate, Value.constant([0, 1]))
-        XCTAssertEqual(layer.fillExtrusionTranslateAnchor, Value.constant(FillExtrusionTranslateAnchor.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionVerticalGradient, Value.constant(Bool.testConstantValue()))
-        XCTAssertEqual(layer.fillExtrusionVerticalScale, Value.constant(Double.testConstantValue()))
     }
 }
 

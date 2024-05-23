@@ -104,24 +104,23 @@ final class StyleManagerTests: XCTestCase {
     }
 
     func testGetStyleTransition() {
-        let stubTransition = TransitionOptions(
+        let stubTransition = MapboxCoreMaps.TransitionOptions(
             duration: .random(in: 0...300),
             delay: .random(in: 0...300),
             enablePlacementTransitions: .random())
-        styleManager.getStyleTransitionStub.defaultReturnValue = stubTransition.coreOptions
+        styleManager.getStyleTransitionStub.defaultReturnValue = stubTransition
 
         XCTAssertEqual(style.styleTransition, stubTransition)
     }
 
-    func testSetStyleTransition() throws {
-        let stubTransition = TransitionOptions(
+    func testSetStyleTransition() {
+        let stubTransition = MapboxCoreMaps.TransitionOptions(
             duration: .random(in: 0...300),
             delay: .random(in: 0...300),
             enablePlacementTransitions: .random())
         style.styleTransition = stubTransition
 
-        let coreTransitionOptions = try XCTUnwrap(styleManager.setStyleTransitionStub.invocations.last?.parameters)
-        XCTAssertEqual(TransitionOptions(coreTransitionOptions), stubTransition)
+        XCTAssertEqual(styleManager.setStyleTransitionStub.invocations.last?.parameters, stubTransition)
     }
 
     // MARK: Layer
@@ -361,16 +360,8 @@ final class StyleManagerTests: XCTestCase {
         styleManager.setStyleTerrainForPropertiesStub.defaultReturnValue = Expected(value: NSNull())
         XCTAssertNoThrow(try style.setTerrain(properties: ["foo": "bar"]))
 
-        styleManager.setStyleTerrainForPropertiesStub.defaultReturnValue = Expected(error: "Cannot set terrain source properties")
+        styleManager.setStyleTerrainForPropertiesStub.defaultReturnValue = Expected(error: "Cannot set light source properties")
         XCTAssertThrowsError(try style.setTerrain(properties: ["foo": "bar"]))
-    }
-
-    func testStyleCanSetTerrainSourceProperty() {
-        styleManager.setStyleTerrainPropertyStub.defaultReturnValue = Expected(value: NSNull())
-        XCTAssertNoThrow(try style.setTerrainProperty("foo", value: "bar"))
-
-        styleManager.setStyleTerrainPropertyStub.defaultReturnValue = Expected(error: "Cannot set terrain source property")
-        XCTAssertThrowsError(try style.setTerrainProperty("foo", value: "bar"))
     }
 
     // MARK: Custom Geometry
@@ -719,7 +710,7 @@ final class StyleManagerTests: XCTestCase {
     func testRemoveStyleImport() {
         let importId = UUID().uuidString
 
-        try? style.removeStyleImport(withId: importId)
+        try? style.removeStyleImport(for: importId)
         XCTAssertEqual(styleManager.removeStyleImportStub.invocations.count, 1)
         XCTAssertEqual(styleManager.removeStyleImportStub.invocations.first?.parameters.importId, importId)
     }

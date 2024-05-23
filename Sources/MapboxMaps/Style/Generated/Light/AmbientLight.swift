@@ -1,10 +1,10 @@
 // This file is generated.
-import UIKit
+import Foundation
 
 /// An indirect light affecting all objects in the map adding a constant amount of light on them. It has no explicit direction and cannot cast shadows.
 ///
 /// - SeeAlso: [Mapbox Style Specification](https://www.mapbox.com/mapbox-gl-style-spec/#light)
-public struct AmbientLight: Codable, StyleEncodable, Equatable {
+public struct AmbientLight: Codable, StyleEncodable {
 
     /// Unique light name
     public let id: String
@@ -67,56 +67,4 @@ public struct AmbientLight: Codable, StyleEncodable, Equatable {
     }
 }
 
-extension AmbientLight {
-    /// Color of the ambient light.
-    @_documentation(visibility: public)
-    public func color(_ constant: StyleColor) -> Self {
-        with(self, setter(\.color, .constant(constant)))
-    }
-
-    /// Color of the ambient light.
-    @_documentation(visibility: public)
-    public func color(_ color: UIColor) -> Self {
-        with(self, setter(\.color, .constant(StyleColor(color))))
-    }
-
-    /// Transition property for `color`
-    @_documentation(visibility: public)
-    public func colorTransition(_ transition: StyleTransition) -> Self {
-        with(self, setter(\.colorTransition, transition))
-    }
-
-    /// Color of the ambient light.
-    @_documentation(visibility: public)
-    public func color(_ expression: Expression) -> Self {
-        with(self, setter(\.color, .expression(expression)))
-    }
-
-
-    /// A multiplier for the color of the ambient light.
-    @_documentation(visibility: public)
-    public func intensity(_ constant: Double) -> Self {
-        with(self, setter(\.intensity, .constant(constant)))
-    }
-
-    /// Transition property for `intensity`
-    @_documentation(visibility: public)
-    public func intensityTransition(_ transition: StyleTransition) -> Self {
-        with(self, setter(\.intensityTransition, transition))
-    }
-
-    /// A multiplier for the color of the ambient light.
-    @_documentation(visibility: public)
-    public func intensity(_ expression: Expression) -> Self {
-        with(self, setter(\.intensity, .expression(expression)))
-    }
-}
-
-@_spi(Experimental)
-@available(iOS 13.0, *)
-extension AmbientLight: MapStyleContent, PrimitiveMapContent {
-    func visit(_ node: MapContentNode) {
-        node.mount(MountedUniqueProperty(keyPath: \.lights.ambient, value: self))
-    }
-}
 // End of generated file.

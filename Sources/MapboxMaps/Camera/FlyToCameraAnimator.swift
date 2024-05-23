@@ -29,6 +29,7 @@ public final class FlyToCameraAnimator: CameraAnimator, CameraAnimatorProtocol {
     }
 
     let animationType: AnimationType
+    weak var delegate: CameraAnimatorDelegate?
 
     private let mapboxMap: MapboxMapProtocol
     private let mainQueue: MainQueueProtocol
@@ -38,38 +39,13 @@ public final class FlyToCameraAnimator: CameraAnimator, CameraAnimatorProtocol {
     private let unitBezier: UnitBezier
     private var completionBlocks = [AnimationCompletion]()
 
-    private let cameraAnimatorStatusSignal = SignalSubject<CameraAnimatorStatus>()
-    var onCameraAnimatorStatusChanged: Signal<CameraAnimatorStatus> { cameraAnimatorStatusSignal.signal }
-
-    /// Emits a signal when this animator has started.
-    public var onStarted: Signal<Void> {
-        onCameraAnimatorStatusChanged
-            .filter { $0 == .started }
-            .map { _ in }
-    }
-
-    /// Emits a signal when this animator has finished.
-    public var onFinished: Signal<Void> {
-        onCameraAnimatorStatusChanged
-            .filter { $0 == .stopped(reason: .finished) }
-            .map { _ in }
-    }
-
-    /// Emits a signal when this animator is cancelled.
-    public var onCancelled: Signal<Void> {
-        onCameraAnimatorStatusChanged
-            .filter { $0 == .stopped(reason: .cancelled) }
-            .map { _ in }
-    }
-
     private var internalState = InternalState.initial {
         didSet {
             switch (oldValue, internalState) {
             case (.initial, .running):
-                cameraAnimatorStatusSignal.send(.started)
-            case (.running, .final(let position)):
-                let isCancelled = position != .end
-                cameraAnimatorStatusSignal.send(.stopped(reason: isCancelled ? .cancelled : .finished))
+                delegate?.cameraAnimatorDidStartRunning(self)
+            case (.running, .final):
+                delegate?.cameraAnimatorDidStopRunning(self)
             default:
                 // this matches cases where…
                 // * oldValue and internalState are the same

@@ -17,6 +17,9 @@ internal protocol CameraAnimatorProtocol: CameraAnimator {
     /// Type of the embeded animation
     var animationType: AnimationType { get }
 
+    /// Implementations must use a weak reference.
+    var delegate: CameraAnimatorDelegate? { get set }
+
     /// Adds a completion block to the animator. If the animator is already complete,
     /// implementations should invoke the completion block asynchronously with the
     /// same `UIViewAnimatingPosition` value as when it completed.
@@ -27,6 +30,9 @@ internal protocol CameraAnimatorProtocol: CameraAnimator {
 
     /// Called at each display link to allow animators to update the camera.
     func update()
+}
 
-    var onCameraAnimatorStatusChanged: Signal<CameraAnimatorStatus> { get }
+internal protocol CameraAnimatorDelegate: AnyObject {
+    func cameraAnimatorDidStartRunning(_ cameraAnimator: CameraAnimatorProtocol)
+    func cameraAnimatorDidStopRunning(_ cameraAnimator: CameraAnimatorProtocol)
 }

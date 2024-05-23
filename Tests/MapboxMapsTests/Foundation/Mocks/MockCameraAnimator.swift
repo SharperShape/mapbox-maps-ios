@@ -2,8 +2,6 @@ import UIKit
 @testable import MapboxMaps
 
 final class MockCameraAnimator: NSObject, CameraAnimatorProtocol {
-    @TestSignal var onCameraAnimatorStatusChanged: Signal<CameraAnimatorStatus>
-
     let cancelStub = Stub<Void, Void>()
     func cancel() {
         cancelStub.call()
@@ -19,6 +17,8 @@ final class MockCameraAnimator: NSObject, CameraAnimatorProtocol {
     @Stubbed var owner: AnimationOwner = .random()
 
     @Stubbed var animationType: AnimationType = .unspecified
+
+    @Stubbed var delegate: CameraAnimatorDelegate?
 
     let addCompletionStub = Stub<AnimationCompletion, Void>()
     func addCompletion(_ completion: @escaping AnimationCompletion) {

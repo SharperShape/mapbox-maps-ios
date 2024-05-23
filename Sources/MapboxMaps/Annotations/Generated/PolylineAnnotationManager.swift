@@ -2,6 +2,7 @@
 import Foundation
 import os
 @_implementationOnly import MapboxCommon_Private
+
 /// An instance of `PolylineAnnotationManager` is responsible for a collection of `PolylineAnnotation`s.
 public class PolylineAnnotationManager: AnnotationManagerInternal {
     typealias OffsetCalculatorType = OffsetLineStringCalculator
@@ -13,16 +14,6 @@ public class PolylineAnnotationManager: AnnotationManagerInternal {
     private var dragId: String { "\(id)_drag" }
 
     public let id: String
-
-    var layerPosition: LayerPosition? {
-        didSet {
-            do {
-                try style.moveLayer(withId: layerId, to: layerPosition ?? .default)
-            } catch {
-                Log.error(forMessage: "Failed to mover layer to a new position. Error: \(error)", category: "Annotations")
-            }
-        }
-    }
 
     /// The collection of ``PolylineAnnotation`` being managed.
     ///
@@ -124,23 +115,7 @@ public class PolylineAnnotationManager: AnnotationManagerInternal {
         }
     }
 
-    var idsMap = [AnyHashable: String]()
-
-    func set(newAnnotations: [(AnyHashable, PolylineAnnotation)]) {
-        var resolvedAnnotations = [PolylineAnnotation]()
-        newAnnotations.forEach { elementId, annotation in
-            var annotation = annotation
-            let stringId = idsMap[elementId] ?? annotation.id
-            idsMap[elementId] = stringId
-            annotation.id = stringId
-            annotation.isDraggable = false
-            annotation.isSelected = false
-            resolvedAnnotations.append(annotation)
-        }
-        annotations = resolvedAnnotations
-    }
-      
-    func destroy() {
+    internal func destroy() {
         guard destroyOnce.continueOnce() else { return }
 
         displayLinkToken?.cancel()

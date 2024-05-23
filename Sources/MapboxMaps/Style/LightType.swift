@@ -1,7 +1,7 @@
 import Foundation
 
 /// Supported light types
-public struct LightType: RawRepresentable, Codable, Equatable {
+public struct LightType: RawRepresentable, Codable {
 
     /// A global directional light.
     public static let flat = LightType(rawValue: "flat")

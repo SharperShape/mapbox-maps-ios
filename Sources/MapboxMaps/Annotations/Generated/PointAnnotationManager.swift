@@ -2,6 +2,7 @@
 import Foundation
 import os
 @_implementationOnly import MapboxCommon_Private
+
 /// An instance of `PointAnnotationManager` is responsible for a collection of `PointAnnotation`s.
 public class PointAnnotationManager: AnnotationManagerInternal {
     typealias OffsetCalculatorType = OffsetPointCalculator
@@ -15,16 +16,6 @@ public class PointAnnotationManager: AnnotationManagerInternal {
     private var clusterId: String { "mapbox-iOS-cluster-circle-layer-manager-\(id)" }
 
     public let id: String
-
-    var layerPosition: LayerPosition? {
-        didSet {
-            do {
-                try style.moveLayer(withId: layerId, to: layerPosition ?? .default)
-            } catch {
-                Log.error(forMessage: "Failed to mover layer to a new position. Error: \(error)", category: "Annotations")
-            }
-        }
-    }
 
     /// The collection of ``PointAnnotation`` being managed.
     ///
@@ -209,23 +200,7 @@ public class PointAnnotationManager: AnnotationManagerInternal {
         }
     }
 
-    var idsMap = [AnyHashable: String]()
-
-    func set(newAnnotations: [(AnyHashable, PointAnnotation)]) {
-        var resolvedAnnotations = [PointAnnotation]()
-        newAnnotations.forEach { elementId, annotation in
-            var annotation = annotation
-            let stringId = idsMap[elementId] ?? annotation.id
-            idsMap[elementId] = stringId
-            annotation.id = stringId
-            annotation.isDraggable = false
-            annotation.isSelected = false
-            resolvedAnnotations.append(annotation)
-        }
-        annotations = resolvedAnnotations
-    }
-      
-    func destroy() {
+    internal func destroy() {
         guard destroyOnce.continueOnce() else { return }
 
         displayLinkToken?.cancel()

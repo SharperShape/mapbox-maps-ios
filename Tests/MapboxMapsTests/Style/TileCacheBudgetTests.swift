@@ -22,12 +22,12 @@ final class TileCacheBudgetTests: XCTestCase {
     }
 
     func testConversionError() {
-        let invalidJson = Data("""
+        let invalidJson = """
             {
                 "tiles": 42,
                 "megabytes": 74
             }
-        """.utf8)
+        """.data(using: .utf8)!
 
         do {
             _ = try JSONDecoder().decode(TileCacheBudgetSize.self, from: invalidJson)

@@ -294,22 +294,45 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
     private func commonInit(mapInitOptions: MapInitOptions, overridingStyleURI: URL?) {
         checkForMetalSupport()
 
-        let resolvedMapInitOptions = mapInitOptions.resolved(
-            in: bounds,
-            overridingStyleURI: overridingStyleURI
-        )
+        let resolvedMapInitOptions: MapInitOptions
+        if mapInitOptions.mapOptions.size == nil {
+            // Update using the view's size
+            let original = mapInitOptions.mapOptions
+            let resolvedMapOptions = MapOptions(
+                __contextMode: original.__contextMode,
+                constrainMode: original.__constrainMode,
+                viewportMode: original.__viewportMode,
+                orientation: original.__orientation,
+                crossSourceCollisions: original.__crossSourceCollisions,
+                size: Size(width: Float(bounds.width), height: Float(bounds.height)),
+                pixelRatio: original.pixelRatio,
+                glyphsRasterizationOptions: original.glyphsRasterizationOptions)
+
+            // Use the overriding style URI if provided (currently from IB)
+            let resolvedStyleURI = overridingStyleURI.map { StyleURI(url: $0) } ?? mapInitOptions.styleURI
+
+            resolvedMapInitOptions = MapInitOptions(
+                mapOptions: resolvedMapOptions,
+                cameraOptions: mapInitOptions.cameraOptions,
+                styleURI: resolvedStyleURI,
+                styleJSON: mapInitOptions.styleJSON)
+        } else {
+            resolvedMapInitOptions = mapInitOptions
+        }
 
         self.pixelRatio = CGFloat(resolvedMapInitOptions.mapOptions.pixelRatio)
 
-        mapboxMap = makeMapboxMap(resolvedMapInitOptions: resolvedMapInitOptions)
+        let mapClient = DelegatingMapClient()
+        mapClient.delegate = self
+        mapboxMap = MapboxMap(
+            mapClient: mapClient,
+            mapInitOptions: resolvedMapInitOptions)
 
         subscribeToLifecycleNotifications()
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(didReceiveMemoryWarning),
-            name: UIApplication.didReceiveMemoryWarningNotification,
-            object: nil
-        )
+        notificationCenter.addObserver(self,
+                                       selector: #selector(didReceiveMemoryWarning),
+                                       name: UIApplication.didReceiveMemoryWarningNotification,
+                                       object: nil)
 
         if let initialStyleJSON = resolvedMapInitOptions.styleJSON {
             mapboxMap.mapStyle = MapStyle(json: initialStyleJSON)
@@ -326,6 +349,7 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
         }
 
         addConstrained(child: viewAnnotationContainerView, add: false)
+
         cameraViewContainerView.isHidden = true
         addSubview(cameraViewContainerView)
 
@@ -333,14 +357,6 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
 
         // Set up managers
         setupManagers()
-    }
-
-    private func makeMapboxMap(resolvedMapInitOptions: MapInitOptions) -> MapboxMap {
-        let mapClient = DelegatingMapClient()
-        mapClient.delegate = self
-        let map = CoreMap(client: mapClient, mapOptions: resolvedMapInitOptions.mapOptions)
-
-        return MapboxMap(map: map, events: MapEvents(observable: map))
     }
 
     internal func sendInitialTelemetryEvents() {
@@ -367,10 +383,10 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
             style: mapboxMap,
             displayLink: displayLinkSignalSubject.signal
         )
-
         annotations = AnnotationOrchestrator(
             impl: annotationsImpl
         )
+
         // Initialize/Configure gesture manager
         gestures = dependencyProvider.makeGestureManager(
             view: self,
@@ -568,11 +584,9 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
         mapboxMap.size = size
 
         metalView.drawableSize = CGSize(width: size.width * pixelRatio, height: size.height * pixelRatio)
-        if metalView.contentScaleFactor != pixelRatio {
-            // DrawableSize setter will recalculate `contentScaleFactor` if the new drawableSize doesn't fit into
-            // the current bounds.size and scale.
-            Log.error(forMessage: "MetalView content scale factor \(metalView.contentScaleFactor) is not equal to pixel ratio \(pixelRatio)")
-        }
+        // DrawableSize setter will recalculate `contentScaleFactor` if the new drawableSize doesn't fit into
+        // the current bounds.size and scale.
+        assert(metalView.contentScaleFactor == pixelRatio)
 
         // GL-Native will trigger update on `mapboxMap.size` update but it will come in the next frame.
         // To reduce glitches we can schedule repaint in the next frame to resize map texture.
@@ -631,8 +645,6 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
         }
     }
 
-    private(set) var didMoveToCarPlayWindow = false
-
     open override func didMoveToWindow() {
         super.didMoveToWindow()
 
@@ -642,11 +654,6 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
         guard let window = window else {
             cameraAnimatorsRunner.isEnabled = false
             return
-        }
-
-        if window.isCarPlay, !didMoveToCarPlayWindow {
-            didMoveToCarPlayWindow = true
-            sendTelemetry(\.carPlay)
         }
 
         displayLink = dependencyProvider.makeDisplayLink(

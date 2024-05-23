@@ -32,12 +32,7 @@ final class Custom3DPuckExample: UIViewController, ExampleProtocol {
         // Instantiate the model
         let myModel = Model(uri: uri, orientation: [0, 0, 180])
 
-        let configuration = Puck3DConfiguration(
-            model: myModel,
-            modelScale: .constant([10, 10, 10]),
-            modelOpacity: .constant(0.5),
-            layerPosition: .default
-        )
+        let configuration = Puck3DConfiguration(model: myModel, modelScale: .constant([10, 10, 10]), modelOpacity: .constant(0.5))
         mapView.location.options.puckType = .puck3D(configuration)
         mapView.location.options.puckBearing = .course
         mapView.location.options.puckBearingEnabled = true

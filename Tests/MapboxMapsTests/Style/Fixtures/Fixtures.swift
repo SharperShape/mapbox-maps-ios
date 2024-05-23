@@ -1,5 +1,4 @@
 import Foundation
-import UIKit
 @_spi(Experimental) @testable import MapboxMaps
 
 internal extension Double {
@@ -25,12 +24,6 @@ internal extension String {
 
     static func testConstantValue() -> String {
         return "test-string"
-    }
-}
-
-internal extension Expression {
-    static func testConstantValue() -> Expression {
-        return Expression(.all)
     }
 }
 
@@ -88,24 +81,6 @@ internal extension Bool {
 
     static func testConstantValue() -> Bool {
         return true
-    }
-}
-
-internal extension UIEdgeInsets {
-    static func testConstantValue() -> UIEdgeInsets {
-        return UIEdgeInsets()
-    }
-}
-
-internal extension Slot {
-    static func testConstantValue() -> Slot {
-        return Slot.init(stringLiteral: "bottom")
-    }
-}
-
-internal extension LayerPosition {
-    static func testConstantValue() -> LayerPosition {
-        return LayerPosition.at(1)
     }
 }
 
