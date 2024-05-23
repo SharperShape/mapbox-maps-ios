@@ -7,15 +7,7 @@ final class BasicMapExample: UIViewController, ExampleProtocol {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        let cameraOptions = CameraOptions(
-            center: CLLocationCoordinate2D(latitude: 41.879, longitude: -87.635),
-            zoom: 16,
-            bearing: 12,
-            pitch: 60)
-        let options = MapInitOptions(cameraOptions: cameraOptions)
-
-        mapView = MapView(frame: view.bounds, mapInitOptions: options)
-
+        mapView = MapView(frame: view.bounds)
         mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         mapView.ornaments.options.scaleBar.visibility = .visible
 

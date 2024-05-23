@@ -76,7 +76,7 @@ final class CameraAnimatorsExample: UIViewController, ExampleProtocol {
     func startCameraAnimations() {
         os_log(.default, "Animating zoom from zoom to lvl 14")
 
-        // Declare an animator that changes the map's bearing
+        // Declare an animator that changes the map's
         let bearingAnimator = mapView.camera.makeAnimator(duration: 4, curve: .easeInOut) { (transition) in
             transition.bearing.toValue = -45
         }
@@ -87,9 +87,6 @@ final class CameraAnimatorsExample: UIViewController, ExampleProtocol {
                 self.animationState = .stop
             }
         }
-        bearingAnimator.onStarted.observe {
-            os_log(.default, "Bearing animator has started")
-        }.store(in: &cancelables)
 
         // Declare an animator that changes the map's pitch.
         let pitchAnimator = mapView.camera.makeAnimator(duration: 2, curve: .easeInOut) { (transition) in

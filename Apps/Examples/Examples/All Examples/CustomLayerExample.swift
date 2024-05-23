@@ -4,44 +4,20 @@ import MetalKit
 
 final class CustomLayerExample: UIViewController, ExampleProtocol {
     private var mapView: MapView!
-
-    var colorArray = [
-        simd_float4(1, 0, 0, 0.5),
-        simd_float4(0.5, 0, 0, 0.5),
-        simd_float4(0, 1, 0, 0.5),
-        simd_float4(0, 0.5, 0, 0.5),
-        simd_float4(0, 0, 1, 0.5),
-        simd_float4(0, 0, 0.5, 0.5),
-    ]
-
-    // The CustomLayerExampleCustomLayerHost() should be created and stored outside of MapStyleContent so that it is not recreated with every style update.
-    let renderer = CustomLayerExampleCustomLayerHost()
+    private var cancelables = Set<AnyCancelable>()
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Update", style: .plain, target: self, action: #selector(barButtonTap(_:)))
 
         let cameraOptions = CameraOptions(center: CLLocationCoordinate2D(latitude: 58, longitude: 20), zoom: 3)
-
-        mapView = MapView(frame: view.bounds, mapInitOptions: MapInitOptions(cameraOptions: cameraOptions))
-        mapView.mapboxMap.mapStyle = .streets 
-        if #available(iOS 13.0, *) {
-            mapView.mapboxMap.setMapStyleContent {
-                StyleProjection(name: .mercator)
-                CustomLayer(id: "custom-layer-example", renderer: renderer)
-                    .position(.below("waterway"))
-            }
-        }
-
+        mapView = MapView(frame: view.bounds, mapInitOptions: MapInitOptions(cameraOptions: cameraOptions, styleURI: .streets))
         mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(mapView)
-    }
 
-    @objc func barButtonTap(_ barButtonItem: UIBarButtonItem) {
-        renderer.colors = colorArray.shuffled()
-
-        // You must trigger a repaint manually to re-draw the updated Custom Layer
-        mapView.mapboxMap.triggerRepaint()
+        mapView.mapboxMap.onStyleLoaded.observeNext { _ in
+            try! self.mapView.mapboxMap.setProjection(.init(name: .mercator))
+            self.addCustomLayer()
+        }.store(in: &cancelables)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -49,10 +25,16 @@ final class CustomLayerExample: UIViewController, ExampleProtocol {
          // The below line is used for internal testing purposes only.
         finish()
     }
+
+    func addCustomLayer() {
+        let customLayer = CustomLayer(id: "custom-layer-example", renderer: CustomLayerExampleCustomLayerHost())
+
+        try! mapView.mapboxMap.addLayer(customLayer)
+    }
 }
 
 final class CustomLayerExampleCustomLayerHost: NSObject, CustomLayerHost {
-    var colors = [
+    private static let colors = [
         simd_float4(1, 0, 0, 0.5),
         simd_float4(0, 1, 0, 0.5),
         simd_float4(0, 0, 1, 0.5),
@@ -127,7 +109,7 @@ final class CustomLayerExampleCustomLayerHost: NSObject, CustomLayerHost {
         }
 
         let projectionMatrix = parameters.projectionMatrix.map(\.floatValue)
-        let vertices = zip(positions, colors).map(VertexData.init)
+        let vertices = zip(positions, Self.colors).map(VertexData.init)
         let viewport = MTLViewport(
             originX: 0,
             originY: 0,

@@ -28,9 +28,6 @@ public struct LayerType: ExpressibleByStringLiteral, RawRepresentable, Codable, 
     /// Raster map textures such as satellite imagery.
     public static let raster: LayerType = "raster"
 
-    /// Layer repsenting particles on the map.
-    public static let rasterParticle: LayerType = "raster-particle"
-
     /// Client-side hillshading visualization based on DEM data.
     /// Currently, the implementation only supports Mapbox Terrain RGB and Mapzen Terrarium tiles.
     public static let hillshade: LayerType = "hillshade"
@@ -43,9 +40,6 @@ public struct LayerType: ExpressibleByStringLiteral, RawRepresentable, Codable, 
 
     /// Layer representing the sky
     public static let sky: LayerType = "sky"
-
-    /// Layer representing a place for other layers.
-    public static let slot: LayerType = "slot"
 
     /// Layer used for a 3D model
     @_documentation(visibility: public)
@@ -92,8 +86,6 @@ public struct LayerType: ExpressibleByStringLiteral, RawRepresentable, Codable, 
             return SkyLayer.self
         case .model:
             return ModelLayer.self
-        case .custom:
-            return CustomLayer.self
         default:
             return nil
         }

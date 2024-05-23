@@ -261,7 +261,7 @@ public struct PointAnnotation: Annotation, Equatable {
     }
 }
 
-@_documentation(visibility: public)
+    @_documentation(visibility: public)
 @_spi(Experimental) extension PointAnnotation {
 
     /// Part of the icon placed closest to the anchor.
@@ -278,8 +278,8 @@ public struct PointAnnotation: Annotation, Equatable {
 
     /// Offset distance of icon from its anchor. Positive values indicate right and down, while negative values indicate left and up. Each component is multiplied by the value of `icon-size` to obtain the final offset in pixels. When combined with `icon-rotate` the offset will be as if the rotated direction was up.
     @_documentation(visibility: public)
-    public func iconOffset(x: Double, y: Double) -> Self {
-        with(self, setter(\.iconOffset, [x, y]))
+    public func iconOffset(_ newValue: [Double]) -> Self {
+        with(self, setter(\.iconOffset, newValue))
     }
 
     /// Rotates the icon clockwise.
@@ -302,8 +302,8 @@ public struct PointAnnotation: Annotation, Equatable {
 
     /// Size of the additional area added to dimensions determined by `icon-text-fit`, in clockwise order: top, right, bottom, left.
     @_documentation(visibility: public)
-    public func iconTextFitPadding(_ padding: UIEdgeInsets) -> Self {
-        with(self, setter(\.iconTextFitPadding, [padding.top, padding.right, padding.bottom, padding.left]))
+    public func iconTextFitPadding(_ newValue: [Double]) -> Self {
+        with(self, setter(\.iconTextFitPadding, newValue))
     }
 
     /// Sorts features in ascending order based on this value. Features with lower sort keys are drawn and placed first. When `icon-allow-overlap` or `text-allow-overlap` is `false`, features with a lower sort key will have priority during placement. When `icon-allow-overlap` or `text-allow-overlap` is set to `true`, features with a higher sort key will overlap over features with a lower sort key.
@@ -350,8 +350,8 @@ public struct PointAnnotation: Annotation, Equatable {
 
     /// Offset distance of text from its anchor. Positive values indicate right and down, while negative values indicate left and up. If used with text-variable-anchor, input values will be taken as absolute values. Offsets along the x- and y-axis will be applied automatically based on the anchor position.
     @_documentation(visibility: public)
-    public func textOffset(x: Double, y: Double) -> Self {
-        with(self, setter(\.textOffset, [x, y]))
+    public func textOffset(_ newValue: [Double]) -> Self {
+        with(self, setter(\.textOffset, newValue))
     }
 
     /// Radial offset of text, in the direction of the symbol's anchor. Useful in combination with `text-variable-anchor`, which defaults to using the two-dimensional `text-offset` if present.
@@ -380,12 +380,6 @@ public struct PointAnnotation: Annotation, Equatable {
 
     /// The color of the icon. This can only be used with [SDF icons](/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
     @_documentation(visibility: public)
-    public func iconColor(_ color: UIColor) -> Self {
-        iconColor(StyleColor(color))
-    }
-
-    /// The color of the icon. This can only be used with [SDF icons](/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
-    @_documentation(visibility: public)
     public func iconColor(_ newValue: StyleColor) -> Self {
         with(self, setter(\.iconColor, newValue))
     }
@@ -400,12 +394,6 @@ public struct PointAnnotation: Annotation, Equatable {
     @_documentation(visibility: public)
     public func iconHaloBlur(_ newValue: Double) -> Self {
         with(self, setter(\.iconHaloBlur, newValue))
-    }
-
-    /// The color of the icon's halo. Icon halos can only be used with [SDF icons](/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
-    @_documentation(visibility: public)
-    public func iconHaloColor(_ color: UIColor) -> Self {
-        iconHaloColor(StyleColor(color))
     }
 
     /// The color of the icon's halo. Icon halos can only be used with [SDF icons](/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
@@ -434,12 +422,6 @@ public struct PointAnnotation: Annotation, Equatable {
 
     /// The color with which the text will be drawn.
     @_documentation(visibility: public)
-    public func textColor(_ color: UIColor) -> Self {
-        textColor(StyleColor(color))
-    }
-
-    /// The color with which the text will be drawn.
-    @_documentation(visibility: public)
     public func textColor(_ newValue: StyleColor) -> Self {
         with(self, setter(\.textColor, newValue))
     }
@@ -454,12 +436,6 @@ public struct PointAnnotation: Annotation, Equatable {
     @_documentation(visibility: public)
     public func textHaloBlur(_ newValue: Double) -> Self {
         with(self, setter(\.textHaloBlur, newValue))
-    }
-
-    /// The color of the text's halo, which helps it stand out from backgrounds.
-    @_documentation(visibility: public)
-    public func textHaloColor(_ color: UIColor) -> Self {
-        textHaloColor(StyleColor(color))
     }
 
     /// The color of the text's halo, which helps it stand out from backgrounds.
@@ -536,14 +512,6 @@ public struct PointAnnotation: Annotation, Equatable {
             handler()
             return true
         }
-    }
-}
-
-@_spi(Experimental)
-@available(iOS 13.0, *)
-extension PointAnnotation: MapContent, PrimitiveMapContent, MapContentAnnotation {
-    func visit(_ node: MapContentNode) {
-        PointAnnotationGroup { self }.visit(node)
     }
 }
 

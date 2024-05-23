@@ -55,11 +55,9 @@ internal final class SimpleCameraAnimator: SimpleCameraAnimatorProtocol {
     private let mainQueue: MainQueueProtocol
     private let cameraOptionsInterpolator: CameraOptionsInterpolatorProtocol
     private let dateProvider: DateProvider
+    internal weak var delegate: CameraAnimatorDelegate?
 
     private var completionHandlers = [AnimationCompletion]()
-
-    private let cameraAnimatorStatusSignal = SignalSubject<CameraAnimatorStatus>()
-    var onCameraAnimatorStatusChanged: Signal<CameraAnimatorStatus> { cameraAnimatorStatusSignal.signal }
 
     /// The state of the animation. While the animation is running, the value is `.active`. Otherwise, the
     /// value is `.inactive`.
@@ -76,10 +74,9 @@ internal final class SimpleCameraAnimator: SimpleCameraAnimatorProtocol {
         didSet {
             switch (oldValue, internalState) {
             case (.initial, .running):
-                cameraAnimatorStatusSignal.send(.started)
-            case (.running, .final(let position)):
-                let isCancelled = position != .end
-                cameraAnimatorStatusSignal.send(.stopped(reason: isCancelled ? .cancelled : .finished))
+                delegate?.cameraAnimatorDidStartRunning(self)
+            case (.running, .final):
+                delegate?.cameraAnimatorDidStopRunning(self)
             default:
                 // this matches cases where…
                 // * oldValue and internalState are the same

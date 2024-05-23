@@ -6,39 +6,21 @@ import Foundation
 /// and manipulate layer as a usual one.
     @_documentation(visibility: public)
 @_spi(Experimental)
-public struct CustomLayer: Layer, Equatable {
-
-    /// Unique layer name
+public struct CustomLayer: Layer {
     public var id: String
 
-    /// Rendering type of this layer.
     public let type: LayerType = .custom
 
-    /// The slot this layer is assigned to. If specified, and a slot with that name exists, it will be placed at that position in the layer order.
     public var slot: Slot?
 
-    /// The minimum zoom level for the layer. At zoom levels less than the minzoom, the layer will be hidden.
     public var minZoom: Double?
 
-    /// The maximum zoom level for the layer. At zoom levels equal to or greater than the maxzoom, the layer will be hidden.
     public var maxZoom: Double?
 
-    /// Whether this layer is displayed.
     public var visibility: Value<Visibility> = .constant(.visible)
 
     /// Custom Metal rendering providing API for arbitrary metal operations on top of the ``MapboxMap``
     public var renderer: CustomLayerHost
-
-    /// Equality function for Equatable conformance. Renderer is compared by pointer.
-    public static func == (lhs: CustomLayer, rhs: CustomLayer) -> Bool {
-        return lhs.id == rhs.id
-        && lhs.type == rhs.type
-        && lhs.slot == rhs.slot
-        && lhs.minZoom == rhs.minZoom
-        && lhs.maxZoom == rhs.maxZoom
-        && lhs.visibility == rhs.visibility
-        && lhs.renderer === rhs.renderer
-    }
 
     public init(
         id: String,
@@ -104,51 +86,5 @@ extension CustomLayer {
         try layoutContainer.encode(visibility, forKey: .visibility)
     }
     // swiftlint:enable missing_docs
-}
 
-extension CustomLayer {
-    /// The slot this layer is assigned to. If specified, and a slot with that name exists,
-    /// it will be placed at that position in the layer order.
-    public func slot(_ newValue: Slot?) -> Self {
-        with(self, setter(\.slot, newValue))
-    }
-
-    /// The minimum zoom level for the layer.
-    /// At zoom levels less than the minzoom, the layer will be hidden.
-    public func minZoom(_ newValue: Double) -> Self {
-        with(self, setter(\.minZoom, newValue))
-    }
-
-    /// The maximum zoom level for the layer.
-    /// At zoom levels equal to or greater than the maxzoom, the layer will be hidden.
-    public func maxZoom(_ newValue: Double) -> Self {
-        with(self, setter(\.maxZoom, newValue))
-    }
-
-    /// Whether this layer is displayed.
-    public func visibility(_ newValue: Value<Visibility>) -> Self {
-        with(self, setter(\.visibility, newValue))
-    }
-
-    /// Custom Metal rendering providing API for arbitrary metal operations on top of the ``MapboxMap``
-    public func renderer(_ newValue: CustomLayerHost) -> Self {
-        with(self, setter(\.renderer, newValue))
-    }
-}
-
-@_spi(Experimental)
-@available(iOS 13.0, *)
-extension CustomLayer: MapStyleContent, PrimitiveMapContent {
-    /// Positions this layer at a specified position.
-    ///
-    /// - Note: This method should be called last in a chain of layer updates.
-    @_spi(Experimental)
-    @_documentation(visibility: public)
-    public func position(_ position: LayerPosition) -> LayerAtPosition<Self> {
-        LayerAtPosition(layer: self, position: position)
-    }
-
-    func visit(_ node: MapContentNode) {
-        node.mount(MountedLayer(layer: self))
-    }
 }

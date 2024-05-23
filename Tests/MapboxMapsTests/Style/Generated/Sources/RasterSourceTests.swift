@@ -1,6 +1,6 @@
 // This file is generated.
 import XCTest
-@_spi(Experimental) @testable import MapboxMaps
+@testable import MapboxMaps
 
 final class RasterSourceTests: XCTestCase {
 
@@ -55,33 +55,6 @@ final class RasterSourceTests: XCTestCase {
         } catch {
             XCTFail("Failed to decode RasterSource.")
         }
-    }
-
-    func testSetPropertyValueWithFunction() {
-        let source = RasterSource(id: "test-source")
-            .url(String.testSourceValue())
-            .tiles([String].testSourceValue())
-            .minzoom(Double.testSourceValue())
-            .maxzoom(Double.testSourceValue())
-            .volatile(Bool.testSourceValue())
-            .prefetchZoomDelta(Double.testSourceValue())
-            .tileCacheBudget(TileCacheBudgetSize.testSourceValue())
-            .minimumTileUpdateInterval(Double.testSourceValue())
-            .maxOverscaleFactorForParentTiles(Double.testSourceValue())
-            .tileRequestsDelay(Double.testSourceValue())
-            .tileNetworkRequestsDelay(Double.testSourceValue())
-
-        XCTAssertEqual(source.url, String.testSourceValue())
-        XCTAssertEqual(source.tiles, [String].testSourceValue())
-        XCTAssertEqual(source.minzoom, Double.testSourceValue())
-        XCTAssertEqual(source.maxzoom, Double.testSourceValue())
-        XCTAssertEqual(source.volatile, Bool.testSourceValue())
-        XCTAssertEqual(source.prefetchZoomDelta, Double.testSourceValue())
-        XCTAssertEqual(source.tileCacheBudget, TileCacheBudgetSize.testSourceValue())
-        XCTAssertEqual(source.minimumTileUpdateInterval, Double.testSourceValue())
-        XCTAssertEqual(source.maxOverscaleFactorForParentTiles, Double.testSourceValue())
-        XCTAssertEqual(source.tileRequestsDelay, Double.testSourceValue())
-        XCTAssertEqual(source.tileNetworkRequestsDelay, Double.testSourceValue())
     }
 }
 

@@ -20,13 +20,11 @@ def main():
         root = json.load(f)
 
     sectionTitles = list(map(lambda section: section['title'], root['topicSections']))
+
     unexpectedTitles = list(filter(lambda title: title not in acceptedTopSectionTitles, sectionTitles))
 
     if len(unexpectedTitles) > 0:
-        print(f"""
-        Unexpected section titles found: {unexpectedTitles}
-        This suggests that you've introduced new public symbols in your pull request, yet they don't seem to be reflected in any of the API catalog.
-        """)
+        print(f"Unexpected section titles found: {unexpectedTitles}")
         exit(1)
     else:
         print("Check passed.")

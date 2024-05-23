@@ -4,12 +4,10 @@ import XCTest
 final class MapStyleReconcilerTests: XCTestCase {
     var me: MapStyleReconciler!
     var styleManager: MockStyleManager!
-    var sourceManager: MockStyleSourceManager!
 
     override func setUp() {
         super.setUp()
         styleManager = MockStyleManager()
-        sourceManager = MockStyleSourceManager()
         styleManager.isStyleLoadedStub.defaultReturnValue = true
         me = MapStyleReconciler(styleManager: styleManager)
     }
@@ -19,7 +17,6 @@ final class MapStyleReconcilerTests: XCTestCase {
         resetAllStubs()
         me = nil
         styleManager = nil
-        sourceManager = nil
     }
 
     enum LoadResult {
@@ -43,9 +40,9 @@ final class MapStyleReconcilerTests: XCTestCase {
     }
 
     func testNil() {
-        XCTAssertNil(me.mapStyle)
+        XCTAssertEqual(me.mapStyle, nil)
         me.mapStyle = nil
-        XCTAssertNil(me.mapStyle)
+        XCTAssertEqual(me.mapStyle, nil)
     }
 
     func testLoadsJSONStyle() throws {
@@ -56,7 +53,11 @@ final class MapStyleReconcilerTests: XCTestCase {
         let json = """
         {"foo": "bar"}
         """
-        me.mapStyle = .init(json: json, configuration: JSONObject(rawValue: ["bar": "baz"])!)
+        me.mapStyle = .init(json: json, importConfigurations: [
+            .init(importId: "foo", config: [
+                "bar": "baz"
+            ])
+        ])
 
         XCTAssertEqual(styleManager.setStyleJSONStub.invocations.count, 1)
         let params = try XCTUnwrap(styleManager.setStyleJSONStub.invocations.last).parameters
@@ -69,7 +70,7 @@ final class MapStyleReconcilerTests: XCTestCase {
 
         let inv = styleManager.setStyleImportConfigPropertyForImportIdStub.invocations
         XCTAssertEqual(inv.count, 1)
-        XCTAssertEqual(inv.last?.parameters.importId, "basemap")
+        XCTAssertEqual(inv.last?.parameters.importId, "foo")
         XCTAssertEqual(inv.last?.parameters.config, "bar")
         XCTAssertEqual(inv.last?.parameters.value as? String, "baz")
     }
@@ -79,7 +80,11 @@ final class MapStyleReconcilerTests: XCTestCase {
             self.styleManager.isStyleLoadedStub.defaultReturnValue = false
         }
 
-        me.mapStyle = .init(uri: .streets, configuration: JSONObject(rawValue: ["bar": "baz"])!)
+        me.mapStyle = .init(uri: .streets, importConfigurations: [
+            .init(importId: "foo", config: [
+                "bar": "baz"
+            ])
+        ])
 
         XCTAssertEqual(styleManager.setStyleURIStub.invocations.count, 1)
         let params = try XCTUnwrap(styleManager.setStyleURIStub.invocations.last).parameters
@@ -92,7 +97,7 @@ final class MapStyleReconcilerTests: XCTestCase {
 
         let inv = styleManager.setStyleImportConfigPropertyForImportIdStub.invocations
         XCTAssertEqual(inv.count, 1)
-        XCTAssertEqual(inv.last?.parameters.importId, "basemap")
+        XCTAssertEqual(inv.last?.parameters.importId, "foo")
         XCTAssertEqual(inv.last?.parameters.config, "bar")
         XCTAssertEqual(inv.last?.parameters.value as? String, "baz")
     }
@@ -107,8 +112,12 @@ final class MapStyleReconcilerTests: XCTestCase {
             callbacks = invoc.parameters.callbacks
         }
 
-        me.mapStyle = .init(uri: .outdoors, configuration: JSONObject(rawValue: ["k-1": "v-1", "a": "b"])!)
-        me.mapStyle = .init(uri: .streets, configuration: JSONObject(rawValue: ["k-2": "v-2"])!)
+        me.mapStyle = MapStyle(uri: .outdoors, importConfigurations: [
+            .init(importId: "foo-1", config: ["k-1": "v-1", "a": "b"])
+        ])
+        me.mapStyle = MapStyle(uri: .streets, importConfigurations: [
+            .init(importId: "foo-2", config: ["k-2": "v-2"])
+        ])
 
         XCTAssertEqual(styleManager.setStyleURIStub.invocations.map(\.parameters.value), [
             StyleURI.outdoors.rawValue,
@@ -121,7 +130,7 @@ final class MapStyleReconcilerTests: XCTestCase {
         // the first style update is skipped.
         let inv = styleManager.setStyleImportConfigPropertyForImportIdStub.invocations
         XCTAssertEqual(inv.count, 1)
-        XCTAssertEqual(inv.last?.parameters.importId, "basemap")
+        XCTAssertEqual(inv.last?.parameters.importId, "foo-2")
         XCTAssertEqual(inv.last?.parameters.config, "k-2")
         XCTAssertEqual(inv.last?.parameters.value as? String, "v-2")
     }
@@ -150,9 +159,7 @@ final class MapStyleReconcilerTests: XCTestCase {
 
         XCTAssertEqual(styleManager.setStyleURIStub.invocations.count, 1)
         XCTAssertEqual(styleManager.setStyleTransitionStub.invocations.count, 1)
-
-        let coreTransitionOptions = try XCTUnwrap(styleManager.setStyleTransitionStub.invocations.last?.parameters)
-        XCTAssertEqual(TransitionOptions(coreTransitionOptions), transition)
+        XCTAssertEqual(styleManager.setStyleTransitionStub.invocations.last?.parameters, transition)
 
         XCTAssertEqual(calls, 2)
     }
@@ -192,9 +199,13 @@ final class MapStyleReconcilerTests: XCTestCase {
             self.simulateLoad(callbacks: invoc.parameters.callbacks, result: .success)
             self.styleManager.setStyleImportConfigPropertyForImportIdStub.reset()
         }
-        me.mapStyle = MapStyle(uri: .outdoors, configuration: JSONObject(rawValue: ["k-1": "v-1", "a": "b"])!)
+        me.mapStyle = MapStyle(uri: .outdoors, importConfigurations: [
+            .init(importId: "foo-1", config: ["k-1": "v-1", "a": "b"])
+        ])
 
-        let s2 = MapStyle(uri: .outdoors, configuration: JSONObject(rawValue: ["k-2": "v-2"])!)
+        let s2 = MapStyle(uri: .outdoors, importConfigurations: [
+            .init(importId: "foo-1", config: ["k-2": "v-2"])
+        ])
 
         var count = 0
         me.loadStyle(s2, transition: nil) { error in
@@ -205,41 +216,53 @@ final class MapStyleReconcilerTests: XCTestCase {
 
         let inv = styleManager.setStyleImportConfigPropertyForImportIdStub.invocations
         XCTAssertEqual(inv.count, 1)
-        XCTAssertEqual(inv.last?.parameters.importId, "basemap")
+        XCTAssertEqual(inv.last?.parameters.importId, "foo-1")
         XCTAssertEqual(inv.last?.parameters.config, "k-2")
         XCTAssertEqual(inv.last?.parameters.value as? String, "v-2")
     }
 
     func testStyleImportsReconcileFromNil() {
-            MapStyleReconciler.reconcileBasemapConfiguration(
+        MapStyleReconciler.reconcileStyleImports(
             from: nil,
-            to: .init(rawValue: ["bar": "baz"])!,
+            to: [
+                StyleImportConfiguration(
+                    importId: "foo",
+                    config: ["bar": "baz"])
+            ],
             styleManager: styleManager)
 
         let inv = styleManager.setStyleImportConfigPropertyForImportIdStub.invocations
         XCTAssertEqual(inv.count, 1)
-        XCTAssertEqual(inv.last?.parameters.importId, "basemap")
+        XCTAssertEqual(inv.last?.parameters.importId, "foo")
         XCTAssertEqual(inv.last?.parameters.config, "bar")
         XCTAssertEqual(inv.last?.parameters.value as? String, "baz")
     }
 
     func testStyleImportsReconcilePartialUpdate() {
-        MapStyleReconciler.reconcileBasemapConfiguration(
-            from: JSONObject(rawValue: [
-                "bar": "baz",
-                "x": "y"
-            ])!,
-            to: JSONObject(rawValue: [
-                "bar": "foo",
-                "x": "y"
-            ])!,
+        MapStyleReconciler.reconcileStyleImports(
+            from: [
+                StyleImportConfiguration(
+                    importId: "foo",
+                    config: ["bar": "baz"]),
+                StyleImportConfiguration(
+                    importId: "x",
+                    config: ["y": "z"])
+            ],
+            to: [
+                StyleImportConfiguration(
+                    importId: "foo",
+                    config: [
+                        "bar": "baz",
+                        "qux": "quux"
+                    ])
+            ],
             styleManager: styleManager)
 
         let inv = styleManager.setStyleImportConfigPropertyForImportIdStub.invocations
         XCTAssertEqual(inv.count, 1)
-        XCTAssertEqual(inv.last?.parameters.importId, "basemap")
-        XCTAssertEqual(inv.last?.parameters.config, "bar")
-        XCTAssertEqual(inv.last?.parameters.value as? String, "foo")
+        XCTAssertEqual(inv.last?.parameters.importId, "foo")
+        XCTAssertEqual(inv.last?.parameters.config, "qux")
+        XCTAssertEqual(inv.last?.parameters.value as? String, "quux")
     }
 
     func testIsStyleRootLoaded() {

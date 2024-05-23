@@ -47,8 +47,9 @@ import SwiftUI
 @_spi(Experimental)
 @available(iOS 13.0, *)
 public struct Map: UIViewControllerRepresentable {
-    var mapDependencies = MapDependencies()
     private var viewport: ConstantOrBinding<Viewport>
+    var mapDependencies = MapDependencies()
+    private var mapContentVisitor = DefaultMapContentVisitor()
     private let urlOpenerProvider: URLOpenerProvider
 
     @Environment(\.layoutDirection) var layoutDirection
@@ -62,7 +63,7 @@ public struct Map: UIViewControllerRepresentable {
     @available(iOSApplicationExtension, unavailable)
     public init(
         viewport: Binding<Viewport>,
-        @MapContentBuilder content: @escaping () -> some MapContent
+        @MapContentBuilder content: @escaping () -> MapContent
     ) {
         self.init(
             _viewport: .binding(viewport),
@@ -79,7 +80,7 @@ public struct Map: UIViewControllerRepresentable {
     @available(iOSApplicationExtension, unavailable)
     public init(
         initialViewport: Viewport = .styleDefault,
-        @MapContentBuilder content: @escaping () -> some MapContent
+        @MapContentBuilder content: @escaping () -> MapContent
     ) {
         self.init(
             _viewport: .constant(initialViewport),
@@ -90,46 +91,42 @@ public struct Map: UIViewControllerRepresentable {
     private init(
         _viewport: ConstantOrBinding<Viewport>,
         urlOpenerProvider: URLOpenerProvider,
-        content: (() -> any MapContent)? = nil
+        content: (() -> MapContent)? = nil
     ) {
         self.viewport = _viewport
         self.urlOpenerProvider = urlOpenerProvider
-        if let makeContent = content {
-            mapDependencies.mapContent = makeContent
-        }
+        content?()
+            .visit(mapContentVisitor)
     }
 
     public func makeCoordinator() -> Coordinator {
         let urlOpener = ClosureURLOpener()
-        sendTelemetry(\.swiftUI)
         let mapView = MapView(frame: .zero, urlOpener: urlOpener)
-        let viewController = MapViewController(mapView: mapView)
+        let vc = MapViewController(mapView: mapView)
 
-        let mapContentDependencies = MapContentDependencies(
-            layerAnnotations: Ref.weakRef(mapView, property: \.annotations),
-            viewAnnotations: Ref.weakRef(mapView, property: \.viewAnnotations),
-            location: Ref.weakRef(mapView, property: \.location),
-            addAnnotationViewController: { [weak viewController] childVC in
-                guard let viewController else { return }
-                viewController.addChild(childVC)
-                childVC.didMove(toParent: viewController)
+        let basicCoordinator = MapBasicCoordinator(
+            setViewport: viewport.setter,
+            mapView: MapViewFacade(from: mapView))
+
+        let viewAnnotationCoordinator = ViewAnnotationCoordinator(
+            viewAnnotationsManager: mapView.viewAnnotations,
+            addViewController: { childVC in
+                vc.addChild(childVC)
+                childVC.didMove(toParent: vc)
             },
-            removeAnnotationViewController: { childVC in
+            removeViewController: { childVC in
                 childVC.willMove(toParent: nil)
                 childVC.removeFromParent()
             }
         )
 
-        mapView.mapboxMap.setMapContentDependencies(mapContentDependencies)
-
-        let basicCoordinator = MapBasicCoordinator(
-            setViewport: viewport.setter,
-            mapView: MapViewFacade(from: mapView)
-        )
+        let layerAnnotationCoordinator = LayerAnnotationCoordinator(annotationOrchestrator: mapView.annotations)
 
         return Coordinator(
             basic: basicCoordinator,
-            viewController: viewController,
+            viewAnnotation: viewAnnotationCoordinator,
+            layerAnnotation: layerAnnotationCoordinator,
+            viewController: vc,
             urlOpener: urlOpener,
             mapView: mapView)
     }
@@ -137,7 +134,6 @@ public struct Map: UIViewControllerRepresentable {
     public func makeUIViewController(context: Context) -> UIViewController {
         context.coordinator.urlOpener.openURL = urlOpenerProvider.resolve(in: context.environment)
         context.environment.mapViewProvider?.mapView = context.coordinator.mapView
-
         return context.coordinator.viewController
     }
 
@@ -148,6 +144,9 @@ public struct Map: UIViewControllerRepresentable {
             deps: mapDependencies,
             layoutDirection: layoutDirection,
             animationData: context.transaction.viewportAnimationData)
+        context.coordinator.layerAnnotation.update(annotations: mapContentVisitor.annotationGroups)
+        context.coordinator.viewAnnotation.updateAnnotations(to: mapContentVisitor.visitedViewAnnotations)
+        context.coordinator.mapView.location.options = mapContentVisitor.locationOptions
     }
 }
 
@@ -161,11 +160,13 @@ extension Map {
     ///     - viewport: The camera viewport to display.
     @_documentation(visibility: public)
     @available(iOSApplicationExtension, unavailable)
-    public init(viewport: Binding<Viewport>) {
+    public init(
+        viewport: Binding<Viewport>
+    ) {
         self.init(
             _viewport: .binding(viewport),
-            urlOpenerProvider: URLOpenerProvider()
-        )
+            urlOpenerProvider: URLOpenerProvider(),
+            content: nil)
     }
 
     /// Creates a map an initial viewport.
@@ -174,11 +175,13 @@ extension Map {
     ///     - initialViewport: Initial camera viewport.
     @_documentation(visibility: public)
     @available(iOSApplicationExtension, unavailable)
-    public init(initialViewport: Viewport = .styleDefault) {
+    public init(
+        initialViewport: Viewport = .styleDefault
+    ) {
         self.init(
             _viewport: .constant(initialViewport),
-            urlOpenerProvider: URLOpenerProvider()
-        )
+            urlOpenerProvider: URLOpenerProvider(),
+            content: nil)
     }
 
     /// Creates a map with a viewport binding.
@@ -196,7 +199,7 @@ extension Map {
     public init(
         viewport: Binding<Viewport>,
         urlOpener: @escaping MapURLOpener,
-        @MapContentBuilder content: @escaping () -> some MapContent
+        @MapContentBuilder content: @escaping () -> MapContent
     ) {
         self.init(
             _viewport: .binding(viewport),
@@ -219,7 +222,7 @@ extension Map {
     public init(
         initialViewport: Viewport = .styleDefault,
         urlOpener: @escaping MapURLOpener,
-        @MapContentBuilder content: @escaping () -> some MapContent
+        @MapContentBuilder content: @escaping () -> MapContent
     ) {
         self.init(
             _viewport: .constant(initialViewport),
@@ -387,17 +390,23 @@ extension Map {
     /// Map Coordinator.
     public final class Coordinator {
         let basic: MapBasicCoordinator
+        let viewAnnotation: ViewAnnotationCoordinator
+        let layerAnnotation: LayerAnnotationCoordinator
         let viewController: UIViewController
         let urlOpener: ClosureURLOpener
         let mapView: MapView
 
         init(
             basic: MapBasicCoordinator,
+            viewAnnotation: ViewAnnotationCoordinator,
+            layerAnnotation: LayerAnnotationCoordinator,
             viewController: UIViewController,
             urlOpener: ClosureURLOpener,
             mapView: MapView
         ) {
             self.basic = basic
+            self.viewAnnotation = viewAnnotation
+            self.layerAnnotation = layerAnnotation
             self.viewController = viewController
             self.urlOpener = urlOpener
             self.mapView = mapView

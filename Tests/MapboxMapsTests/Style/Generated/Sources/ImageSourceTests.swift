@@ -1,6 +1,6 @@
 // This file is generated.
 import XCTest
-@_spi(Experimental) @testable import MapboxMaps
+@testable import MapboxMaps
 
 final class ImageSourceTests: XCTestCase {
 
@@ -31,17 +31,6 @@ final class ImageSourceTests: XCTestCase {
         } catch {
             XCTFail("Failed to decode ImageSource.")
         }
-    }
-
-    func testSetPropertyValueWithFunction() {
-        let source = ImageSource(id: "test-source")
-            .url(String.testSourceValue())
-            .coordinates([[Double]].testSourceValue())
-            .prefetchZoomDelta(Double.testSourceValue())
-
-        XCTAssertEqual(source.url, String.testSourceValue())
-        XCTAssertEqual(source.coordinates, [[Double]].testSourceValue())
-        XCTAssertEqual(source.prefetchZoomDelta, Double.testSourceValue())
     }
 }
 

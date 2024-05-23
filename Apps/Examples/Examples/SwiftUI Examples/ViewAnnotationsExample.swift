@@ -51,19 +51,6 @@ struct ViewAnnotationsExample: View {
             // A Dynamic View Annotation annotation, that is attached to the Polyline annotation.
             let routeLayer = "route"
             let routeFeature = "route-feature"
-
-            // Route polyline
-            PolylineAnnotationGroup {
-                PolylineAnnotation(id: routeFeature, lineCoordinates: routeCoordinates)
-                    .lineColor("#57A9FB")
-                    .lineBorderColor("#327AC2")
-                    .lineWidth(10)
-                    .lineBorderWidth(2)
-            }
-            .layerId(routeLayer) // Specify id for underlying line layer.
-            .lineCap(.round)
-            .slot("middle") // Display above roads and below 3D buildings and labels (for Standard Style).
-
             MapViewAnnotation(layerId: routeLayer, featureId: routeFeature) {
                 Text("1h 30m")
                     .padding(3)
@@ -76,6 +63,18 @@ struct ViewAnnotationsExample: View {
             .variableAnchors(.all) // Allow all directions for anchor
             .onAnchorChanged { self.etaAnnotationAnchor = $0.anchor }
             .selected(true)
+
+            // Route polyline
+            PolylineAnnotationGroup {
+                PolylineAnnotation(id: routeFeature, lineCoordinates: routeCoordinates)
+                    .lineColor("#57A9FB")
+                    .lineBorderColor("#327AC2")
+                    .lineWidth(10)
+                    .lineBorderWidth(2)
+            }
+            .layerId(routeLayer) // Specify id for underlying line layer.
+            .lineCap(.round)
+            .slot("middle") // Display above roads and below 3D buildings and labels (for Standard Style).
         }
         .presentsWithTransaction(true) // Synchronize Metal and CALayer for better VA performance.
         .onMapTapGesture { context in
@@ -102,7 +101,7 @@ struct ViewAnnotationsExample: View {
 }
 
 @available(iOS 13.0, *)
-private struct Tap: Equatable, Identifiable {
+private struct Tap: Identifiable {
     var id = UUID()
     var coordinate: CLLocationCoordinate2D
     var color: Color = .random

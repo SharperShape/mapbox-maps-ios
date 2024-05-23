@@ -6,12 +6,10 @@ struct PuckPlayground: View {
     enum PuckType: String, CaseIterable, CustomStringConvertible {
         case d2
         case d3
-        case none
         var description: String {
             switch self {
             case .d2: return "2D"
             case .d3: return "3D"
-            case .none: return "None"
             }
         }
     }
@@ -21,35 +19,28 @@ struct PuckPlayground: View {
     @State private var puckType = PuckType.d2
     @State private var bearingType = PuckBearing.heading
     @State private var opacity = 1.0
-    @State private var slot: Slot?
     @State private var puck3dSettings = Puck3DSettings()
     @State private var puck2dSettings = Puck2DSettings()
-    @State private var lightPreset: StandardLightPreset = .day
+    @State private var mapStyle = MapStyle.standard(lightPreset: .day)
     @State private var settingsHeight = 0.0
 
     var body: some View {
         Map(initialViewport: .followPuck(zoom: 18, bearing: .heading, pitch: 60)) {
-            if case .d2 = puckType {
+            switch puckType {
+            case .d2:
                 Puck2D(bearing: bearingType)
                     .pulsing(puck2dSettings.pulsing.asPuckPulsing)
                     .showsAccuracyRing(puck2dSettings.accuracyRing)
                     .opacity(opacity)
                     .topImage(puck2dSettings.topImage.asPuckTopImage)
-                    .slot(slot)
-            }
-
-            TestLayer(id: "layer", radius: 3, color: .black, coordinate: .apple, slot: .top)
-
-            if case .d3 = puckType {
-                let scale = puck3dSettings.modelType.initialScale * puck3dSettings.scale
+            case .d3:
                 Puck3D(model: puck3dSettings.modelType.model, bearing: bearingType)
-                    .modelScale(x: scale, y: scale, z: scale)
+                    .modelScale(puck3dSettings.modelScale)
                     .modelOpacity(opacity)
                     .modelEmissiveStrength(puck3dSettings.emission)
-                    .slot(slot)
             }
         }
-        .mapStyle(.standard(lightPreset: lightPreset))
+        .mapStyle(mapStyle)
         .debugOptions(.padding)
         .additionalSafeAreaInsets(sidePanel ? .trailing : .bottom, settingsHeight)
         .ignoresSafeArea()
@@ -57,6 +48,15 @@ struct PuckPlayground: View {
             settingsBody
                 .frame(maxWidth: sidePanel ? 300 : .infinity)
                 .onChangeOfSize { settingsHeight = sidePanel ? $0.width : $0.height }
+        }
+        .safeOverlay(alignment: .trailing) {
+            MapStyleSelectorButton(mapStyle: $mapStyle)
+                .padding(.trailing, sidePanel ? 300 : 0)
+        }
+        .onChange(of: puckType) { newValue in
+            if puckType == .d3 { // Switch to dusk mode to see model light emission
+                mapStyle = .standard(lightPreset: .dusk)
+            }
         }
     }
 
@@ -68,7 +68,8 @@ struct PuckPlayground: View {
     private var settingsBody: some View {
         VStack(alignment: .leading) {
             RadioButtonSettingView(title: "Puck Type", value: $puckType)
-            lightPresetSettings
+            RadioButtonSettingView(title: "Bearing", value: $bearingType)
+            SliderSettingView(title: "Opacity", value: $opacity, range: 0...1, step: 0.1)
 
             switch puckType {
             case .d2:
@@ -76,47 +77,16 @@ struct PuckPlayground: View {
                     Toggle("Accuracy ring", isOn: $puck2dSettings.accuracyRing)
                     RadioButtonSettingView(title: "Pulsing", value: $puck2dSettings.pulsing)
                     RadioButtonSettingView(title: "Top Image", value: $puck2dSettings.topImage)
-                    RadioButtonSettingView(title: "Bearing", value: $bearingType)
-                    SliderSettingView(title: "Opacity", value: $opacity, range: 0...1, step: 0.1)
-                    slotSettings
                 }
             case.d3:
                 RadioButtonSettingView(title: "Model", value: $puck3dSettings.modelType)
                 SliderSettingView(title: "Scale", value: $puck3dSettings.scale, range: 1...3, step: 0.25)
                 SliderSettingView(title: "Light emission", value: $puck3dSettings.emission, range: 0...2, step: 0.1)
-                RadioButtonSettingView(title: "Bearing", value: $bearingType)
-                SliderSettingView(title: "Opacity", value: $opacity, range: 0...1, step: 0.1)
-                slotSettings
-            case .none:
-                EmptyView()
             }
         }
         .padding(10)
         .floating(RoundedRectangle(cornerRadius: 10))
         .limitPaneWidth()
-    }
-
-    @ViewBuilder
-    private var slotSettings: some View {
-        HStack {
-            Text("Slot")
-            Picker("Slot", selection: $slot) {
-                ForEach([Slot.bottom, .middle, .top, nil], id: \.self) { t in
-                    Text(t?.rawValue ?? "nil").tag(t)
-                }
-            }.pickerStyle(.segmented)
-        }
-    }
-
-    @ViewBuilder
-    private var lightPresetSettings: some View {
-        HStack {
-            Text("Light")
-            Picker("Light", selection: $lightPreset) {
-                Text("Day").tag(StandardLightPreset.day)
-                Text("Dusk").tag(StandardLightPreset.dusk)
-            }.pickerStyle(.segmented)
-        }
     }
 }
 
@@ -178,6 +148,7 @@ private struct Puck3DSettings {
         }
     }
     var scale = 1.0
+    var modelScale: [Double] { .init(repeating: scale * modelType.initialScale, count: 3) }
     var modelType = ModelType.sportcar
     var emission = 1.0
 }
@@ -241,29 +212,5 @@ private extension Model {
 struct PuckPlayground_Preview: PreviewProvider {
     static var previews: some View {
         PuckPlayground()
-    }
-}
-
-@available(iOS 13.0, *)
-private struct TestLayer: MapStyleContent {
-    var id: String
-    var radius: LocationDistance
-    var color: UIColor
-    var coordinate: CLLocationCoordinate2D
-    var slot: Slot?
-
-    var body: some MapStyleContent {
-        let sourceId = "\(id)-source"
-        FillLayer(id: id, source: sourceId)
-            .fillColor(color)
-            .fillOpacity(0.4)
-            .slot(slot)
-        LineLayer(id: "\(id)-border", source: sourceId)
-            .lineColor(color.darker)
-            .lineOpacity(0.4)
-            .lineWidth(2)
-            .slot(slot)
-        GeoJSONSource(id: sourceId)
-            .data(.geometry(.polygon(Polygon(center: coordinate, radius: radius * 100, vertices: 60))))
     }
 }

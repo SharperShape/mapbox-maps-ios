@@ -39,7 +39,7 @@
 - ``TextTranslateAnchor``
 - ``TextWritingMode``
 - ``Visibility``
-- ``TransitionOptions-struct``
+- ``TransitionOptions``
 - ``ModelScaleMode``
 
 <!-- Next two are arguable regarding it's category -->
