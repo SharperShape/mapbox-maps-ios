@@ -78,7 +78,7 @@ public final class ViewAnnotationManager {
     public var annotations: [UIView: ViewAnnotationOptions] {
         idsByView.compactMapValues { [mapboxMap] id in
             try? mapboxMap.options(forViewAnnotationWithId: id)
-        }
+        } as! [UIView: ViewAnnotationOptions]
     }
 
     internal init(containerView: UIView, mapboxMap: MapboxMapProtocol, displayLink: Signal<Void>) {
