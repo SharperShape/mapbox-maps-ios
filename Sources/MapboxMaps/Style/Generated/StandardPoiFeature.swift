@@ -113,7 +113,7 @@ public final class StandardPoiFeature: FeaturesetFeatureType {
 
     /// POI coordinate.
     @_documentation(visibility: public)
-    public let coordinate: CLLocationCoordinate2D
+    public let coordinate: LocationCoordinate2D
 
     /// Converts a generic feature to the typed one.
     ///
