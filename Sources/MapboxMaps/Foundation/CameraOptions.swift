@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 import UIKit
 
-public struct CameraOptions: Codable, Hashable {
+public struct CameraOptions: Codable, Hashable, Sendable {
     /// The geographic coordinate that will be rendered at the midpoint of the area defined by `padding`. Defaults to (0, 0).
     public var center: CLLocationCoordinate2D? {
         get { centerCodable?.coordinates }
@@ -41,7 +41,6 @@ public struct CameraOptions: Codable, Hashable {
     - Parameter zoom: The zoom level of the map.
     - Parameter bearing: The bearing of the map, measured in degrees clockwise from true north.
     - Parameter pitch: Pitch toward the horizon measured in degrees, with 0 degrees resulting in a top-down view for a two-dimensional map.
-    - Returns: A `CameraOptions` that contains all configuration information the map will use to determine which part of the map to render.
     */
     public init(center: CLLocationCoordinate2D? = nil,
                 padding: UIEdgeInsets? = nil,

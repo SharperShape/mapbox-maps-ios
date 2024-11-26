@@ -18,6 +18,8 @@
 - ``GlyphsRasterizationMode``
 <!-- There is missing public API for the next enum -->
 - ``MapCenterAltitudeMode``
+- ``RenderedQueryGeometry``
+- ``RenderedQueryGeometryConvertible``
 
 ### Camera
 - ``FreeCameraOptions``
@@ -32,3 +34,4 @@
 - ``QueriedSourceFeature``
 - ``RenderedQueryOptions``
 - ``AnnotatedFeature``
+- ``FeaturesetDescriptor-class``

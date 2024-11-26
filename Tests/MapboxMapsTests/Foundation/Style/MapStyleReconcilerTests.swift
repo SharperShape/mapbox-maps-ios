@@ -10,7 +10,7 @@ final class MapStyleReconcilerTests: XCTestCase {
         super.setUp()
         styleManager = MockStyleManager()
         sourceManager = MockStyleSourceManager()
-        styleManager.isStyleLoadingFinishedStub.defaultReturnValue = true
+        styleManager.isStyleLoadedStub.defaultReturnValue = true
         me = MapStyleReconciler(styleManager: styleManager)
     }
 
@@ -28,7 +28,7 @@ final class MapStyleReconcilerTests: XCTestCase {
         case error
     }
     private func simulateLoad(callbacks: RuntimeStylingCallbacks, result: LoadResult) {
-        styleManager.isStyleLoadingFinishedStub.defaultReturnValue = result == .success
+        styleManager.isStyleLoadedStub.defaultReturnValue = result == .success
         switch result {
         case .cancel:
             callbacks.cancelled?()
@@ -50,13 +50,13 @@ final class MapStyleReconcilerTests: XCTestCase {
 
     func testLoadsJSONStyle() throws {
         styleManager.setStyleJSONStub.defaultSideEffect = { _ in
-            self.styleManager.isStyleLoadingFinishedStub.defaultReturnValue = false
+            self.styleManager.isStyleLoadedStub.defaultReturnValue = false
         }
 
         let json = """
         {"foo": "bar"}
         """
-        me.mapStyle = .init(json: json, configuration: JSONObject(rawValue: ["bar": "baz"])!)
+        me.mapStyle = .init(json: json, configuration: JSONObject(turfRawValue: ["bar": "baz"])!)
 
         XCTAssertEqual(styleManager.setStyleJSONStub.invocations.count, 1)
         let params = try XCTUnwrap(styleManager.setStyleJSONStub.invocations.last).parameters
@@ -76,10 +76,10 @@ final class MapStyleReconcilerTests: XCTestCase {
 
     func testLoadsURIStyle() throws {
         styleManager.setStyleURIStub.defaultSideEffect = { _ in
-            self.styleManager.isStyleLoadingFinishedStub.defaultReturnValue = false
+            self.styleManager.isStyleLoadedStub.defaultReturnValue = false
         }
 
-        me.mapStyle = .init(uri: .streets, configuration: JSONObject(rawValue: ["bar": "baz"])!)
+        me.mapStyle = .init(uri: .streets, configuration: JSONObject(turfRawValue: ["bar": "baz"])!)
 
         XCTAssertEqual(styleManager.setStyleURIStub.invocations.count, 1)
         let params = try XCTUnwrap(styleManager.setStyleURIStub.invocations.last).parameters
@@ -100,15 +100,15 @@ final class MapStyleReconcilerTests: XCTestCase {
     func testDoubleLoad() throws {
         var callbacks: RuntimeStylingCallbacks?
         styleManager.setStyleURIStub.defaultSideEffect = { invoc in
-            self.styleManager.isStyleLoadingFinishedStub.defaultReturnValue = false
+            self.styleManager.isStyleLoadedStub.defaultReturnValue = false
             if let callbacks {
                 self.simulateLoad(callbacks: callbacks, result: .cancel)
             }
             callbacks = invoc.parameters.callbacks
         }
 
-        me.mapStyle = .init(uri: .outdoors, configuration: JSONObject(rawValue: ["k-1": "v-1", "a": "b"])!)
-        me.mapStyle = .init(uri: .streets, configuration: JSONObject(rawValue: ["k-2": "v-2"])!)
+        me.mapStyle = .init(uri: .outdoors, configuration: JSONObject(turfRawValue: ["k-1": "v-1", "a": "b"])!)
+        me.mapStyle = .init(uri: .streets, configuration: JSONObject(turfRawValue: ["k-2": "v-2"])!)
 
         XCTAssertEqual(styleManager.setStyleURIStub.invocations.map(\.parameters.value), [
             StyleURI.outdoors.rawValue,
@@ -129,7 +129,7 @@ final class MapStyleReconcilerTests: XCTestCase {
     func testLoadStyleSuccess() throws {
         var callbacks: RuntimeStylingCallbacks?
         styleManager.setStyleURIStub.defaultSideEffect = { invoc in
-            self.styleManager.isStyleLoadingFinishedStub.defaultReturnValue = false
+            self.styleManager.isStyleLoadedStub.defaultReturnValue = false
             callbacks = invoc.parameters.callbacks
         }
 
@@ -160,7 +160,7 @@ final class MapStyleReconcilerTests: XCTestCase {
     func testLoadStyleError() throws {
         var callbacks: RuntimeStylingCallbacks?
         styleManager.setStyleURIStub.defaultSideEffect = { invoc in
-            self.styleManager.isStyleLoadingFinishedStub.defaultReturnValue = false
+            self.styleManager.isStyleLoadedStub.defaultReturnValue = false
             callbacks = invoc.parameters.callbacks
         }
 
@@ -192,9 +192,9 @@ final class MapStyleReconcilerTests: XCTestCase {
             self.simulateLoad(callbacks: invoc.parameters.callbacks, result: .success)
             self.styleManager.setStyleImportConfigPropertyForImportIdStub.reset()
         }
-        me.mapStyle = MapStyle(uri: .outdoors, configuration: JSONObject(rawValue: ["k-1": "v-1", "a": "b"])!)
+        me.mapStyle = MapStyle(uri: .outdoors, configuration: JSONObject(turfRawValue: ["k-1": "v-1", "a": "b"])!)
 
-        let s2 = MapStyle(uri: .outdoors, configuration: JSONObject(rawValue: ["k-2": "v-2"])!)
+        let s2 = MapStyle(uri: .outdoors, configuration: JSONObject(turfRawValue: ["k-2": "v-2"])!)
 
         var count = 0
         me.loadStyle(s2, transition: nil) { error in
@@ -210,10 +210,30 @@ final class MapStyleReconcilerTests: XCTestCase {
         XCTAssertEqual(inv.last?.parameters.value as? String, "v-2")
     }
 
+    func testReconcileWhenLoadedNewStyle() throws {
+        styleManager.setStyleURIStub.defaultSideEffect = { invoc in
+            self.simulateLoad(callbacks: invoc.parameters.callbacks, result: .success)
+        }
+        me.mapStyle = MapStyle(uri: .outdoors, configuration: JSONObject(turfRawValue: ["k-1": "v-1", "a": "b"])!)
+
+        self.styleManager.setStyleImportConfigPropertyForImportIdStub.reset()
+
+        me.mapStyle = MapStyle(uri: .standard, configuration: JSONObject(turfRawValue: ["k-1": "v-1", "k-2": "v-2"])!)
+
+        let inv = styleManager.setStyleImportConfigPropertyForImportIdStub.invocations
+        XCTAssertEqual(inv.count, 2)
+        let k1Params = try XCTUnwrap(inv.first(where: { $0.parameters.config == "k-1"})).parameters
+        let k2Params = try XCTUnwrap(inv.first(where: { $0.parameters.config == "k-2"})).parameters
+        XCTAssertEqual(k1Params.importId, "basemap")
+        XCTAssertEqual(k2Params.importId, "basemap")
+        XCTAssertEqual(k1Params.value as? String, "v-1")
+        XCTAssertEqual(k2Params.value as? String, "v-2")
+    }
+
     func testStyleImportsReconcileFromNil() {
             MapStyleReconciler.reconcileBasemapConfiguration(
             from: nil,
-            to: .init(rawValue: ["bar": "baz"])!,
+            to: .init(["bar": "baz"])!,
             styleManager: styleManager)
 
         let inv = styleManager.setStyleImportConfigPropertyForImportIdStub.invocations
@@ -225,11 +245,11 @@ final class MapStyleReconcilerTests: XCTestCase {
 
     func testStyleImportsReconcilePartialUpdate() {
         MapStyleReconciler.reconcileBasemapConfiguration(
-            from: JSONObject(rawValue: [
+            from: JSONObject(turfRawValue: [
                 "bar": "baz",
                 "x": "y"
             ])!,
-            to: JSONObject(rawValue: [
+            to: JSONObject(turfRawValue: [
                 "bar": "foo",
                 "x": "y"
             ])!,

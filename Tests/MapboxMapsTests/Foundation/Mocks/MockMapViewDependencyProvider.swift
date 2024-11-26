@@ -54,8 +54,6 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
     func makeGestureManager(
         view: UIView,
         mapboxMap: MapboxMapProtocol,
-        mapFeatureQueryable: MapFeatureQueryable,
-        annotations: AnnotationOrchestratorImplProtocol,
         cameraAnimationsManager: CameraAnimationsManagerProtocol) -> GestureManager {
         return GestureManager(
             panGestureHandler: MockPanGestureHandler(
@@ -69,10 +67,10 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
                 gestureRecognizer: UIGestureRecognizer()),
             quickZoomGestureHandler: MockFocusableGestureHandler(gestureRecognizer: UIGestureRecognizer()),
             singleTapGestureHandler: makeGestureHandler(),
+            longPressGestureHandler: makeGestureHandler(),
             anyTouchGestureHandler: makeGestureHandler(),
             interruptDecelerationGestureHandler: makeGestureHandler(),
-            mapboxMap: mapboxMap,
-            mapContentGestureManager: MockMapContentGestureManager())
+            mapboxMap: mapboxMap)
     }
 
     func makeGestureHandler() -> GestureHandler {
@@ -109,28 +107,6 @@ final class MockMapViewDependencyProvider: MapViewDependencyProviderProtocol {
             anyTouchGestureRecognizer: anyTouchGestureRecognizer,
             doubleTapGestureRecognizer: doubleTapGestureRecognizer,
             doubleTouchGestureRecognizer: doubleTouchGestureRecognizer))
-    }
-
-    // MARK: - Annotations
-    struct MakeAnnotationOrchestratorImplParams {
-        let view: UIView
-        let mapboxMap: MapboxMapProtocol
-        let mapFeatureQueryable: MapFeatureQueryable
-        let style: StyleProtocol
-        let displayLink: Signal<Void>
-    }
-    let makeAnnotationOrchestratorStub = Stub<MakeAnnotationOrchestratorImplParams, AnnotationOrchestratorImplProtocol>(defaultReturnValue: MockAnnotationOrchestatorImpl())
-    func makeAnnotationOrchestratorImpl(in view: UIView,
-                                        mapboxMap: MapboxMapProtocol,
-                                        mapFeatureQueryable: MapFeatureQueryable,
-                                        style: StyleProtocol,
-                                        displayLink: Signal<Void>) -> AnnotationOrchestratorImplProtocol {
-        makeAnnotationOrchestratorStub.call(with: .init(
-            view: view,
-            mapboxMap: mapboxMap,
-            mapFeatureQueryable: mapFeatureQueryable,
-            style: style,
-            displayLink: displayLink))
     }
 
     // MARK: - Events Manager

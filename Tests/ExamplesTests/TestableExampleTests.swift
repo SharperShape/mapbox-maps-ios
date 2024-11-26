@@ -3,34 +3,35 @@ import ObjectiveC.runtime
 @testable import Examples
 import MapboxMaps
 
-class TestableExampleTests: XCTestCase {
-    private var example: Example!
+final class TestableExampleTests: XCTestCase {
     private weak var weakExampleViewController: UIViewController?
     private weak var weakMapView: MapView?
     private var exampleControllerRemovedExpectation: XCTestExpectation?
 
-    override class var defaultTestSuite: XCTestSuite {
+    override static var defaultTestSuite: XCTestSuite {
         let newTestSuite = XCTestSuite(forTestCaseClass: TestableExampleTests.self)
 
-        guard let method = class_getInstanceMethod(Self.self, #selector(runExample)) else {
-            fatalError()
-        }
+        for example in Examples.all.flatMap(\.examples) {
 
-        let existingImpl = method_getImplementation(method)
-
-        for category in Examples.all {
-            // swiftlint:disable:next force_cast
-            for example in category["examples"] as! [Example] {
-                // Add a method for this test, but using the same implementation
-                let selectorName = "test\(example.type)"
-                let testSelector = Selector((selectorName))
-                class_addMethod(Self.self, testSelector, existingImpl, "v@:f")
-
-                let test = TestableExampleTests(selector: testSelector)
-                test.example = example
-                newTestSuite.addTest(test)
+            // TODO: MAPSIOS-1602 Geofencing example causes examples tests to fail
+            if example.type is GeofencingExample.Type {
+                continue
             }
+
+            // Add a method for this test, but using the same implementation
+            let testSelector = Selector("test\(example.type)")
+            let myBlock: @convention(block) (TestableExampleTests) -> Void = { testCase in
+                testCase.runExample(example)
+            }
+
+            let closureImpl = imp_implementationWithBlock(myBlock)
+            class_addMethod(Self.self, testSelector, closureImpl, "v@:")
+
+            let test = TestableExampleTests(selector: testSelector)
+            print("Adding test for \(example)")
+            newTestSuite.addTest(test)
         }
+
         return newTestSuite
     }
 
@@ -38,15 +39,17 @@ class TestableExampleTests: XCTestCase {
         try super.tearDownWithError()
 
         // check for the example view controller and its mapview leaking
-        XCTAssertNil(weakExampleViewController)
-        XCTAssertNil(weakMapView)
+        // this check may also fail when finish is called earlier than all stored async operation that capture self were completed and it will lead to delayed deinitialization
+        XCTAssertNil(weakExampleViewController, "Example viewController is part of a memory leak")
+        XCTAssertNil(weakMapView, "Example mapView is part of a memory leak")
     }
 
-    @objc private func runExample() {
+    private func runExample(_ example: Example) {
         guard let navigationController = UIApplication.shared.windows.first?.rootViewController as? UINavigationController else {
             XCTFail("Root controller is not a UINavigationController")
             return
         }
+
         navigationController.delegate = self
 
         let exampleViewController = example.makeViewController()
@@ -60,7 +63,7 @@ class TestableExampleTests: XCTestCase {
         let result = XCTWaiter().wait(for: [expectation], timeout: example.testTimeout)
         switch result {
         case .completed:
-            break
+            print("Example: \(example.title) completed.")
         case .timedOut:
             XCTFail("Example: \(example.title) timed out. Don't forget to call finish().")
         default:

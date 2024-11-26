@@ -1,31 +1,21 @@
 // This file is generated
 import XCTest
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 final class CircleAnnotationManagerTests: XCTestCase, AnnotationInteractionDelegate {
     var manager: CircleAnnotationManager!
-    var style: MockStyle!
-    var id = UUID().uuidString
+    var harness: AnnotationManagerTestingHarness!
     var annotations = [CircleAnnotation]()
     var expectation: XCTestExpectation?
     var delegateAnnotations: [Annotation]?
-    var offsetCalculator: OffsetPointCalculator!
-    var mapboxMap: MockMapboxMap!
-    @TestSignal var displayLink: Signal<Void>
 
     override func setUp() {
         super.setUp()
 
-        style = MockStyle()
-        mapboxMap = MockMapboxMap()
-        offsetCalculator = OffsetPointCalculator(mapboxMap: mapboxMap)
+        harness = AnnotationManagerTestingHarness()
         manager = CircleAnnotationManager(
-            id: id,
-            style: style,
-            layerPosition: nil,
-            displayLink: displayLink,
-            offsetCalculator: offsetCalculator
-        )
+            params: harness.makeParams(),
+            deps: harness.makeDeps())
 
         for _ in 0...10 {
             let annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
@@ -34,627 +24,362 @@ final class CircleAnnotationManagerTests: XCTestCase, AnnotationInteractionDeleg
     }
 
     override func tearDown() {
-        style = nil
-        expectation = nil
-        delegateAnnotations = nil
-        mapboxMap = nil
-        offsetCalculator = nil
+        harness = nil
         manager = nil
-
         super.tearDown()
     }
 
-    func testSourceSetup() {
-        style.addSourceStub.reset()
-
-        _ = CircleAnnotationManager(
-            id: id,
-            style: style,
-            layerPosition: nil,
-            displayLink: displayLink,
-            offsetCalculator: offsetCalculator
-        )
-
-        XCTAssertEqual(style.addSourceStub.invocations.count, 1)
-        XCTAssertEqual(style.addSourceStub.invocations.last?.parameters.source.type, SourceType.geoJson)
-        XCTAssertEqual(style.addSourceStub.invocations.last?.parameters.source.id, manager.id)
+    func testInitialCircleSortKey() {
+        let initialValue = manager.circleSortKey
+        XCTAssertNil(initialValue)
     }
 
-    func testAddLayer() throws {
-        style.addSourceStub.reset()
-        let initializedManager = CircleAnnotationManager(
-            id: id,
-            style: style,
-            layerPosition: nil,
-            displayLink: displayLink,
-            offsetCalculator: offsetCalculator
-        )
-
-        XCTAssertEqual(style.addSourceStub.invocations.count, 1)
-        XCTAssertEqual(style.addPersistentLayerWithPropertiesStub.invocations.count, 0)
-        XCTAssertEqual(style.addPersistentLayerStub.invocations.last?.parameters.layer.type, LayerType.circle)
-        XCTAssertEqual(style.addPersistentLayerStub.invocations.last?.parameters.layer.id, initializedManager.id)
-        let addedLayer = try XCTUnwrap(style.addPersistentLayerStub.invocations.last?.parameters.layer as? CircleLayer)
-        XCTAssertEqual(addedLayer.source, initializedManager.sourceId)
-        XCTAssertNil(style.addPersistentLayerStub.invocations.last?.parameters.layerPosition)
+    func testSetCircleSortKey() {
+        let value = 0.0
+        manager.circleSortKey = value
+        XCTAssertEqual(manager.circleSortKey, value)
+        XCTAssertEqual(manager.impl.layerProperties["circle-sort-key"] as! Double, value)
     }
 
-    func testAddManagerWithDuplicateId() {
-        var annotations2 = [CircleAnnotation]()
-        for _ in 0...50 {
-            let annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-            annotations2.append(annotation)
-        }
+    func testSetToNilCircleSortKey() {
+        let newCircleSortKeyProperty = 0.0
+        let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-sort-key").value as! Double
+        manager.circleSortKey = newCircleSortKeyProperty
+        XCTAssertNotNil(manager.impl.layerProperties["circle-sort-key"])
+        harness.triggerDisplayLink()
 
-        manager.annotations = annotations
-        let manager2 = CircleAnnotationManager(
-            id: manager.id,
-            style: style,
-            layerPosition: nil,
-            displayLink: displayLink,
-            offsetCalculator: offsetCalculator
-        )
-        manager2.annotations = annotations2
+        manager.circleSortKey = nil
+        XCTAssertNil(manager.circleSortKey)
+        harness.triggerDisplayLink()
 
-        XCTAssertEqual(manager.annotations.count, 11)
-        XCTAssertEqual(manager2.annotations.count, 51)
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-sort-key"] as! Double, defaultValue)
+    }
+    func testInitialCircleBlur() {
+        let initialValue = manager.circleBlur
+        XCTAssertNil(initialValue)
     }
 
-    func testLayerPositionPassedCorrectly() {
-        let manager3 = CircleAnnotationManager(
-            id: id,
-            style: style,
-            layerPosition: LayerPosition.at(4),
-            displayLink: displayLink,
-            offsetCalculator: offsetCalculator
-        )
-        manager3.annotations = annotations
-
-        XCTAssertEqual(style.addPersistentLayerStub.invocations.last?.parameters.layerPosition, LayerPosition.at(4))
+    func testSetCircleBlur() {
+        let value = 0.0
+        manager.circleBlur = value
+        XCTAssertEqual(manager.circleBlur, value)
+        XCTAssertEqual(manager.impl.layerProperties["circle-blur"] as! Double, value)
     }
 
-    func testDestroy() {
-        manager.destroy()
+    func testSetToNilCircleBlur() {
+        let newCircleBlurProperty = 0.0
+        let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-blur").value as! Double
+        manager.circleBlur = newCircleBlurProperty
+        XCTAssertNotNil(manager.impl.layerProperties["circle-blur"])
+        harness.triggerDisplayLink()
 
-        XCTAssertEqual(style.removeLayerStub.invocations.map(\.parameters), [id])
-        XCTAssertEqual(style.removeSourceStub.invocations.map(\.parameters), [id])
+        manager.circleBlur = nil
+        XCTAssertNil(manager.circleBlur)
+        harness.triggerDisplayLink()
 
-        style.removeLayerStub.reset()
-        style.removeSourceStub.reset()
-
-        manager.destroy()
-        XCTAssertTrue(style.removeLayerStub.invocations.isEmpty)
-        XCTAssertTrue(style.removeSourceStub.invocations.isEmpty)
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-blur"] as! Double, defaultValue)
+    }
+    func testInitialCircleColor() {
+        let initialValue = manager.circleColor
+        XCTAssertNil(initialValue)
     }
 
-    func testDestroyManagerWithDraggedAnnotations() {
-        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-        annotation.isDraggable = true
-        manager.annotations = [annotation]
-        // adds drag source/layer
-        _ = manager.handleDragBegin(with: annotation.id, context: .zero)
-
-        manager.destroy()
-
-        XCTAssertEqual(style.removeLayerStub.invocations.map(\.parameters), [id, id + "_drag"])
-        XCTAssertEqual(style.removeSourceStub.invocations.map(\.parameters), [id, id + "_drag"])
-
-        style.removeLayerStub.reset()
-        style.removeSourceStub.reset()
-
-        manager.destroy()
-        XCTAssertTrue(style.removeLayerStub.invocations.isEmpty)
-        XCTAssertTrue(style.removeSourceStub.invocations.isEmpty)
+    func testSetCircleColor() {
+        let value = StyleColor(red: 255, green: 0, blue: 255, alpha: 1)
+        manager.circleColor = value
+        XCTAssertEqual(manager.circleColor, value)
+        XCTAssertEqual(manager.impl.layerProperties["circle-color"] as? String, value?.rawValue)
     }
 
-    func testSyncSourceAndLayer() {
-        manager.annotations = annotations
-        $displayLink.send()
+    func testSetToNilCircleColor() {
+        let newCircleColorProperty = StyleColor(red: 255, green: 0, blue: 255, alpha: 1)
+        let defaultValue = try! JSONDecoder().decode(StyleColor.self, from: JSONSerialization.data(withJSONObject: StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-color").value as! [Any], options: []))
+        manager.circleColor = newCircleColorProperty
+        XCTAssertNotNil(manager.impl.layerProperties["circle-color"])
+        harness.triggerDisplayLink()
 
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
+        manager.circleColor = nil
+        XCTAssertNil(manager.circleColor)
+        harness.triggerDisplayLink()
+
+        let currentValue = try! JSONDecoder().decode(StyleColor.self, from: JSONSerialization.data(withJSONObject: harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-color"] as! [Any]))
+        XCTAssertEqual(currentValue, defaultValue)
     }
-
-    func testDoNotSyncSourceAndLayerWhenNotNeeded() {
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 0)
-    }
-
-    func testFeatureCollectionPassedtoGeoJSON() throws {
-        var annotations = [CircleAnnotation]()
-        for _ in 0...5 {
-            let annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-            annotations.append(annotation)
-        }
-        let expectedFeatures = annotations.map(\.feature)
-
-        manager.annotations = annotations
-        $displayLink.send()
-
-        var invocation = try XCTUnwrap(style.addGeoJSONSourceFeaturesStub.invocations.last)
-        XCTAssertEqual(invocation.parameters.features, expectedFeatures)
-        XCTAssertEqual(invocation.parameters.sourceId, manager.id)
-
-        do {
-            let annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-            annotations.append(annotation)
-
-            manager.annotations = annotations
-            $displayLink.send()
-
-            invocation = try XCTUnwrap(style.addGeoJSONSourceFeaturesStub.invocations.last)
-            XCTAssertEqual(invocation.parameters.features, [annotation].map(\.feature))
-            XCTAssertEqual(invocation.parameters.sourceId, manager.id)
-        }
-    }
-
-    @available(*, deprecated)
-    func testHandleTap() throws {
-        var annotations = [CircleAnnotation]()
-        for _ in 0...5 {
-            let annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-            annotations.append(annotation)
-        }
-        var taps = [MapContentGestureContext]()
-        annotations[0].tapHandler = { context in
-            taps.append(context)
-            return true
-        }
-        annotations[1].tapHandler = { context in
-            return false // skips handling
-        }
-        manager.delegate = self
-
-        manager.annotations = annotations
-
-        // first annotation, handles tap
-        let context = MapContentGestureContext(point: .init(x: 1, y: 2), coordinate: .init(latitude: 3, longitude: 4))
-        var handled = manager.handleTap(layerId: "layerId", feature: annotations[0].feature, context: context)
-
-        var result = try XCTUnwrap(delegateAnnotations)
-        XCTAssertEqual(result[0].id, annotations[0].id)
-        XCTAssertEqual(handled, true)
-
-        XCTAssertEqual(taps.count, 1)
-        XCTAssertEqual(taps.first?.point, context.point)
-        XCTAssertEqual(taps.first?.coordinate, context.coordinate)
-
-        // second annotation, skips handling tap
-        delegateAnnotations = nil
-        handled = manager.handleTap(layerId: "layerId", feature: annotations[1].feature, context: context)
-
-        result = try XCTUnwrap(delegateAnnotations)
-        XCTAssertEqual(result[0].id, annotations[1].id)
-        XCTAssertEqual(handled, false)
-
-        // invalid id
-        delegateAnnotations = nil
-        let invalidFeature = Feature(geometry: nil)
-        handled = manager.handleTap(layerId: "layerId", feature: invalidFeature, context: context)
-
-        XCTAssertNil(delegateAnnotations)
-        XCTAssertEqual(handled, false)
-        XCTAssertEqual(taps.count, 1)
-    }
-
     func testInitialCircleEmissiveStrength() {
         let initialValue = manager.circleEmissiveStrength
         XCTAssertNil(initialValue)
     }
 
     func testSetCircleEmissiveStrength() {
-        let value = Double.random(in: 0...100000)
+        let value = 50000.0
         manager.circleEmissiveStrength = value
         XCTAssertEqual(manager.circleEmissiveStrength, value)
-
-        // test layer and source synced and properties added
-        $displayLink.send()
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-emissive-strength"] as! Double, value)
-    }
-
-    func testCircleEmissiveStrengthAnnotationPropertiesAddedWithoutDuplicate() {
-        let newCircleEmissiveStrengthProperty = Double.random(in: 0...100000)
-        let secondCircleEmissiveStrengthProperty = Double.random(in: 0...100000)
-
-        manager.circleEmissiveStrength = newCircleEmissiveStrengthProperty
-        $displayLink.send()
-        manager.circleEmissiveStrength = secondCircleEmissiveStrengthProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 2)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-emissive-strength"] as! Double, secondCircleEmissiveStrengthProperty)
-    }
-
-    func testNewCircleEmissiveStrengthPropertyMergedWithAnnotationProperties() {
-        var annotations = [CircleAnnotation]()
-        for _ in 0...5 {
-            var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-            annotation.circleSortKey = Double.random(in: -100000...100000)
-            annotation.circleBlur = Double.random(in: -100000...100000)
-            annotation.circleColor = StyleColor.random()
-            annotation.circleOpacity = Double.random(in: 0...1)
-            annotation.circleRadius = Double.random(in: 0...100000)
-            annotation.circleStrokeColor = StyleColor.random()
-            annotation.circleStrokeOpacity = Double.random(in: 0...1)
-            annotation.circleStrokeWidth = Double.random(in: 0...100000)
-            annotations.append(annotation)
-        }
-        let newCircleEmissiveStrengthProperty = Double.random(in: 0...100000)
-
-        manager.annotations = annotations
-        manager.circleEmissiveStrength = newCircleEmissiveStrengthProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties.count, annotations[0].layerProperties.count+1)
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-emissive-strength"])
+        XCTAssertEqual(manager.impl.layerProperties["circle-emissive-strength"] as! Double, value)
     }
 
     func testSetToNilCircleEmissiveStrength() {
-        let newCircleEmissiveStrengthProperty = Double.random(in: 0...100000)
+        let newCircleEmissiveStrengthProperty = 50000.0
         let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-emissive-strength").value as! Double
         manager.circleEmissiveStrength = newCircleEmissiveStrengthProperty
-        $displayLink.send()
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-emissive-strength"])
+        XCTAssertNotNil(manager.impl.layerProperties["circle-emissive-strength"])
+        harness.triggerDisplayLink()
 
         manager.circleEmissiveStrength = nil
-        $displayLink.send()
         XCTAssertNil(manager.circleEmissiveStrength)
+        harness.triggerDisplayLink()
 
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-emissive-strength"] as! Double, defaultValue)
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-emissive-strength"] as! Double, defaultValue)
+    }
+    func testInitialCircleOpacity() {
+        let initialValue = manager.circleOpacity
+        XCTAssertNil(initialValue)
     }
 
+    func testSetCircleOpacity() {
+        let value = 0.5
+        manager.circleOpacity = value
+        XCTAssertEqual(manager.circleOpacity, value)
+        XCTAssertEqual(manager.impl.layerProperties["circle-opacity"] as! Double, value)
+    }
+
+    func testSetToNilCircleOpacity() {
+        let newCircleOpacityProperty = 0.5
+        let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-opacity").value as! Double
+        manager.circleOpacity = newCircleOpacityProperty
+        XCTAssertNotNil(manager.impl.layerProperties["circle-opacity"])
+        harness.triggerDisplayLink()
+
+        manager.circleOpacity = nil
+        XCTAssertNil(manager.circleOpacity)
+        harness.triggerDisplayLink()
+
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-opacity"] as! Double, defaultValue)
+    }
     func testInitialCirclePitchAlignment() {
         let initialValue = manager.circlePitchAlignment
         XCTAssertNil(initialValue)
     }
 
     func testSetCirclePitchAlignment() {
-        let value = CirclePitchAlignment.random()
+        let value = CirclePitchAlignment.testConstantValue()
         manager.circlePitchAlignment = value
         XCTAssertEqual(manager.circlePitchAlignment, value)
-
-        // test layer and source synced and properties added
-        $displayLink.send()
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-alignment"] as! String, value.rawValue)
-    }
-
-    func testCirclePitchAlignmentAnnotationPropertiesAddedWithoutDuplicate() {
-        let newCirclePitchAlignmentProperty = CirclePitchAlignment.random()
-        let secondCirclePitchAlignmentProperty = CirclePitchAlignment.random()
-
-        manager.circlePitchAlignment = newCirclePitchAlignmentProperty
-        $displayLink.send()
-        manager.circlePitchAlignment = secondCirclePitchAlignmentProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 2)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-alignment"] as! String, secondCirclePitchAlignmentProperty.rawValue)
-    }
-
-    func testNewCirclePitchAlignmentPropertyMergedWithAnnotationProperties() {
-        var annotations = [CircleAnnotation]()
-        for _ in 0...5 {
-            var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-            annotation.circleSortKey = Double.random(in: -100000...100000)
-            annotation.circleBlur = Double.random(in: -100000...100000)
-            annotation.circleColor = StyleColor.random()
-            annotation.circleOpacity = Double.random(in: 0...1)
-            annotation.circleRadius = Double.random(in: 0...100000)
-            annotation.circleStrokeColor = StyleColor.random()
-            annotation.circleStrokeOpacity = Double.random(in: 0...1)
-            annotation.circleStrokeWidth = Double.random(in: 0...100000)
-            annotations.append(annotation)
-        }
-        let newCirclePitchAlignmentProperty = CirclePitchAlignment.random()
-
-        manager.annotations = annotations
-        manager.circlePitchAlignment = newCirclePitchAlignmentProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties.count, annotations[0].layerProperties.count+1)
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-alignment"])
+        XCTAssertEqual(manager.impl.layerProperties["circle-pitch-alignment"] as! String, value.rawValue)
     }
 
     func testSetToNilCirclePitchAlignment() {
-        let newCirclePitchAlignmentProperty = CirclePitchAlignment.random()
+        let newCirclePitchAlignmentProperty = CirclePitchAlignment.testConstantValue()
         let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-pitch-alignment").value as! String
         manager.circlePitchAlignment = newCirclePitchAlignmentProperty
-        $displayLink.send()
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-alignment"])
+        XCTAssertNotNil(manager.impl.layerProperties["circle-pitch-alignment"])
+        harness.triggerDisplayLink()
 
         manager.circlePitchAlignment = nil
-        $displayLink.send()
         XCTAssertNil(manager.circlePitchAlignment)
+        harness.triggerDisplayLink()
 
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-alignment"] as! String, defaultValue)
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-alignment"] as! String, defaultValue)
     }
-
     func testInitialCirclePitchScale() {
         let initialValue = manager.circlePitchScale
         XCTAssertNil(initialValue)
     }
 
     func testSetCirclePitchScale() {
-        let value = CirclePitchScale.random()
+        let value = CirclePitchScale.testConstantValue()
         manager.circlePitchScale = value
         XCTAssertEqual(manager.circlePitchScale, value)
-
-        // test layer and source synced and properties added
-        $displayLink.send()
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-scale"] as! String, value.rawValue)
-    }
-
-    func testCirclePitchScaleAnnotationPropertiesAddedWithoutDuplicate() {
-        let newCirclePitchScaleProperty = CirclePitchScale.random()
-        let secondCirclePitchScaleProperty = CirclePitchScale.random()
-
-        manager.circlePitchScale = newCirclePitchScaleProperty
-        $displayLink.send()
-        manager.circlePitchScale = secondCirclePitchScaleProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 2)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-scale"] as! String, secondCirclePitchScaleProperty.rawValue)
-    }
-
-    func testNewCirclePitchScalePropertyMergedWithAnnotationProperties() {
-        var annotations = [CircleAnnotation]()
-        for _ in 0...5 {
-            var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-            annotation.circleSortKey = Double.random(in: -100000...100000)
-            annotation.circleBlur = Double.random(in: -100000...100000)
-            annotation.circleColor = StyleColor.random()
-            annotation.circleOpacity = Double.random(in: 0...1)
-            annotation.circleRadius = Double.random(in: 0...100000)
-            annotation.circleStrokeColor = StyleColor.random()
-            annotation.circleStrokeOpacity = Double.random(in: 0...1)
-            annotation.circleStrokeWidth = Double.random(in: 0...100000)
-            annotations.append(annotation)
-        }
-        let newCirclePitchScaleProperty = CirclePitchScale.random()
-
-        manager.annotations = annotations
-        manager.circlePitchScale = newCirclePitchScaleProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties.count, annotations[0].layerProperties.count+1)
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-scale"])
+        XCTAssertEqual(manager.impl.layerProperties["circle-pitch-scale"] as! String, value.rawValue)
     }
 
     func testSetToNilCirclePitchScale() {
-        let newCirclePitchScaleProperty = CirclePitchScale.random()
+        let newCirclePitchScaleProperty = CirclePitchScale.testConstantValue()
         let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-pitch-scale").value as! String
         manager.circlePitchScale = newCirclePitchScaleProperty
-        $displayLink.send()
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-scale"])
+        XCTAssertNotNil(manager.impl.layerProperties["circle-pitch-scale"])
+        harness.triggerDisplayLink()
 
         manager.circlePitchScale = nil
-        $displayLink.send()
         XCTAssertNil(manager.circlePitchScale)
+        harness.triggerDisplayLink()
 
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-scale"] as! String, defaultValue)
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-pitch-scale"] as! String, defaultValue)
+    }
+    func testInitialCircleRadius() {
+        let initialValue = manager.circleRadius
+        XCTAssertNil(initialValue)
     }
 
+    func testSetCircleRadius() {
+        let value = 50000.0
+        manager.circleRadius = value
+        XCTAssertEqual(manager.circleRadius, value)
+        XCTAssertEqual(manager.impl.layerProperties["circle-radius"] as! Double, value)
+    }
+
+    func testSetToNilCircleRadius() {
+        let newCircleRadiusProperty = 50000.0
+        let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-radius").value as! Double
+        manager.circleRadius = newCircleRadiusProperty
+        XCTAssertNotNil(manager.impl.layerProperties["circle-radius"])
+        harness.triggerDisplayLink()
+
+        manager.circleRadius = nil
+        XCTAssertNil(manager.circleRadius)
+        harness.triggerDisplayLink()
+
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-radius"] as! Double, defaultValue)
+    }
+    func testInitialCircleStrokeColor() {
+        let initialValue = manager.circleStrokeColor
+        XCTAssertNil(initialValue)
+    }
+
+    func testSetCircleStrokeColor() {
+        let value = StyleColor(red: 255, green: 0, blue: 255, alpha: 1)
+        manager.circleStrokeColor = value
+        XCTAssertEqual(manager.circleStrokeColor, value)
+        XCTAssertEqual(manager.impl.layerProperties["circle-stroke-color"] as? String, value?.rawValue)
+    }
+
+    func testSetToNilCircleStrokeColor() {
+        let newCircleStrokeColorProperty = StyleColor(red: 255, green: 0, blue: 255, alpha: 1)
+        let defaultValue = try! JSONDecoder().decode(StyleColor.self, from: JSONSerialization.data(withJSONObject: StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-stroke-color").value as! [Any], options: []))
+        manager.circleStrokeColor = newCircleStrokeColorProperty
+        XCTAssertNotNil(manager.impl.layerProperties["circle-stroke-color"])
+        harness.triggerDisplayLink()
+
+        manager.circleStrokeColor = nil
+        XCTAssertNil(manager.circleStrokeColor)
+        harness.triggerDisplayLink()
+
+        let currentValue = try! JSONDecoder().decode(StyleColor.self, from: JSONSerialization.data(withJSONObject: harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-stroke-color"] as! [Any]))
+        XCTAssertEqual(currentValue, defaultValue)
+    }
+    func testInitialCircleStrokeOpacity() {
+        let initialValue = manager.circleStrokeOpacity
+        XCTAssertNil(initialValue)
+    }
+
+    func testSetCircleStrokeOpacity() {
+        let value = 0.5
+        manager.circleStrokeOpacity = value
+        XCTAssertEqual(manager.circleStrokeOpacity, value)
+        XCTAssertEqual(manager.impl.layerProperties["circle-stroke-opacity"] as! Double, value)
+    }
+
+    func testSetToNilCircleStrokeOpacity() {
+        let newCircleStrokeOpacityProperty = 0.5
+        let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-stroke-opacity").value as! Double
+        manager.circleStrokeOpacity = newCircleStrokeOpacityProperty
+        XCTAssertNotNil(manager.impl.layerProperties["circle-stroke-opacity"])
+        harness.triggerDisplayLink()
+
+        manager.circleStrokeOpacity = nil
+        XCTAssertNil(manager.circleStrokeOpacity)
+        harness.triggerDisplayLink()
+
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-stroke-opacity"] as! Double, defaultValue)
+    }
+    func testInitialCircleStrokeWidth() {
+        let initialValue = manager.circleStrokeWidth
+        XCTAssertNil(initialValue)
+    }
+
+    func testSetCircleStrokeWidth() {
+        let value = 50000.0
+        manager.circleStrokeWidth = value
+        XCTAssertEqual(manager.circleStrokeWidth, value)
+        XCTAssertEqual(manager.impl.layerProperties["circle-stroke-width"] as! Double, value)
+    }
+
+    func testSetToNilCircleStrokeWidth() {
+        let newCircleStrokeWidthProperty = 50000.0
+        let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-stroke-width").value as! Double
+        manager.circleStrokeWidth = newCircleStrokeWidthProperty
+        XCTAssertNotNil(manager.impl.layerProperties["circle-stroke-width"])
+        harness.triggerDisplayLink()
+
+        manager.circleStrokeWidth = nil
+        XCTAssertNil(manager.circleStrokeWidth)
+        harness.triggerDisplayLink()
+
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-stroke-width"] as! Double, defaultValue)
+    }
     func testInitialCircleTranslate() {
         let initialValue = manager.circleTranslate
         XCTAssertNil(initialValue)
     }
 
     func testSetCircleTranslate() {
-        let value = [Double.random(in: -100000...100000), Double.random(in: -100000...100000)]
+        let value = [0.0, 0.0]
         manager.circleTranslate = value
         XCTAssertEqual(manager.circleTranslate, value)
-
-        // test layer and source synced and properties added
-        $displayLink.send()
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate"] as! [Double], value)
-    }
-
-    func testCircleTranslateAnnotationPropertiesAddedWithoutDuplicate() {
-        let newCircleTranslateProperty = [Double.random(in: -100000...100000), Double.random(in: -100000...100000)]
-        let secondCircleTranslateProperty = [Double.random(in: -100000...100000), Double.random(in: -100000...100000)]
-
-        manager.circleTranslate = newCircleTranslateProperty
-        $displayLink.send()
-        manager.circleTranslate = secondCircleTranslateProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 2)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate"] as! [Double], secondCircleTranslateProperty)
-    }
-
-    func testNewCircleTranslatePropertyMergedWithAnnotationProperties() {
-        var annotations = [CircleAnnotation]()
-        for _ in 0...5 {
-            var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-            annotation.circleSortKey = Double.random(in: -100000...100000)
-            annotation.circleBlur = Double.random(in: -100000...100000)
-            annotation.circleColor = StyleColor.random()
-            annotation.circleOpacity = Double.random(in: 0...1)
-            annotation.circleRadius = Double.random(in: 0...100000)
-            annotation.circleStrokeColor = StyleColor.random()
-            annotation.circleStrokeOpacity = Double.random(in: 0...1)
-            annotation.circleStrokeWidth = Double.random(in: 0...100000)
-            annotations.append(annotation)
-        }
-        let newCircleTranslateProperty = [Double.random(in: -100000...100000), Double.random(in: -100000...100000)]
-
-        manager.annotations = annotations
-        manager.circleTranslate = newCircleTranslateProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties.count, annotations[0].layerProperties.count+1)
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate"])
+        XCTAssertEqual(manager.impl.layerProperties["circle-translate"] as! [Double], value)
     }
 
     func testSetToNilCircleTranslate() {
-        let newCircleTranslateProperty = [Double.random(in: -100000...100000), Double.random(in: -100000...100000)]
+        let newCircleTranslateProperty = [0.0, 0.0]
         let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-translate").value as! [Double]
         manager.circleTranslate = newCircleTranslateProperty
-        $displayLink.send()
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate"])
+        XCTAssertNotNil(manager.impl.layerProperties["circle-translate"])
+        harness.triggerDisplayLink()
 
         manager.circleTranslate = nil
-        $displayLink.send()
         XCTAssertNil(manager.circleTranslate)
+        harness.triggerDisplayLink()
 
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate"] as! [Double], defaultValue)
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate"] as! [Double], defaultValue)
     }
-
     func testInitialCircleTranslateAnchor() {
         let initialValue = manager.circleTranslateAnchor
         XCTAssertNil(initialValue)
     }
 
     func testSetCircleTranslateAnchor() {
-        let value = CircleTranslateAnchor.random()
+        let value = CircleTranslateAnchor.testConstantValue()
         manager.circleTranslateAnchor = value
         XCTAssertEqual(manager.circleTranslateAnchor, value)
-
-        // test layer and source synced and properties added
-        $displayLink.send()
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate-anchor"] as! String, value.rawValue)
-    }
-
-    func testCircleTranslateAnchorAnnotationPropertiesAddedWithoutDuplicate() {
-        let newCircleTranslateAnchorProperty = CircleTranslateAnchor.random()
-        let secondCircleTranslateAnchorProperty = CircleTranslateAnchor.random()
-
-        manager.circleTranslateAnchor = newCircleTranslateAnchorProperty
-        $displayLink.send()
-        manager.circleTranslateAnchor = secondCircleTranslateAnchorProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 2)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate-anchor"] as! String, secondCircleTranslateAnchorProperty.rawValue)
-    }
-
-    func testNewCircleTranslateAnchorPropertyMergedWithAnnotationProperties() {
-        var annotations = [CircleAnnotation]()
-        for _ in 0...5 {
-            var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-            annotation.circleSortKey = Double.random(in: -100000...100000)
-            annotation.circleBlur = Double.random(in: -100000...100000)
-            annotation.circleColor = StyleColor.random()
-            annotation.circleOpacity = Double.random(in: 0...1)
-            annotation.circleRadius = Double.random(in: 0...100000)
-            annotation.circleStrokeColor = StyleColor.random()
-            annotation.circleStrokeOpacity = Double.random(in: 0...1)
-            annotation.circleStrokeWidth = Double.random(in: 0...100000)
-            annotations.append(annotation)
-        }
-        let newCircleTranslateAnchorProperty = CircleTranslateAnchor.random()
-
-        manager.annotations = annotations
-        manager.circleTranslateAnchor = newCircleTranslateAnchorProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties.count, annotations[0].layerProperties.count+1)
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate-anchor"])
+        XCTAssertEqual(manager.impl.layerProperties["circle-translate-anchor"] as! String, value.rawValue)
     }
 
     func testSetToNilCircleTranslateAnchor() {
-        let newCircleTranslateAnchorProperty = CircleTranslateAnchor.random()
+        let newCircleTranslateAnchorProperty = CircleTranslateAnchor.testConstantValue()
         let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "circle-translate-anchor").value as! String
         manager.circleTranslateAnchor = newCircleTranslateAnchorProperty
-        $displayLink.send()
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate-anchor"])
+        XCTAssertNotNil(manager.impl.layerProperties["circle-translate-anchor"])
+        harness.triggerDisplayLink()
 
         manager.circleTranslateAnchor = nil
-        $displayLink.send()
         XCTAssertNil(manager.circleTranslateAnchor)
+        harness.triggerDisplayLink()
 
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate-anchor"] as! String, defaultValue)
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["circle-translate-anchor"] as! String, defaultValue)
     }
-
     func testInitialSlot() {
         let initialValue = manager.slot
         XCTAssertNil(initialValue)
     }
 
     func testSetSlot() {
-        let value = String.randomASCII(withLength: .random(in: 0...100))
+        let value = UUID().uuidString
         manager.slot = value
         XCTAssertEqual(manager.slot, value)
-
-        // test layer and source synced and properties added
-        $displayLink.send()
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["slot"] as! String, value)
-    }
-
-    func testSlotAnnotationPropertiesAddedWithoutDuplicate() {
-        let newSlotProperty = String.randomASCII(withLength: .random(in: 0...100))
-        let secondSlotProperty = String.randomASCII(withLength: .random(in: 0...100))
-
-        manager.slot = newSlotProperty
-        $displayLink.send()
-        manager.slot = secondSlotProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.layerId, manager.id)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 2)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["slot"] as! String, secondSlotProperty)
-    }
-
-    func testNewSlotPropertyMergedWithAnnotationProperties() {
-        var annotations = [CircleAnnotation]()
-        for _ in 0...5 {
-            var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-            annotation.circleSortKey = Double.random(in: -100000...100000)
-            annotation.circleBlur = Double.random(in: -100000...100000)
-            annotation.circleColor = StyleColor.random()
-            annotation.circleOpacity = Double.random(in: 0...1)
-            annotation.circleRadius = Double.random(in: 0...100000)
-            annotation.circleStrokeColor = StyleColor.random()
-            annotation.circleStrokeOpacity = Double.random(in: 0...1)
-            annotation.circleStrokeWidth = Double.random(in: 0...100000)
-            annotations.append(annotation)
-        }
-        let newSlotProperty = String.randomASCII(withLength: .random(in: 0...100))
-
-        manager.annotations = annotations
-        manager.slot = newSlotProperty
-        $displayLink.send()
-
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.count, 1)
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties.count, annotations[0].layerProperties.count+1)
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["slot"])
+        XCTAssertEqual(manager.impl.layerProperties["slot"] as! String, value)
     }
 
     func testSetToNilSlot() {
-        let newSlotProperty = String.randomASCII(withLength: .random(in: 0...100))
+        let newSlotProperty = UUID().uuidString
         let defaultValue = StyleManager.layerPropertyDefaultValue(for: .circle, property: "slot").value as! String
         manager.slot = newSlotProperty
-        $displayLink.send()
-        XCTAssertNotNil(style.setLayerPropertiesStub.invocations.last?.parameters.properties["slot"])
+        XCTAssertNotNil(manager.impl.layerProperties["slot"])
+        harness.triggerDisplayLink()
 
         manager.slot = nil
-        $displayLink.send()
         XCTAssertNil(manager.slot)
+        harness.triggerDisplayLink()
 
-        XCTAssertEqual(style.setLayerPropertiesStub.invocations.last?.parameters.properties["slot"] as! String, defaultValue)
+        XCTAssertEqual(harness.style.setLayerPropertiesStub.invocations.last?.parameters.properties["slot"] as! String, defaultValue)
     }
 
     func annotationManager(_ manager: AnnotationManager, didDetectTappedAnnotations annotations: [Annotation]) {
@@ -663,212 +388,6 @@ final class CircleAnnotationManagerTests: XCTestCase, AnnotationInteractionDeleg
         expectation = nil
     }
 
-
-    func testGetAnnotations() {
-        let annotations = Array.random(withLength: 10) {
-            CircleAnnotation(centerCoordinate: .random(), isSelected: false, isDraggable: true)
-        }
-        manager.annotations = annotations
-
-        // Dragged annotation will be added to internal list of dragged annotations.
-        let annotationToDrag = annotations.randomElement()!
-        _ = manager.handleDragBegin(with: annotationToDrag.id, context: .zero)
-        XCTAssertTrue(manager.annotations.contains(where: { $0.id == annotationToDrag.id }))
-    }
-
-    func testHandleDragBeginIsDraggableFalse() throws {
-        manager.annotations = [
-            CircleAnnotation(id: "circle1", centerCoordinate: .random(), isSelected: false, isDraggable: false)
-        ]
-
-        style.addSourceStub.reset()
-        style.addPersistentLayerStub.reset()
-
-        _ = manager.handleDragBegin(with: "circle1", context: .zero)
-
-        XCTAssertEqual(style.addSourceStub.invocations.count, 0)
-        XCTAssertEqual(style.addPersistentLayerStub.invocations.count, 0)
-    }
-    func testHandleDragBeginInvalidFeatureId() {
-        style.addSourceStub.reset()
-        style.addPersistentLayerStub.reset()
-
-        _ = manager.handleDragBegin(with: "not-a-feature", context: .zero)
-
-        XCTAssertTrue(style.addSourceStub.invocations.isEmpty)
-        XCTAssertTrue(style.addPersistentLayerStub.invocations.isEmpty)
-    }
-
-    func testDrag() throws {
-        let annotation = CircleAnnotation(id: "circle1", centerCoordinate: .random(), isSelected: false, isDraggable: true)
-        manager.annotations = [annotation]
-
-        style.addSourceStub.reset()
-        style.addPersistentLayerStub.reset()
-        _ = manager.handleDragBegin(with: "circle1", context: .zero)
-
-        let addSourceParameters = try XCTUnwrap(style.addSourceStub.invocations.last).parameters
-        let addLayerParameters = try XCTUnwrap(style.addPersistentLayerStub.invocations.last).parameters
-
-        let addedLayer = try XCTUnwrap(addLayerParameters.layer as? CircleLayer)
-        XCTAssertEqual(addedLayer.source, addSourceParameters.source.id)
-        XCTAssertEqual(addLayerParameters.layerPosition, .above(manager.id))
-        XCTAssertEqual(addedLayer.id, manager.id + "_drag")
-
-        XCTAssertEqual(style.updateGeoJSONSourceStub.invocations.count, 0)
-        $displayLink.send()
-        XCTAssertEqual(style.updateGeoJSONSourceStub.invocations.count, 1)
-        XCTAssertEqual(style.updateGeoJSONSourceStub.invocations.last?.parameters.id, "\(manager.id)_drag")
-
-        _ = manager.handleDragBegin(with: "circle1", context: .zero)
-
-        XCTAssertEqual(style.addSourceStub.invocations.count, 1)
-        XCTAssertEqual(style.addPersistentLayerStub.invocations.count, 1)
-
-        mapboxMap.pointStub.defaultReturnValue = CGPoint(x: 0, y: 0)
-        mapboxMap.coordinateForPointStub.defaultReturnValue = .random()
-        mapboxMap.cameraState.zoom = 1
-
-        manager.handleDragChange(with: .random(), context: .zero)
-
-        $displayLink.send()
-
-        let updateSourceParameters = try XCTUnwrap(style.updateGeoJSONSourceStub.invocations.last).parameters
-        XCTAssertTrue(updateSourceParameters.id == addSourceParameters.source.id)
-        if case .featureCollection(let collection) = updateSourceParameters.geojson {
-            XCTAssertTrue(collection.features.contains(where: { $0.identifier?.rawValue as? String == annotation.id }))
-        } else {
-            XCTFail("GeoJSONObject should be a feature collection")
-        }
-    }
-
-    func testDragHandlers() throws {
-        struct GestureData {
-            var annotation: CircleAnnotation
-            var context: MapContentGestureContext
-        }
-
-        var annotation = CircleAnnotation(point: .init(.init(latitude: 0, longitude: 0)), isSelected: false, isDraggable: false)
-        annotation.isDraggable = true
-
-        let beginDragStub = Stub<GestureData, Bool>(defaultReturnValue: false)
-        let changeDragStub = Stub<GestureData, Void>()
-        let endDragStub = Stub<GestureData, Void>()
-        annotation.dragBeginHandler = { annotation, context in
-            beginDragStub.call(with: GestureData(annotation: annotation, context: context))
-        }
-        annotation.dragChangeHandler = { annotation, context in
-            changeDragStub.call(with: GestureData(annotation: annotation, context: context))
-        }
-        annotation.dragEndHandler = { annotation, context in
-            endDragStub.call(with: GestureData(annotation: annotation, context: context))
-        }
-        manager.annotations = [annotation]
-
-        mapboxMap.pointStub.defaultReturnValue = CGPoint(x: 0, y: 0)
-        mapboxMap.coordinateForPointStub.defaultReturnValue = .init(latitude: 23.5432356, longitude: -12.5326744)
-        mapboxMap.cameraState.zoom = 1
-
-        var context = MapContentGestureContext(point: CGPoint(x: 0, y: 1), coordinate: .init(latitude: 2, longitude: 3))
-
-        // test it twice to cover the case when annotation was already on drag layer.
-        for _ in 0...1 {
-            beginDragStub.reset()
-            changeDragStub.reset()
-            endDragStub.reset()
-
-            // skipped gesture
-            beginDragStub.defaultReturnValue = false
-            var res = manager.handleDragBegin(with: annotation.id, context: context)
-            XCTAssertEqual(beginDragStub.invocations.count, 1)
-            XCTAssertEqual(res, false)
-            var data = try XCTUnwrap(beginDragStub.invocations.last).parameters
-            XCTAssertEqual(data.annotation.id, annotation.id)
-            XCTAssertEqual(data.context.point, context.point)
-            XCTAssertEqual(data.context.coordinate, context.coordinate)
-
-            manager.handleDragChange(with: CGPoint(x: 10, y: 20), context: context)
-            manager.handleDragEnd(context:context)
-            XCTAssertEqual(changeDragStub.invocations.count, 0)
-            XCTAssertEqual(endDragStub.invocations.count, 0)
-
-            // handled gesture
-            context.point.x += 1
-            context.coordinate.latitude += 1
-            beginDragStub.defaultReturnValue = true
-            res = manager.handleDragBegin(with: annotation.id, context: context)
-            XCTAssertEqual(beginDragStub.invocations.count, 2)
-            XCTAssertEqual(res, true)
-            data = try XCTUnwrap(beginDragStub.invocations.last).parameters
-            XCTAssertEqual(data.annotation.id, annotation.id)
-            XCTAssertEqual(data.context.point, context.point)
-            XCTAssertEqual(data.context.coordinate, context.coordinate)
-
-            context.point.x += 1
-            context.coordinate.latitude += 1
-            manager.handleDragChange(with: CGPoint(x: 10, y: 20), context: context)
-            XCTAssertEqual(changeDragStub.invocations.count, 1)
-            data = try XCTUnwrap(changeDragStub.invocations.last).parameters
-            XCTAssertEqual(data.annotation.id, annotation.id)
-            XCTAssertEqual(data.context.point, context.point)
-            XCTAssertEqual(data.context.coordinate, context.coordinate)
-
-            context.point.x += 1
-            context.coordinate.latitude += 1
-            manager.handleDragEnd(context:context)
-            XCTAssertEqual(endDragStub.invocations.count, 1)
-            data = try XCTUnwrap(endDragStub.invocations.last).parameters
-            XCTAssertEqual(data.annotation.id, annotation.id)
-            XCTAssertEqual(data.context.point, context.point)
-            XCTAssertEqual(data.context.coordinate, context.coordinate)
-        }
-    }
-
-    func testDoesNotUpdateDragSourceWhenNoDragged() {
-        let annotation = CircleAnnotation(id: "circle1", centerCoordinate: .random(), isSelected: false, isDraggable: true)
-        manager.annotations = [annotation]
-        $displayLink.send()
-        XCTAssertEqual(style.updateGeoJSONSourceStub.invocations.count, 0)
-    }
-
-    func testRemovingDuplicatedAnnotations() {
-      let annotation1 = CircleAnnotation(id: "A", point: .init(.init(latitude: 1, longitude: 1)), isSelected: false, isDraggable: false)
-      let annotation2 = CircleAnnotation(id: "B", point: .init(.init(latitude: 2, longitude: 2)), isSelected: false, isDraggable: false)
-      let annotation3 = CircleAnnotation(id: "A", point: .init(.init(latitude: 3, longitude: 3)), isSelected: false, isDraggable: false)
-      manager.annotations = [annotation1, annotation2, annotation3]
-
-      XCTAssertEqual(manager.annotations, [
-          annotation1,
-          annotation2
-      ])
-    }
-
-    func testSetNewAnnotations() {
-      let annotation1 = CircleAnnotation(id: "A", point: .init(.init(latitude: 1, longitude: 1)), isSelected: false, isDraggable: false)
-      let annotation2 = CircleAnnotation(id: "B", point: .init(.init(latitude: 2, longitude: 2)), isSelected: false, isDraggable: false)
-      let annotation3 = CircleAnnotation(id: "C", point: .init(.init(latitude: 3, longitude: 3)), isSelected: false, isDraggable: false)
-
-        manager.set(newAnnotations: [
-            (1, annotation1),
-            (2, annotation2)
-        ])
-
-        XCTAssertEqual(manager.annotations.map(\.id), ["A", "B"])
-
-        manager.set(newAnnotations: [
-            (1, annotation3),
-            (2, annotation2)
-        ])
-
-        XCTAssertEqual(manager.annotations.map(\.id), ["A", "B"])
-
-        manager.set(newAnnotations: [
-            (3, annotation3),
-            (2, annotation2)
-        ])
-
-        XCTAssertEqual(manager.annotations.map(\.id), ["C", "B"])
-    }
 }
 
 // End of generated file

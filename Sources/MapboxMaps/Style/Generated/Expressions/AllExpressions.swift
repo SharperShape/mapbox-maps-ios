@@ -1,8 +1,8 @@
 // This file is generated.
 import Foundation
 
-public extension Expression {
-    struct Operator: RawRepresentable, Codable, Equatable {
+public extension Exp {
+    struct Operator: RawRepresentable, Codable, Equatable, Sendable {
 
         /// For two inputs, returns the result of subtracting the second input from the first. For a single input, returns the result of subtracting it from 0.
         public static let subtract = Operator(rawValue: "-")
@@ -121,7 +121,7 @@ public extension Expression {
         /// - `"font-scale"`: Applies a scaling factor on `text-size` as specified by the root layout property.
         public static let format = Operator(rawValue: "format")
 
-        /// Returns the feature's geometry type: `Point`, `LineString` or `Polygon`. `Multi*` feature types return the singular forms.
+        /// Returns the feature's geometry type: `Point`, `LineString` or `Polygon`. `Multi-` feature types return the singular forms.
         public static let geometryType = Operator(rawValue: "geometry-type")
 
         /// Retrieves a property value from the current feature's properties, or from another object if a second argument is provided. Returns `null` if the requested property is missing.
@@ -142,7 +142,7 @@ public extension Expression {
         /// Returns the feature's id, if it has one.
         public static let id = Operator(rawValue: "id")
 
-        /// Returns a [`ResolvedImage`](/mapbox-gl-js/style-spec/types/#resolvedimage) for use in [`icon-image`](/mapbox-gl-js/style-spec/layers/#layout-symbol-icon-image), `*-pattern` entries, and as a section in the [`'format'`](#types-format) expression. A [`'coalesce'`](#coalesce) expression containing `image` expressions will evaluate to the first listed image that is currently in the style. This validation process is synchronous and requires the image to have been added to the style before requesting it in the `'image'` argument.
+        /// Returns a [`ResolvedImage`](/mapbox-gl-js/style-spec/types/#resolvedimage) for use in [`icon-image`](/mapbox-gl-js/style-spec/layers/#layout-symbol-icon-image), `--pattern` entries, and as a section in the [`'format'`](#types-format) expression. A [`'coalesce'`](#coalesce) expression containing `image` expressions will evaluate to the first listed image that is currently in the style. This validation process is synchronous and requires the image to have been added to the style before requesting it in the `'image'` argument. To implement crossfading between two images within a symbol layer using the [`icon-image-cross-fade`](/mapbox-gl-js/style-spec/layers/#paint-symbol-icon-image-cross-fade) attribute, include a second image as the second argument in the `'image'` expression.
         public static let image = Operator(rawValue: "image")
 
         /// Determines whether an item exists in an array or a substring exists in a string. In the specific case when the second and third arguments are string literals, you must wrap at least one of them in a [`literal`](#types-literal) expression to hint correct interpretation to the [type system](#type-system).
@@ -223,6 +223,9 @@ public extension Expression {
 
         /// Returns a random value in the specified range (first two input numbers) based on a supplied seed (third input). The seed can be an expression or a constant number or string value.
         public static let random = Operator(rawValue: "random")
+
+        /// Returns the length of the particle velocity vector. Can only be used in the `raster-particle-color` property.
+        public static let rasterParticleSpeed = Operator(rawValue: "raster-particle-speed")
 
         /// Returns the raster value of a pixel computed via `raster-color-mix`. Can only be used in the `raster-color` property.
         public static let rasterValue = Operator(rawValue: "raster-value")

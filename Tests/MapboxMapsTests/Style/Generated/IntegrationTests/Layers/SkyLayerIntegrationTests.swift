@@ -15,7 +15,7 @@ final class SkyLayerIntegrationTests: MapViewIntegrationTestCase {
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved SkyLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        mapView.mapboxMap.styleURI = .streets
+        mapView.mapboxMap.styleJSON = .testStyleJSON()
 
         didFinishLoadingStyle = { mapView in
 
@@ -23,7 +23,6 @@ final class SkyLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.minZoom = 10.0
             layer.maxZoom = 20.0
             layer.visibility = .constant(.visible)
-
             layer.skyAtmosphereColor = Value<StyleColor>.testConstantValue()
             layer.skyAtmosphereHaloColor = Value<StyleColor>.testConstantValue()
             layer.skyAtmosphereSunIntensity = Value<Double>.testConstantValue()

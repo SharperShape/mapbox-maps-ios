@@ -1,11 +1,12 @@
 import SwiftUI
 import Turf
-@_spi(Experimental) import MapboxMaps
+import MapboxMaps
 
 @available(iOS 14.0, *)
 struct ViewAnnotationsExample: View {
     @State private var taps: [Tap] = []
     @State private var allowOverlap: Bool = false
+    @State private var allowZElevate: Bool = false
     @State private var ignoreAllSafeArea: Bool = true
     @State private var selected = false
     @State private var etaAnnotationAnchor = ViewAnnotationAnchor.center
@@ -29,6 +30,7 @@ struct ViewAnnotationsExample: View {
             }
             .allowOverlap(allowOverlap)
             .selected(selected)
+
             // Dynamic view annotations, appeared on tap.
             // The anchor can point to bottom, top, left, or right direction.
             ForEvery(taps) { tap in
@@ -37,6 +39,7 @@ struct ViewAnnotationsExample: View {
                         taps.removeAll(where: { $0.id == tap.id })
                     }
                 }
+                .allowZElevate(allowZElevate)
                 .allowOverlap(allowOverlap)
                 // Allow bottom, top, left, right positions of anchor.
                 .variableAnchors(
@@ -73,11 +76,11 @@ struct ViewAnnotationsExample: View {
                         tailSize: 5.0)
             }
             .allowOverlap(allowOverlap)
+            .allowZElevate(allowZElevate)
             .variableAnchors(.all) // Allow all directions for anchor
             .onAnchorChanged { self.etaAnnotationAnchor = $0.anchor }
             .selected(true)
         }
-        .presentsWithTransaction(true) // Synchronize Metal and CALayer for better VA performance.
         .onMapTapGesture { context in
             taps.append(Tap(coordinate: context.coordinate))
         }
@@ -88,6 +91,7 @@ struct ViewAnnotationsExample: View {
             VStack(alignment: .leading) {
                 Text("Tap to add annotations")
                 Toggle("Allow overlap", isOn: $allowOverlap)
+                Toggle("Allow Z elevation", isOn: $allowZElevate)
                 Toggle("Ignore all safe area", isOn: $ignoreAllSafeArea)
             }
             .padding(.horizontal, 10)

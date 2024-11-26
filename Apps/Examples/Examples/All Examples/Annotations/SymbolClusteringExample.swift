@@ -77,13 +77,12 @@ final class SymbolClusteringExample: UIViewController, ExampleProtocol {
         }
 
         // Add the expressions to the cluster as ClusterProperties so they can be accessed below
-        let clusterProperties: [String: Expression] = [
+        let clusterProperties: [String: Exp] = [
             "max": maxExpression,
             "in_e9": ine9Expression,
             "sum": sumExpression
         ]
         source.clusterProperties = clusterProperties
-
 
         let clusteredLayer = createClusteredLayer(source: source.id)
         let unclusteredLayer = createUnclusteredLayer(source: source.id)

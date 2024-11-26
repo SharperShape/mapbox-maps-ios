@@ -1,5 +1,5 @@
 import UIKit
-@_spi(Experimental) import MapboxMaps
+import MapboxMaps
 
 final class SnapshotterExample: UIViewController, ExampleProtocol {
     private var cancelables = Set<AnyCancelable>()
@@ -55,7 +55,6 @@ final class SnapshotterExample: UIViewController, ExampleProtocol {
 
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-
 
         let size = CGSize(
             width: view.safeAreaLayoutGuide.layoutFrame.width,

@@ -25,7 +25,7 @@ final class MockMapSnapshotter: MockStyleManager, MapSnapshotterProtocol {
         setTileModeStub.call(with: set)
     }
 
-    var getCameraStateStub = Stub<Void, CoreCameraState>(defaultReturnValue: .init(center: CLLocationCoordinate2D.random(), padding: CoreEdgeInsets.init(top: Double.random(in: 0..<100), left: Double.random(in: 0..<100), bottom: Double.random(in: 0..<100), right: Double.random(in: 0..<100)), zoom: .random(in: 0...22), bearing: .random(in: 0...360), pitch: .random(in: 0...90)))
+    var getCameraStateStub = Stub<Void, CoreCameraState>(defaultReturnValue: .init(center: CLLocationCoordinate2D.testConstantValue(), padding: CoreEdgeInsets.init(top: Double.random(in: 0..<100), left: Double.random(in: 0..<100), bottom: Double.random(in: 0..<100), right: Double.random(in: 0..<100)), zoom: .random(in: 0...22), bearing: .random(in: 0...360), pitch: .random(in: 0...90)))
     func getCameraState() -> CoreCameraState {
         getCameraStateStub.call()
     }
@@ -52,12 +52,12 @@ final class MockMapSnapshotter: MockStyleManager, MapSnapshotterProtocol {
         var pitch: NSNumber?
     }
 
-    var cameraForCoordinatesStub = Stub<CameraForCoordinatesParams, CoreCameraOptions>(defaultReturnValue: .init(.random()))
+    var cameraForCoordinatesStub = Stub<CameraForCoordinatesParams, CoreCameraOptions>(defaultReturnValue: .init(.testConstantValue()))
     func cameraForCoordinates(for coordinates: [Coordinate2D], padding: CoreEdgeInsets?, bearing: NSNumber?, pitch: NSNumber?) -> CoreCameraOptions {
         cameraForCoordinatesStub.call(with: CameraForCoordinatesParams(coordinates: coordinates, padding: padding, bearing: bearing, pitch: pitch))
     }
 
-    var coordinateBoundsForCameraStub = Stub<CoreCameraOptions, CoordinateBounds>(defaultReturnValue: .init(southwest: .random(), northeast: .random()))
+    var coordinateBoundsForCameraStub = Stub<CoreCameraOptions, CoordinateBounds>(defaultReturnValue: .init(southwest: .testConstantValue(), northeast: .testConstantValue()))
     func coordinateBoundsForCamera(forCamera camera: CoreCameraOptions) -> CoordinateBounds {
         coordinateBoundsForCameraStub.call(with: camera)
     }

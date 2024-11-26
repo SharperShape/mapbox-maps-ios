@@ -3,7 +3,7 @@ import UIKit
 /// Options used to configure the direction in which the map is allowed to move
 /// during a pan gesture. Called `ScrollMode` in the Android SDK for
 /// consistency with platform conventions.
-public enum PanMode: String, Equatable, CaseIterable {
+public enum PanMode: String, Equatable, CaseIterable, Sendable {
     /// The map may only move horizontally.
     case horizontal
 
@@ -15,7 +15,7 @@ public enum PanMode: String, Equatable, CaseIterable {
 }
 
 /// Configuration options for the built-in gestures
-public struct GestureOptions: Equatable {
+public struct GestureOptions: Equatable, Sendable {
 
     /// Whether the single-touch pan gesture is enabled.
     ///
@@ -75,7 +75,7 @@ public struct GestureOptions: Equatable {
 
     /// A constant factor that determines how quickly pan deceleration animations happen.
     /// Multiplied with the velocity vector once per millisecond during deceleration animations.
-    /// 
+    ///
     /// Defaults to `UIScrollView.DecelerationRate.normal.rawValue`
     public var panDecelerationFactor: CGFloat
 

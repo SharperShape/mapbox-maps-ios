@@ -2,6 +2,6 @@ import Foundation
 
 extension Encodable {
     func jsonString() throws -> String {
-        try String(data: JSONEncoder().encode(self), encoding: .utf8)!
+        String(data: try JSONEncoder().encode(self), encoding: .utf8)!
     }
 }

@@ -16,6 +16,7 @@
 - ``LineLayer``
 - ``LocationIndicatorLayer``
 - ``RasterLayer``
+- ``RasterParticleLayer``
 - ``SkyLayer``
 - ``SymbolLayer``
 - ``ModelLayer``
@@ -27,3 +28,5 @@
 - ``Slot``
 - ``SlotLayer``
 - ``LayerAtPosition``
+- ``ClipLayer``
+- ``ClipLayerTypes``

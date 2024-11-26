@@ -96,12 +96,10 @@ public final class ViewportManager {
     ///   - transition: The ``ViewportTransition`` that is used to transition to the target state.
     ///                 If `nil`, ``ViewportManager/defaultTransition`` is used. Defaults to `nil`.
     ///   - completion: A closure that is invoked when the transition ends. Defaults to `nil`.
-    ///   - success: Whether the transition ran to completion. Transitions may end early if they fail or
-    ///              are interrupted (e.g. by another call to
-    ///              `transition(to:transition:completion:)` or ``ViewportManager/idle()``)
     public func transition(to toState: ViewportState,
                            transition: ViewportTransition? = nil,
                            completion: ((_ success: Bool) -> Void)? = nil) {
+        sendTelemetry(\.viewportTransition)
         impl.transition(to: toState, transition: transition, completion: completion)
     }
 
@@ -124,7 +122,8 @@ public final class ViewportManager {
     @_documentation(visibility: public)
     @_spi(Experimental)
     public func makeCameraViewportState(camera: CameraOptions) -> ViewportState {
-        CameraViewportState(cameraOptions: Signal(just: camera), mapboxMap: mapboxMap, safeAreaPadding: impl.safeAreaPadding)
+        sendTelemetry(\.viewportCameraState)
+        return CameraViewportState(cameraOptions: Signal(just: camera), mapboxMap: mapboxMap, safeAreaPadding: impl.safeAreaPadding)
     }
 
     func makeDefaultStyleViewportState(padding: UIEdgeInsets) -> ViewportState {
@@ -138,7 +137,8 @@ public final class ViewportManager {
     ///                      with the default value specified for all parameters.
     /// - Returns: The newly-created ``FollowPuckViewportState``.
     public func makeFollowPuckViewportState(options: FollowPuckViewportStateOptions = .init()) -> FollowPuckViewportState {
-        FollowPuckViewportState(
+        sendTelemetry(\.viewportFollowState)
+        return FollowPuckViewportState(
             options: options,
             mapboxMap: mapboxMap,
             onPuckRender: onPuckRender,
@@ -149,6 +149,7 @@ public final class ViewportManager {
     /// - Parameter options: configuration options used when creating ``OverviewViewportState``.
     /// - Returns: The newly-created ``OverviewViewportState``.
     public func makeOverviewViewportState(options: OverviewViewportStateOptions) -> OverviewViewportState {
+        sendTelemetry(\.viewportOverviewState)
         return OverviewViewportState(
             options: options,
             mapboxMap: mapboxMap,

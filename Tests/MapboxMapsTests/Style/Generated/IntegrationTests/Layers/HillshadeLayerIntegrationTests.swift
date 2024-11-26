@@ -15,7 +15,7 @@ final class HillshadeLayerIntegrationTests: MapViewIntegrationTestCase {
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved HillshadeLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        mapView.mapboxMap.styleURI = .streets
+        mapView.mapboxMap.styleJSON = .testStyleJSON()
 
         didFinishLoadingStyle = { mapView in
 
@@ -23,7 +23,6 @@ final class HillshadeLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.minZoom = 10.0
             layer.maxZoom = 20.0
             layer.visibility = .constant(.visible)
-
             layer.hillshadeAccentColor = Value<StyleColor>.testConstantValue()
             layer.hillshadeAccentColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.hillshadeEmissiveStrength = Value<Double>.testConstantValue()

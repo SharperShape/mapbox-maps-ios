@@ -15,7 +15,7 @@ public struct HillshadeLayer: Layer, Equatable {
 
     /// An expression specifying conditions on source features.
     /// Only features that match the filter are displayed.
-    public var filter: Expression?
+    public var filter: Exp?
 
     /// Name of a source description to be used for this layer.
     /// Required for all layer types except ``BackgroundLayer``, ``SkyLayer``, and ``LocationIndicatorLayer``.
@@ -40,36 +40,43 @@ public struct HillshadeLayer: Layer, Equatable {
     public var visibility: Value<Visibility>
 
     /// The shading color used to accentuate rugged terrain like sharp cliffs and gorges.
+    /// Default value: "#000000".
     public var hillshadeAccentColor: Value<StyleColor>?
 
     /// Transition options for `hillshadeAccentColor`.
     public var hillshadeAccentColorTransition: StyleTransition?
 
     /// Controls the intensity of light emitted on the source features.
+    /// Default value: 0. Minimum value: 0.
     public var hillshadeEmissiveStrength: Value<Double>?
 
     /// Transition options for `hillshadeEmissiveStrength`.
     public var hillshadeEmissiveStrengthTransition: StyleTransition?
 
     /// Intensity of the hillshade
+    /// Default value: 0.5. Value range: [0, 1]
     public var hillshadeExaggeration: Value<Double>?
 
     /// Transition options for `hillshadeExaggeration`.
     public var hillshadeExaggerationTransition: StyleTransition?
 
     /// The shading color of areas that faces towards the light source.
+    /// Default value: "#FFFFFF".
     public var hillshadeHighlightColor: Value<StyleColor>?
 
     /// Transition options for `hillshadeHighlightColor`.
     public var hillshadeHighlightColorTransition: StyleTransition?
 
     /// Direction of light source when map is rotated.
+    /// Default value: "viewport".
     public var hillshadeIlluminationAnchor: Value<HillshadeIlluminationAnchor>?
 
     /// The direction of the light source used to generate the hillshading with 0 as the top of the viewport if `hillshade-illumination-anchor` is set to `viewport` and due north if `hillshade-illumination-anchor` is set to `map` and no 3d lights enabled. If `hillshade-illumination-anchor` is set to `map` and 3d lights enabled, the direction from 3d lights is used instead.
+    /// Default value: 335. Value range: [0, 359]
     public var hillshadeIlluminationDirection: Value<Double>?
 
     /// The shading color of areas that face away from the light source.
+    /// Default value: "#000000".
     public var hillshadeShadowColor: Value<StyleColor>?
 
     /// Transition options for `hillshadeShadowColor`.
@@ -115,7 +122,7 @@ public struct HillshadeLayer: Layer, Equatable {
         let container = try decoder.container(keyedBy: RootCodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         type = try container.decode(LayerType.self, forKey: .type)
-        filter = try container.decodeIfPresent(Expression.self, forKey: .filter)
+        filter = try container.decodeIfPresent(Exp.self, forKey: .filter)
         source = try container.decodeIfPresent(String.self, forKey: .source)
         sourceLayer = try container.decodeIfPresent(String.self, forKey: .sourceLayer)
         slot = try container.decodeIfPresent(Slot.self, forKey: .slot)
@@ -177,18 +184,15 @@ public struct HillshadeLayer: Layer, Equatable {
     }
 }
 
-@_documentation(visibility: public)
-@_spi(Experimental) extension HillshadeLayer {
+extension HillshadeLayer {
     /// An expression specifying conditions on source features.
     /// Only features that match the filter are displayed.
-    @_documentation(visibility: public)
-    public func filter(_ newValue: Expression) -> Self {
+    public func filter(_ newValue: Exp) -> Self {
         with(self, setter(\.filter, newValue))
     }
 
     /// Name of a source description to be used for this layer.
     /// Required for all layer types except ``BackgroundLayer``, ``SkyLayer``, and ``LocationIndicatorLayer``.
-    @_documentation(visibility: public)
     public func source(_ newValue: String) -> Self {
         with(self, setter(\.source, newValue))
     }
@@ -197,171 +201,155 @@ public struct HillshadeLayer: Layer, Equatable {
     ///
     /// Required for vector tile sources.
     /// Prohibited for all other source types, including GeoJSON sources.
-    @_documentation(visibility: public)
     public func sourceLayer(_ newValue: String) -> Self {
         with(self, setter(\.sourceLayer, newValue))
     }
 
     /// The slot this layer is assigned to.
     /// If specified, and a slot with that name exists, it will be placed at that position in the layer order.
-    @_documentation(visibility: public)
     public func slot(_ newValue: Slot?) -> Self {
         with(self, setter(\.slot, newValue))
     }
 
     /// The minimum zoom level for the layer. At zoom levels less than the minzoom, the layer will be hidden.
-    @_documentation(visibility: public)
     public func minZoom(_ newValue: Double) -> Self {
         with(self, setter(\.minZoom, newValue))
     }
 
     /// The maximum zoom level for the layer. At zoom levels equal to or greater than the maxzoom, the layer will be hidden.
-    @_documentation(visibility: public)
     public func maxZoom(_ newValue: Double) -> Self {
         with(self, setter(\.maxZoom, newValue))
     }
 
     /// The shading color used to accentuate rugged terrain like sharp cliffs and gorges.
-    @_documentation(visibility: public)
+    /// Default value: "#000000".
     public func hillshadeAccentColor(_ constant: StyleColor) -> Self {
         with(self, setter(\.hillshadeAccentColor, .constant(constant)))
     }
 
     /// The shading color used to accentuate rugged terrain like sharp cliffs and gorges.
-    @_documentation(visibility: public)
+    /// Default value: "#000000".
     public func hillshadeAccentColor(_ color: UIColor) -> Self {
         with(self, setter(\.hillshadeAccentColor, .constant(StyleColor(color))))
     }
 
     /// Transition property for `hillshadeAccentColor`
-    @_documentation(visibility: public)
     public func hillshadeAccentColorTransition(_ transition: StyleTransition) -> Self {
         with(self, setter(\.hillshadeAccentColorTransition, transition))
     }
 
     /// The shading color used to accentuate rugged terrain like sharp cliffs and gorges.
-    @_documentation(visibility: public)
-    public func hillshadeAccentColor(_ expression: Expression) -> Self {
+    /// Default value: "#000000".
+    public func hillshadeAccentColor(_ expression: Exp) -> Self {
         with(self, setter(\.hillshadeAccentColor, .expression(expression)))
     }
 
-
     /// Controls the intensity of light emitted on the source features.
-    @_documentation(visibility: public)
+    /// Default value: 0. Minimum value: 0.
     public func hillshadeEmissiveStrength(_ constant: Double) -> Self {
         with(self, setter(\.hillshadeEmissiveStrength, .constant(constant)))
     }
 
     /// Transition property for `hillshadeEmissiveStrength`
-    @_documentation(visibility: public)
     public func hillshadeEmissiveStrengthTransition(_ transition: StyleTransition) -> Self {
         with(self, setter(\.hillshadeEmissiveStrengthTransition, transition))
     }
 
     /// Controls the intensity of light emitted on the source features.
-    @_documentation(visibility: public)
-    public func hillshadeEmissiveStrength(_ expression: Expression) -> Self {
+    /// Default value: 0. Minimum value: 0.
+    public func hillshadeEmissiveStrength(_ expression: Exp) -> Self {
         with(self, setter(\.hillshadeEmissiveStrength, .expression(expression)))
     }
 
-
     /// Intensity of the hillshade
-    @_documentation(visibility: public)
+    /// Default value: 0.5. Value range: [0, 1]
     public func hillshadeExaggeration(_ constant: Double) -> Self {
         with(self, setter(\.hillshadeExaggeration, .constant(constant)))
     }
 
     /// Transition property for `hillshadeExaggeration`
-    @_documentation(visibility: public)
     public func hillshadeExaggerationTransition(_ transition: StyleTransition) -> Self {
         with(self, setter(\.hillshadeExaggerationTransition, transition))
     }
 
     /// Intensity of the hillshade
-    @_documentation(visibility: public)
-    public func hillshadeExaggeration(_ expression: Expression) -> Self {
+    /// Default value: 0.5. Value range: [0, 1]
+    public func hillshadeExaggeration(_ expression: Exp) -> Self {
         with(self, setter(\.hillshadeExaggeration, .expression(expression)))
     }
 
-
     /// The shading color of areas that faces towards the light source.
-    @_documentation(visibility: public)
+    /// Default value: "#FFFFFF".
     public func hillshadeHighlightColor(_ constant: StyleColor) -> Self {
         with(self, setter(\.hillshadeHighlightColor, .constant(constant)))
     }
 
     /// The shading color of areas that faces towards the light source.
-    @_documentation(visibility: public)
+    /// Default value: "#FFFFFF".
     public func hillshadeHighlightColor(_ color: UIColor) -> Self {
         with(self, setter(\.hillshadeHighlightColor, .constant(StyleColor(color))))
     }
 
     /// Transition property for `hillshadeHighlightColor`
-    @_documentation(visibility: public)
     public func hillshadeHighlightColorTransition(_ transition: StyleTransition) -> Self {
         with(self, setter(\.hillshadeHighlightColorTransition, transition))
     }
 
     /// The shading color of areas that faces towards the light source.
-    @_documentation(visibility: public)
-    public func hillshadeHighlightColor(_ expression: Expression) -> Self {
+    /// Default value: "#FFFFFF".
+    public func hillshadeHighlightColor(_ expression: Exp) -> Self {
         with(self, setter(\.hillshadeHighlightColor, .expression(expression)))
     }
 
-
     /// Direction of light source when map is rotated.
-    @_documentation(visibility: public)
+    /// Default value: "viewport".
     public func hillshadeIlluminationAnchor(_ constant: HillshadeIlluminationAnchor) -> Self {
         with(self, setter(\.hillshadeIlluminationAnchor, .constant(constant)))
     }
 
     /// Direction of light source when map is rotated.
-    @_documentation(visibility: public)
-    public func hillshadeIlluminationAnchor(_ expression: Expression) -> Self {
+    /// Default value: "viewport".
+    public func hillshadeIlluminationAnchor(_ expression: Exp) -> Self {
         with(self, setter(\.hillshadeIlluminationAnchor, .expression(expression)))
     }
 
-
     /// The direction of the light source used to generate the hillshading with 0 as the top of the viewport if `hillshade-illumination-anchor` is set to `viewport` and due north if `hillshade-illumination-anchor` is set to `map` and no 3d lights enabled. If `hillshade-illumination-anchor` is set to `map` and 3d lights enabled, the direction from 3d lights is used instead.
-    @_documentation(visibility: public)
+    /// Default value: 335. Value range: [0, 359]
     public func hillshadeIlluminationDirection(_ constant: Double) -> Self {
         with(self, setter(\.hillshadeIlluminationDirection, .constant(constant)))
     }
 
     /// The direction of the light source used to generate the hillshading with 0 as the top of the viewport if `hillshade-illumination-anchor` is set to `viewport` and due north if `hillshade-illumination-anchor` is set to `map` and no 3d lights enabled. If `hillshade-illumination-anchor` is set to `map` and 3d lights enabled, the direction from 3d lights is used instead.
-    @_documentation(visibility: public)
-    public func hillshadeIlluminationDirection(_ expression: Expression) -> Self {
+    /// Default value: 335. Value range: [0, 359]
+    public func hillshadeIlluminationDirection(_ expression: Exp) -> Self {
         with(self, setter(\.hillshadeIlluminationDirection, .expression(expression)))
     }
 
-
     /// The shading color of areas that face away from the light source.
-    @_documentation(visibility: public)
+    /// Default value: "#000000".
     public func hillshadeShadowColor(_ constant: StyleColor) -> Self {
         with(self, setter(\.hillshadeShadowColor, .constant(constant)))
     }
 
     /// The shading color of areas that face away from the light source.
-    @_documentation(visibility: public)
+    /// Default value: "#000000".
     public func hillshadeShadowColor(_ color: UIColor) -> Self {
         with(self, setter(\.hillshadeShadowColor, .constant(StyleColor(color))))
     }
 
     /// Transition property for `hillshadeShadowColor`
-    @_documentation(visibility: public)
     public func hillshadeShadowColorTransition(_ transition: StyleTransition) -> Self {
         with(self, setter(\.hillshadeShadowColorTransition, transition))
     }
 
     /// The shading color of areas that face away from the light source.
-    @_documentation(visibility: public)
-    public func hillshadeShadowColor(_ expression: Expression) -> Self {
+    /// Default value: "#000000".
+    public func hillshadeShadowColor(_ expression: Exp) -> Self {
         with(self, setter(\.hillshadeShadowColor, .expression(expression)))
     }
 }
 
 @available(iOS 13.0, *)
-@_spi(Experimental)
 extension HillshadeLayer: MapStyleContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         node.mount(MountedLayer(layer: self))

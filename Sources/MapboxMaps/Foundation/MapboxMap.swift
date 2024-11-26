@@ -1,5 +1,6 @@
 // swiftlint:disable file_length
 import UIKit
+import MapboxCoreMaps
 @_implementationOnly import MapboxCommon_Private
 import Turf
 
@@ -59,6 +60,23 @@ protocol MapboxMapProtocol: AnyObject {
     var onRenderFrameStarted: Signal<RenderFrameStarted> { get }
     var onRenderFrameFinished: Signal<RenderFrameFinished> { get }
     var onResourceRequest: Signal<ResourceRequest> { get }
+
+    func dispatch(event: CorePlatformEventInfo)
+    @discardableResult func addInteraction(_ interaction: some Interaction) -> Cancelable
+    @discardableResult func addInteraction(_ interaction: InteractionImpl) -> Cancelable
+    @discardableResult func addInteraction(_ interaction: CoreInteraction) -> Cancelable
+    @discardableResult func setFeatureState<T: FeaturesetFeatureType>(
+        featureset: FeaturesetDescriptor<T>,
+        featureId: FeaturesetFeatureId,
+        state: T.State,
+        callback: ((Error?) -> Void)?
+    ) -> Cancelable
+    @discardableResult func removeFeatureState<T: FeaturesetFeatureType>(
+        featureset: FeaturesetDescriptor<T>,
+        featureId: FeaturesetFeatureId,
+        stateKey: T.StateKey?,
+        callback: ((Error?) -> Void)?
+    ) -> Cancelable
 }
 
 // swiftlint:disable type_body_length
@@ -181,15 +199,11 @@ public final class MapboxMap: StyleManager {
         __map.destroyRenderer()
     }
 
-    convenience init(map: CoreMap, events: MapEvents) {
-        self.init(map: map, styleManager: map, events: events)
-    }
-
-    init(map: CoreMap, styleManager: StyleManagerProtocol, events: MapEvents) {
+    init(map: CoreMap, events: MapEvents) {
         self.__map = map
         self.events = events
 
-        super.init(with: styleManager, sourceManager: StyleSourceManager(styleManager: map))
+        super.init(with: map, sourceManager: StyleSourceManager(styleManager: map))
 
         __map.createRenderer()
         _isDefaultCameraInitialized.proxied = onCameraChanged.map { _ in true }
@@ -206,18 +220,17 @@ public final class MapboxMap: StyleManager {
 
     // MARK: - Style loading
 
-    /// Loads a style from a ``StyleURI``.
+    /// Loads a `style` from a StyleURI, calling a completion closure when the
+    /// style is fully loaded or there has been an error during load.
     ///
-    /// The completion function is called when the style has finished loading. When the style loads, there may be several scenarios:
-    ///  - If the style fails to load due to network issues, several reload attempts will be made, and the callback will be triggered only when the process reaches its terminal state - either successful or failed.
-    /// -  If a new style loading is requested (with a different style URI or JSON) while the previous one is still in progress, the previous one gets cancelled. The previous state receives a ``CancelError`` in the callback.
-    /// -  When the main style document is loaded, the style is considered to have loaded successfully, even if some parts of the style aren't fully loaded.
-    /// -  If the main document fails to load, the callback receives a ``StyleError``.
+    /// If style loading started while the other style is already loading, the latter's loading `completion`
+    /// will receive a ``CancelError``. If a style is failed to load, `completion` will receive a ``StyleError``.
     ///
     /// - Parameters:
     ///   - styleURI: StyleURI to load
     ///   - transition: Options for the style transition.
-    ///   - completion: Closure called when the style has been loaded successfully or failed.
+    ///   - completion: Closure called when the style has been fully loaded.
+    ///     If style has failed to load a `MapLoadingError` is provided to the closure.
     public func loadStyle(_ styleURI: StyleURI,
                           transition: TransitionOptions? = nil,
                           completion: ((Error?) -> Void)? = nil) {
@@ -238,18 +251,17 @@ public final class MapboxMap: StyleManager {
         loadStyle(styleURI, completion: completion)
     }
 
-    /// Loads a style from a JSON string.
+    /// Loads a `style` from a JSON string, calling a completion closure when the
+    /// style is fully loaded or there has been an error during load.
     ///
-    /// The completion function is called when the style has finished loading. When the style loads, there may be several scenarios:
-    ///  - If the style fails to load due to network issues, several reload attempts will be made, and the callback will be triggered only when the process reaches its terminal state - either successful or failed.
-    /// -  If a new style loading is requested (with a different style URI or JSON) while the previous one is still in progress, the previous one gets cancelled. The previous state receives a ``CancelError`` in the callback.
-    /// -  When the main style document is loaded, the style is considered to have loaded successfully, even if some parts of the style aren't fully loaded.
-    /// -  If the main document fails to load, the callback receives a ``StyleError``.
+    /// If style loading started while the other style is already loading, the latter's loading `completion`
+    /// will receive a ``CancelError``. If a style is failed to load, `completion` will receive a ``StyleError``.
     ///
     /// - Parameters:
     ///   - JSON: Style JSON string
     ///   - transition: Options for the style transition.
-    ///   - completion: Closure called when the style has been loaded successfully or failed.
+    ///   - completion: Closure called when the style has been fully loaded.
+    ///     If style has failed to load a `MapLoadingError` is provided to the closure.
     public func loadStyle(_ JSON: String,
                           transition: TransitionOptions? = nil,
                           completion: ((Error?) -> Void)? = nil) {
@@ -352,6 +364,17 @@ public final class MapboxMap: StyleManager {
     ///     exaggeration, or empty if elevation for the coordinate is not available.
     public func elevation(at coordinate: CLLocationCoordinate2D) -> Double? {
         return __map.getElevationFor(coordinate)?.doubleValue
+    }
+
+    /// The URL that points to the glyphs used by the style for rendering text labels on the map.
+    ///
+    /// This property allows setting a custom glyph URL at runtime, making it easier to
+    /// apply custom fonts to the map without modifying the base style.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public var styleGlyphURL: String {
+        get { __map.getStyleGlyphURL() }
+        set { __map.setStyleGlyphURLForUrl(newValue) }
     }
 
     // MARK: - Camera Fitting
@@ -480,6 +503,38 @@ public final class MapboxMap: StyleManager {
     ///   - maxZoom: The maximum zoom level to allow when the camera would transition to the specified bounds.
     ///   - offset: The center of the given bounds relative to the map's center, measured in points.
     /// - Returns: A `CameraOptions` that fits the provided constraints
+    /// - Important:
+    ///  The equivalent of the following deprecated call, where `point1` and `point2` are the most southwestern and northeastern points:
+    ///  ```swift
+    ///     let coordinatesPadding = UIEdgeInsets(allEdges: 4)
+    ///
+    ///     mapView.mapboxMap.camera(
+    ///         for: CoordinateBounds(southwest: point1, northeast: point2),
+    ///         padding: coordinatesPadding,
+    ///         bearing: 10,
+    ///         pitch: 8
+    ///     )
+    ///  ```
+    ///  Would be the following call that allows you to properly set map padding using initial camera options.
+    ///  Where `point1` and `point2` are part of the polygon defined by points 1-4 and are are the most southwestern and northeastern points of this polygon.
+    ///  ```swift
+    ///     let coordinatesPadding = UIEdgeInsets(allEdges: 4)
+    ///
+    ///     let initialCameraOptions = CameraOptions(
+    ///         padding: .zero,
+    ///         bearing: 10,
+    ///         pitch: 8
+    ///     )
+    ///
+    ///    mapView.mapboxMap.camera(
+    ///         for: [point1, point2, point3, point4],
+    ///         camera: initialCameraOptions,
+    ///         coordinatesPadding: coordinatesPadding,
+    ///         maxZoom: nil,
+    ///         offset: nil
+    ///    )
+    ///  ```
+    @available(*, deprecated, renamed: "camera(for:camera:coordinatesPadding:maxZoom:offset:)", message: "Use camera(for:camera:coordinatesPadding:maxZoom:offset:) instead.")
     public func camera(for coordinateBounds: CoordinateBounds, // swiftlint:disable:this function_parameter_count
                        padding: UIEdgeInsets?,
                        bearing: Double?,
@@ -508,7 +563,37 @@ public final class MapboxMap: StyleManager {
     ///   - bearing: The new bearing to be used by the camera, in degrees (0°, 360°) clockwise from true north.
     ///   - pitch: The new pitch to be used by the camera, in degrees (0°, 85°) with 0° being a top-down view.
     /// - Returns: A `CameraOptions` that fits the provided constraints
-    @available(*, deprecated, message: "Use ``camera(for:camera:coordinatesPadding:maxZoom:offset:)`` instead.")
+    /// - Important:
+    ///  The equivalent of the following deprecated call:
+    ///  ```swift
+    ///     let coordinatesPadding = UIEdgeInsets(allEdges: 4)
+    ///
+    ///     mapView.mapboxMap.camera(
+    ///         for: coordinates,
+    ///         padding: coordinatesPadding,
+    ///         bearing: 10,
+    ///         pitch: 8
+    ///     )
+    ///  ```
+    ///  Would be the following call that allows you to properly set map padding using initial camera options.
+    ///  ```swift
+    ///     let coordinatesPadding = UIEdgeInsets(allEdges: 4)
+    ///
+    ///     let initialCameraOptions = CameraOptions(
+    ///         padding: .zero,
+    ///         bearing: 10,
+    ///         pitch: 8
+    ///     )
+    ///
+    ///    mapView.mapboxMap.camera(
+    ///         for: coordinates,
+    ///         camera: initialCameraOptions,
+    ///         coordinatesPadding: coordinatesPadding,
+    ///         maxZoom: nil,
+    ///         offset: nil
+    ///    )
+    ///  ```
+    @available(*, deprecated, renamed: "camera(for:camera:coordinatesPadding:maxZoom:offset:)", message: "Use camera(for:camera:coordinatesPadding:maxZoom:offset:) instead.")
     public func camera(for coordinates: [CLLocationCoordinate2D],
                        padding: UIEdgeInsets?,
                        bearing: Double?,
@@ -595,6 +680,34 @@ public final class MapboxMap: StyleManager {
     ///   - bearing: The new bearing to be used by the camera.
     ///   - pitch: The new pitch to be used by the camera.
     /// - Returns: A `CameraOptions` that fits the provided constraints
+    ///
+    /// - Important:
+    ///  The equivalent of the following deprecated call:
+    ///  ```swift
+    ///     mapView.mapboxMap.camera(
+    ///         for: .polygon(Polygon([..])),
+    ///         padding: coordinatesPadding,
+    ///         bearing: 10,
+    ///         pitch: 8
+    ///     )
+    ///  ```
+    ///  Would be the following call that allows you to properly set map padding using initial camera options.
+    ///  ```swift
+    ///     let initialCameraOptions = CameraOptions(
+    ///         padding: .zero,
+    ///         bearing: 10,
+    ///         pitch: 8
+    ///     )
+    ///
+    ///    mapView.mapboxMap.camera(
+    ///         for: Polygon([..]).coordinates.flatMap { $0 },
+    ///         camera: initialCameraOptions,
+    ///         coordinatesPadding: coordinatesPadding,
+    ///         maxZoom: nil,
+    ///         offset: nil
+    ///    )
+    ///  ```
+    @available(*, deprecated, renamed: "camera(for:camera:coordinatesPadding:maxZoom:offset:)", message: "Use camera(for:camera:coordinatesPadding:maxZoom:offset:) method instead.")
     public func camera(for geometry: Geometry,
                        padding: UIEdgeInsets,
                        bearing: CGFloat?,
@@ -700,7 +813,7 @@ public final class MapboxMap: StyleManager {
     ///
     /// This API isn't supported by Globe projection.
     ///
-    /// - Parameter point: The point to convert. Must exist in the coordinate space
+    /// - Parameter points: The points to convert. Must exist in the coordinate space
     ///     of the `MapView`
     /// - Returns: A `CLLocationCoordinate` that represents the geographic location
     ///     of the point.
@@ -808,8 +921,8 @@ public final class MapboxMap: StyleManager {
     /// should be called after `beginGesture` and before `endGesture`.
     ///
     /// - Parameters:
-    ///   - fromPoint: The point from which the map is dragged.
-    ///   - toPoint: The point to which the map is dragged.
+    ///   - from: The point from which the map is dragged.
+    ///   - to: The point to which the map is dragged.
     ///
     /// - Returns:
     ///     The camera options object showing end point.
@@ -913,6 +1026,10 @@ public final class MapboxMap: StyleManager {
             __map.setCenterAltitudeModeFor(gestureState.intrinsicMode)
         }
     }
+
+    func dispatch(event: CorePlatformEventInfo) {
+        __map.dispatch(for: event)
+    }
 }
 
 extension MapboxMap: MapboxMapProtocol {}
@@ -925,47 +1042,101 @@ extension MapboxMap: MapFeatureQueryable {
 
     /// Queries the map for rendered features.
     ///
-    /// - Parameters:
-    ///   - shape: Screen point coordinates (point, line string or box) to query
-    ///         for rendered features.
-    ///   - options: Options for querying rendered features.
-    ///   - completion: Callback called when the query completes.
-    @discardableResult
-    public func queryRenderedFeatures(with shape: [CGPoint], options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedRenderedFeature], Error>) -> Void) -> Cancelable {
-        return __map.__queryRenderedFeatures(for: .fromNSArray(shape.map {$0.screenCoordinate}),
-                                       options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
-                                       callback: coreAPIClosureAdapter(for: completion,
-                                                                       type: NSArray.self,
-                                                                       concreteErrorType: MapError.self))
-    }
-
-    /// Queries the map for rendered features.
+    /// The feature must be visible on screen to be queried. The `geometry` defines a portion of the screen that should be queried. Thus, it must be a screen coordinate.
+    ///
+    /// If the `geometry` parameter is CGPoint, only that point is queried. When it's a `CGRect` or an array of `CGPoint`, the shape is queried.
+    ///
+    /// - Important: If you need to handle basic gestures on map content, please prefer to use Interactions API (see ``MapboxMap/addInteraction(_:)``). If you need to query a featureset from an imported style, use ``queryRenderedFeatures(with:targets:completion:)`` instead.
     ///
     /// - Parameters:
-    ///   - rect: Screen rect to query for rendered features.
+    ///   - geometry: A screen geometry to query. Can be a `CGPoint`, `CGRect`, or an array of `CGPoint`.
     ///   - options: Options for querying rendered features.
     ///   - completion: Callback called when the query completes.
     @discardableResult
-    public func queryRenderedFeatures(with rect: CGRect, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedRenderedFeature], Error>) -> Void) -> Cancelable {
-        return __map.__queryRenderedFeatures(for: .fromScreenBox(.init(rect)),
-                                       options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
-                                       callback: coreAPIClosureAdapter(for: completion,
-                                                                       type: NSArray.self,
-                                                                       concreteErrorType: MapError.self))
-    }
-    /// Queries the map for rendered features.
-    ///
-    /// - Parameters:
-    ///   - point: Screen point at which to query for rendered features.
-    ///   - options: Options for querying rendered features.
-    ///   - completion: Callback called when the query completes.
-    @discardableResult
-    public func queryRenderedFeatures(with point: CGPoint, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedRenderedFeature], Error>) -> Void) -> Cancelable {
-        return __map.__queryRenderedFeatures(for: .fromScreenCoordinate(point.screenCoordinate),
+    public func queryRenderedFeatures(with geometry: some RenderedQueryGeometryConvertible, options: RenderedQueryOptions? = nil, completion: @escaping (Result<[QueriedRenderedFeature], Error>) -> Void) -> Cancelable {
+        return __map.__queryRenderedFeatures(for: geometry.geometry.core,
                                              options: options ?? RenderedQueryOptions(layerIds: nil, filter: nil),
                                              callback: coreAPIClosureAdapter(for: completion,
                                                                              type: NSArray.self,
                                                                              concreteErrorType: MapError.self))
+    }
+
+    private func queryRenderedFeatures(with geometry: some RenderedQueryGeometryConvertible,
+                                       targets: [CoreFeaturesetQueryTarget],
+                                       completion: @escaping (Result<[QueriedRenderedFeature], Error>) -> Void) -> Cancelable {
+        return __map.__queryRenderedFeatures(for: geometry.geometry.core,
+                                             targets: targets,
+                                             callback: coreAPIClosureAdapter(for: completion,
+                                                                             type: NSArray.self,
+                                                                             concreteErrorType: MapError.self))
+    }
+
+    /// Queries the map for rendered features with one typed featureset.
+    ///
+    /// The results array will contain features of the type specified by this featureset.
+    ///
+    ///```swift
+    /// mapView.mapboxMap.queryRenderedFeatures(
+    ///   with: CGPoint(x: 0, y: 0),
+    ///   featureset: .standardBuildings) { result in
+    ///     // handle buildings in result
+    /// }
+    /// ```
+    ///
+    /// - Important: If you need to handle basic gestures on map content, please prefer to use Interactions API, see ``MapboxMap/addInteraction(_:)``.
+    ///
+    /// - Parameters:
+    ///   - geometry: A screen geometry to query. Can be a `CGPoint`, `CGRect`, or an array of `CGPoint`.
+    ///   - featureset: A typed featureset to query with.
+    ///   - filter: An additional filter for features.
+    ///   - completion: Callback called when the query completes.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    @discardableResult
+    public func queryRenderedFeatures<G: RenderedQueryGeometryConvertible, T: FeaturesetFeatureType>(
+        with geometry: G,
+        featureset: FeaturesetDescriptor<T>,
+        filter: Exp? = nil,
+        completion: @escaping (Result<[T], Error>) -> Void
+    ) -> Cancelable {
+            queryRenderedFeatures(
+                with: geometry,
+                targets: [
+                    CoreFeaturesetQueryTarget(featureset: featureset.core, filter: filter?.asCore, id: nil)
+                ]) { result in
+                    completion(result.map({ features in
+                        features.compactMap {
+                            T.init(from: FeaturesetFeature(
+                              queriedFeature: $0.queriedFeature,
+                              featureset: featureset.converted()))
+                        }
+                    }))
+                }
+    }
+
+    /// Queries all rendered features in current viewport, using one typed featureset.
+    ///
+    /// This is same as ``MapboxMap/queryRenderedFeatures(with:featureset:filter:completion:)`` called with geometry matching the current viewport.
+    ///
+    /// - Important: If you need to handle basic gestures on map content, please prefer to use Interactions API, see ``MapboxMap/addInteraction(_:)``.
+    ///
+    /// - Parameters:
+    ///   - featureset: A typed featureset to query with.
+    ///   - filter: An additional filter for features.
+    ///   - completion: Callback called when the query completes.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    @discardableResult
+    public func queryRenderedFeatures<T: FeaturesetFeatureType>(
+        featureset: FeaturesetDescriptor<T>,
+        filter: Exp? = nil,
+        completion: @escaping (Result<[T], Error>) -> Void
+    ) -> Cancelable {
+        queryRenderedFeatures(
+            with: CGRect(origin: .zero, size: size),
+            featureset: featureset,
+            filter: filter,
+            completion: completion)
     }
 
     /// Queries the map for source features.
@@ -1161,7 +1332,7 @@ extension MapboxMap {
     /// the returned `Cancelable` object.
     ///
     /// - Parameters:
-    ///   - eventType: The event type to listen to.
+    ///   - event: The event type to listen to.
     ///   - handler: The closure to execute when the event occurs.
     ///
     /// - Returns: A `Cancelable` object that you can use to stop listening for
@@ -1176,7 +1347,7 @@ extension MapboxMap {
     /// Listen to multiple occurrences of a Map event.
     ///
     /// - Parameters:
-    ///   - eventType: The event type to listen to.
+    ///   - event: The event type to listen to.
     ///   - handler: The closure to execute when the event occurs.
     ///
     /// - Returns: A `Cancelable` object that you can use to stop listening for
@@ -1218,6 +1389,7 @@ extension MapboxMap: AttributionDataSource {
 
 // MARK: - Feature State
 
+@_documentation(visibility: public)
 extension MapboxMap {
 
     /// Update the state map of a feature within a style source.
@@ -1243,6 +1415,64 @@ extension MapboxMap {
                                                                                   concreteErrorType: MapError.self))
     }
 
+    /// Update the state map of a feature within a featureset.
+    /// Update entries in the state map of a given feature within a style source. Only entries listed in the state map
+    /// will be updated. An entry in the feature state map that is not listed in `state` will retain its previous value.
+    ///
+    /// - Parameters:
+    ///   - featureset: The featureset to look the feature in.
+    ///   - featureId: Identifier of the feature whose state should be updated.
+    ///   - state: Map of entries to update with their respective new values
+    ///   - callback: The `feature state operation callback` called when the operation completes or ends.
+    ///
+    /// - Returns: A `Cancelable` object  that could be used to cancel the pending operation.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    @discardableResult
+    public func setFeatureState<T: FeaturesetFeatureType>(
+        featureset: FeaturesetDescriptor<T>,
+        featureId: FeaturesetFeatureId,
+        state: T.State,
+        callback: ((Error?) -> Void)? = nil
+    ) -> Cancelable {
+        guard let json = encodeState(state) else {
+            callback?(MapError(coreError: "Failed to encode feature state"))
+            return AnyCancelable.empty
+        }
+        return __map.__setFeatureStateForFeatureset(featureset.core,
+                                                    featureId: featureId.core,
+                                                    state: json,
+                                                    callback: coreAPIClosureAdapter(for: simplifyNSNullResult(callback),
+                                                                                    type: NSNull.self,
+                                                                                    concreteErrorType: MapError.self))
+    }
+
+    /// Update the state map of an individual feature.
+    ///
+    ///  The feature should have a non-nil ``FeaturesetFeatureType/id``. Otherwise,
+    ///  the operation will be no-op and callback will receive an error.
+    ///
+    /// - Parameters:
+    ///   - feature: The feature to update.
+    ///   - state: Map of entries to update with their respective new values
+    ///   - callback: The `feature state operation callback` called when the operation completes or ends.
+    ///
+    /// - Returns: A `Cancelable` object  that could be used to cancel the pending operation.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    @discardableResult
+    public func setFeatureState<T: FeaturesetFeatureType>(
+        _ feature: T,
+        state: T.State,
+        callback: ((Error?) -> Void)? = nil
+    ) -> Cancelable {
+        guard let id = feature.id else {
+            callback?(MapError(coreError: "Feature id is not specified"))
+            return AnyCancelable.empty
+        }
+        return setFeatureState(featureset: feature.featureset, featureId: id, state: state, callback: callback)
+    }
+
     /// Get the state map of a feature within a style source.
     ///
     /// - Parameters:
@@ -1260,6 +1490,55 @@ extension MapboxMap {
                               callback: coreAPIClosureAdapter(for: callback,
                                                               type: AnyObject.self,
                                                               concreteErrorType: MapError.self))
+    }
+
+    /// Get the state map of a feature within a style source.
+    ///
+    /// - Parameters:
+    ///   - featureset: A featureset the feature belongs to.
+    ///   - featureId: Identifier of the feature whose state should be queried.
+    ///   - callback: Feature's state map or an empty map if the feature could not be found.
+    ///
+    /// - Returns: A `Cancelable` object that could be used to cancel the pending query.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    @discardableResult
+    public func getFeatureState<T: FeaturesetFeatureType>(
+        featureset: FeaturesetDescriptor<T>,
+        featureId: FeaturesetFeatureId,
+        callback: @escaping (Result<T.State, Error>) -> Void
+    ) -> Cancelable {
+        __map.__getFeatureState(
+            forFeatureset: featureset.core,
+            featureId: featureId.core,
+            callback: coreAPIClosureAdapter(for: { result in
+                callback(result.mapWithError {
+                    try decodeState(json: JSONObject(turfRawValue: $0) ?? [:])
+                })
+            },
+                                            type: AnyObject.self,
+                                            concreteErrorType: MapError.self))
+    }
+
+    /// Get the state map of a feature within a style source.
+    ///
+    /// - Parameters:
+    ///   - feature: An interactive feature to query the state from.
+    ///   - callback: Feature's state map or an empty map if the feature could not be found.
+    ///
+    /// - Returns: A `Cancelable` object that could be used to cancel the pending query.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    @discardableResult
+    public func getFeatureState<F: FeaturesetFeatureType>(
+        _ feature: F,
+        callback: @escaping (Result<F.State, Error>) -> Void
+    ) -> Cancelable {
+        guard let id = feature.id else {
+            callback(.failure(MapError(coreError: "Feature id is not specified")))
+            return AnyCancelable.empty
+        }
+        return getFeatureState(featureset: feature.featureset, featureId: id, callback: callback)
     }
 
     /// Removes entries from a feature state object.
@@ -1284,6 +1563,60 @@ extension MapboxMap {
                                                                   concreteErrorType: MapError.self))
     }
 
+    /// Removes entries from a feature state object of a feature in the specified featureset.
+    /// Remove a specified property or all property from a feature's state object, depending on the value of `stateKey`.
+    ///
+    /// - Parameters:
+    ///   - featureset: A featureset the feature belongs to.
+    ///   - featureId: Identifier of the feature whose state should be queried.
+    ///   - stateKey: The key of the property to remove. If `nil`, all feature's state object properties are removed. Defaults to `nil`.
+    ///   - callback: The `feature state operation callback` called when the operation completes or ends.
+    /// - Returns: A `Cancelable` object that could be used to cancel the pending operation.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    @discardableResult
+    public func removeFeatureState<T: FeaturesetFeatureType>(
+        featureset: FeaturesetDescriptor<T>,
+        featureId: FeaturesetFeatureId,
+        stateKey: T.StateKey?,
+        callback: ((Error?) -> Void)? = nil
+    ) -> Cancelable {
+        return __map.__removeFeatureState(
+            forFeatureset: featureset.core,
+            featureId: featureId.core,
+            stateKey: stateKey?.description,
+            callback: coreAPIClosureAdapter(for: simplifyNSNullResult(callback),
+                                            type: NSNull.self,
+                                            concreteErrorType: MapError.self))
+    }
+
+    /// Removes entries from a specified Feature.
+    /// Remove a specified property or all property from a feature's state object, depending on the value of `stateKey`.
+    ///
+    /// - Parameters:
+    ///   - feature: An interactive feature to update.
+    ///   - stateKey: The key of the property to remove. If `nil`, all feature's state object properties are removed. Defaults to `nil`.
+    ///   - callback: The `feature state operation callback` called when the operation completes or ends.
+    /// - Returns: A `Cancelable` object that could be used to cancel the pending operation.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    @discardableResult
+    public func removeFeatureState<F: FeaturesetFeatureType>(
+        _ feature: F,
+        stateKey: F.StateKey?,
+        callback: ((Error?) -> Void)? = nil
+    ) -> Cancelable {
+        guard let id = feature.id else {
+            callback?(MapError(coreError: "Feature id is not specified"))
+            return AnyCancelable.empty
+        }
+        return removeFeatureState(
+            featureset: feature.featureset,
+            featureId: id,
+            stateKey: stateKey,
+            callback: callback)
+    }
+
     /// Reset all the feature states within a style source.
     /// Remove all feature state entries from the specified style source or source layer.
     /// Note that updates to feature state are asynchronous, so changes made by this method might not be
@@ -1302,6 +1635,31 @@ extension MapboxMap {
                                           callback: coreAPIClosureAdapter(for: callback,
                                                                           type: NSNull.self,
                                                                           concreteErrorType: MapError.self))
+    }
+
+    /// Reset all the feature states within a featureset.
+    ///
+    /// Note that updates to feature state are asynchronous, so changes made by this method might not be
+    /// immediately visible using ``MapboxMap/getFeatureState(_:callback:)``.
+    ///
+    /// - Parameters:
+    ///   - featureset: A featureset descriptor
+    ///   - callback: The `feature state operation callback` called when the operation completes or ends.
+    ///
+    /// - Returns: A `cancelable` object that could be used to cancel the pending operation.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    @discardableResult
+    public func resetFeatureStates<T: FeaturesetFeatureType>(
+        featureset: FeaturesetDescriptor<T>,
+        callback: ((Error?) -> Void)?
+    ) -> Cancelable {
+        return __map.__resetFeatureStates(
+            forFeatureset: featureset.core,
+            callback: coreAPIClosureAdapter(for: simplifyNSNullResult(callback),
+                                            type: NSNull.self,
+                                            concreteErrorType: MapError.self))
+
     }
 }
 
@@ -1345,7 +1703,6 @@ extension MapboxMap {
         }
         return ViewAnnotationOptions(options)
     }
-
 }
 
 // MARK: - TileCover
@@ -1369,9 +1726,46 @@ extension MapboxMap {
 
 extension MapboxMap {
 
-    /// Create a ``MapRecorder`` to record the current MapboxMap
+    /// Create a ``MapRecorder-4soa`` to record the current MapboxMap
     @_spi(Experimental) public final func makeRecorder() throws -> MapRecorder {
         try MapRecorder(mapView: __map)
+    }
+}
+
+// MARK: - Interactions
+
+extension MapboxMap {
+    func addInteraction(_ interaction: CoreInteraction) -> Cancelable {
+        __map.addInteraction(for: interaction)
+    }
+
+    /// Adds interaction to the map.
+    ///
+    /// Use this method to add ``TapInteraction`` or ``LongPressInteraction`` to the map.
+    ///
+    /// ```swift
+    /// map.addInteraction(TapInteraction(.layer("my-layer") { feature, context in
+    ///     // Handle tap on the feature
+    ///     return true // Stops propagation to features below or the map.
+    /// })
+    ///
+    /// map.addInteraction(TapInteraction{ context in
+    ///     // Handle tap on the map itself
+    ///     return true
+    /// })
+    /// ```
+    ///
+    /// - Parameters:
+    ///     - interaction: An instance of interaction
+    /// - Returns: A cancelable token that cancels (removes) the interaction.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    @discardableResult public func addInteraction(_ interaction: some Interaction) -> Cancelable {
+        addInteraction(interaction.impl)
+    }
+
+    @discardableResult func addInteraction(_ interaction: InteractionImpl) -> Cancelable {
+        addInteraction(CoreInteraction(impl: interaction))
     }
 }
 
@@ -1401,5 +1795,17 @@ extension CGPoint {
         }
 
         return CGPoint(x: -1, y: -1)
+    }
+}
+
+func simplifyNSNullResult(_ callback: ((Error?) -> Void)?) -> (Result<NSNull, Error>) -> Void {
+    guard let callback else { return { _ in } }
+    return { result in
+        switch result {
+        case .success:
+            callback(nil)
+        case .failure(let error):
+            callback(error)
+        }
     }
 }

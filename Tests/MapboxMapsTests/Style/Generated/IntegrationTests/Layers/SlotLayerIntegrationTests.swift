@@ -15,7 +15,7 @@ final class SlotLayerIntegrationTests: MapViewIntegrationTestCase {
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved SlotLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        mapView.mapboxMap.styleURI = .streets
+        mapView.mapboxMap.styleJSON = .testStyleJSON()
 
         didFinishLoadingStyle = { mapView in
 
@@ -23,7 +23,6 @@ final class SlotLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.minZoom = 10.0
             layer.maxZoom = 20.0
             layer.visibility = .constant(.visible)
-
 
             // Add the layer
             do {

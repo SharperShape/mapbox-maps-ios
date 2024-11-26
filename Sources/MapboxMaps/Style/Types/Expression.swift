@@ -4,13 +4,14 @@ import Foundation
 /// or filter within a map style. Expressions allow you to style data with multiple feature
 /// properties at once, apply conditional logic, and manipulate data with mathematical, logical, and
 /// string operators. This allows for sophisticated runtime styling.
-public typealias Exp = Expression
+@available(*, renamed: "Exp", message: "Use Exp type instead to avoid name clash with Foundation.Expression.")
+public typealias Expression = Exp
 
-/// An ``Expression`` defines a formula for computing the value of any layout property, paint property,
+/// An ``Exp``(expression) defines a formula for computing the value of any layout property, paint property,
 /// or filter within a map style. Expressions allow you to style data with multiple feature
 /// properties at once, apply conditional logic, and manipulate data with mathematical, logical, and
 /// string operators. This allows for sophisticated runtime styling.
-public struct Expression: Codable, CustomStringConvertible, Equatable {
+public struct Exp: Codable, CustomStringConvertible, Equatable, Sendable {
 
     /// The individual elements of the expression in an array
     internal var elements: [Element]
@@ -45,7 +46,7 @@ public struct Expression: Codable, CustomStringConvertible, Equatable {
     }
 
     public init(_ op: Operator,
-                @ExpressionArgumentBuilder content: () -> [Expression.Argument]) {
+                @ExpressionArgumentBuilder content: () -> [Exp.Argument]) {
         self.init(operator: op, arguments: content())
     }
 
@@ -60,7 +61,7 @@ public struct Expression: Codable, CustomStringConvertible, Equatable {
     }
 
     /// Initialize an expression with only arguments
-    public init(@ExpressionArgumentBuilder content: () -> [Expression.Argument]) {
+    public init(@ExpressionArgumentBuilder content: () -> [Exp.Argument]) {
         self.init(arguments: content())
     }
 
@@ -102,7 +103,7 @@ public struct Expression: Codable, CustomStringConvertible, Equatable {
      An `ExpressionElement` can be either a `op` (associated with a `String`)
      OR an `argument` (associated with an `ExpressionArgument`)
      */
-    public indirect enum Element: Codable, CustomStringConvertible, Equatable {
+    public indirect enum Element: Codable, CustomStringConvertible, Equatable, Sendable {
 
         case `operator`(Operator)
         case argument(Argument)
@@ -116,7 +117,7 @@ public struct Expression: Codable, CustomStringConvertible, Equatable {
             }
         }
 
-        public static func == (lhs: Expression.Element, rhs: Expression.Element) -> Bool {
+        public static func == (lhs: Exp.Element, rhs: Exp.Element) -> Bool {
             switch (lhs, rhs) {
             case (.operator(let lhsOp), .operator(let rhsOp)):
                 return lhsOp.rawValue == rhsOp.rawValue
@@ -157,9 +158,9 @@ public struct Expression: Codable, CustomStringConvertible, Equatable {
         }
     }
 
-    /// An `ExpressionArgument` is either a literal (associated with a double, string, boolean, or null value)
-    /// or another `Expression`
-    public indirect enum Argument: Codable, CustomStringConvertible, Equatable {
+    /// An `Exp.Argument` is either a literal (associated with a double, string, boolean, or null value)
+    /// or another `Exp`
+    public indirect enum Argument: Codable, CustomStringConvertible, Equatable, Sendable {
 
         case number(Double)
         case string(String)
@@ -169,7 +170,7 @@ public struct Expression: Codable, CustomStringConvertible, Equatable {
         case option(Option)
         case geoJSONObject(GeoJSONObject)
         case null
-        case expression(Expression)
+        case expression(Exp)
 
         public var description: String {
             switch self {
@@ -231,7 +232,7 @@ public struct Expression: Codable, CustomStringConvertible, Equatable {
                 self = .boolean(validBoolean)
             } else if let object = try? container.decode(GeoJSONObject.self) {
                 self = .geoJSONObject(object)
-            } else if let validExpression = try? container.decode(Expression.self) {
+            } else if let validExpression = try? container.decode(Exp.self) {
                 self = .expression(validExpression)
             } else if let validOption = try? container.decode(Option.self) {
                 self = .option(validOption)
@@ -247,5 +248,13 @@ public struct Expression: Codable, CustomStringConvertible, Equatable {
                 throw DecodingError.dataCorrupted(context)
             }
         }
+    }
+}
+
+extension Exp {
+    var asCore: Any? {
+        let encoder = DictionaryEncoder()
+        encoder.shouldEncodeNilValues = false
+        return try? encoder.encodeAny(self)
     }
 }

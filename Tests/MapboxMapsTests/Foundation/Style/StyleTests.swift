@@ -97,7 +97,7 @@ final class StyleManagerTests: XCTestCase {
     }
 
     func testDefaultCamera() {
-        let stubCamera = MapboxMaps.CameraOptions.random()
+        let stubCamera = MapboxMaps.CameraOptions.testConstantValue()
         styleManager.getStyleDefaultCameraStub.defaultReturnValue = CoreCameraOptions(stubCamera)
 
         XCTAssertEqual(style.styleDefaultCamera, stubCamera)
@@ -176,7 +176,7 @@ final class StyleManagerTests: XCTestCase {
     // MARK: Source
 
     func testGetAllSourceIdentifiers() {
-        let stubbedStyleSources: [SourceInfo] = .random(withLength: 3) {
+        let stubbedStyleSources: [SourceInfo] = .testFixture(withLength: 3) {
             SourceInfo(id: .randomAlphanumeric(withLength: 12), type: .random())
         }
         sourceManager.$allSourceIdentifiers.getStub.defaultReturnValue = stubbedStyleSources
@@ -422,20 +422,20 @@ final class StyleManagerTests: XCTestCase {
         styleManager.invalidateStyleCustomGeometrySourceRegionStub.defaultReturnValue = Expected(value: NSNull())
         XCTAssertNoThrow(try style.invalidateCustomGeometrySourceRegion(
             forSourceId: "dummy-source-id",
-            bounds: CoordinateBounds(southwest: .random(), northeast: .random()))
+            bounds: CoordinateBounds(southwest: .testConstantValue(), northeast: .testConstantValue()))
         )
 
         styleManager.invalidateStyleCustomGeometrySourceRegionStub.defaultReturnValue = Expected(error: "Cannot invalidate custom geometry source tile")
         XCTAssertThrowsError(try style.invalidateCustomGeometrySourceRegion(
             forSourceId: "dummy-source-id",
-            bounds: CoordinateBounds(southwest: .random(), northeast: .random()))
+            bounds: CoordinateBounds(southwest: .testConstantValue(), northeast: .testConstantValue()))
         )
     }
 
     func testStyleCanAddCustomRasterSource() {
         let options = CustomRasterSourceOptions(
-            fetchTileFunction: { _ in },
-            cancelTileFunction: { _ in })
+            clientCallback: CustomRasterSourceClient.fromCustomRasterSourceTileStatusChangedCallback { _, _ in }
+        )
 
         styleManager.addStyleCustomRasterSourceStub.defaultReturnValue = Expected(value: NSNull())
         XCTAssertNoThrow(try style.addCustomRasterSource(
@@ -454,47 +454,13 @@ final class StyleManagerTests: XCTestCase {
         styleManager.setStyleCustomRasterSourceTileDataStub.defaultReturnValue = Expected(value: NSNull())
         XCTAssertNoThrow(try style.setCustomRasterSourceTileData(
             forSourceId: "dummy-source-id",
-            tileId: CanonicalTileID(z: 0, x: 0, y: 0),
-            image: UIImage.empty)
+            tiles: [])
         )
 
         styleManager.setStyleCustomRasterSourceTileDataStub.defaultReturnValue = Expected(error: "Cannot set custom raster source tile data")
         XCTAssertThrowsError(try style.setCustomRasterSourceTileData(
             forSourceId: "dummy-source-id",
-            tileId: CanonicalTileID(z: 0, x: 0, y: 0),
-            image: UIImage.empty)
-        )
-    }
-
-    func testStyleCanInvalidateCustomRasterSourceTile() {
-        styleManager.invalidateStyleCustomRasterSourceTileStub.defaultReturnValue = Expected(value: NSNull())
-        XCTAssertNoThrow(try style.invalidateCustomRasterSourceTile(
-            forSourceId: "dummy-source-id",
-            tileId: CanonicalTileID(z: 0, x: 0, y: 0))
-        )
-
-        styleManager.invalidateStyleCustomRasterSourceTileStub.defaultReturnValue = Expected(error: "Cannot invalidate customer raster source tile")
-        XCTAssertThrowsError(try style.invalidateCustomRasterSourceTile(
-            forSourceId: "dummy-source-id",
-            tileId: CanonicalTileID(z: 0, x: 0, y: 0))
-        )
-    }
-
-    func testStyleCanInvalidateCustomRasterSourceRegion() {
-        styleManager.invalidateStyleCustomRasterSourceRegionStub.defaultReturnValue = Expected(value: NSNull())
-        XCTAssertNoThrow(try style.invalidateCustomRasterSourceRegion(
-            forSourceId: "dummy-source-id",
-            bounds: CoordinateBounds(
-                southwest: CLLocationCoordinate2D(latitude: -90.0, longitude: -180.0),
-                northeast: CLLocationCoordinate2D(latitude: 90.0, longitude: 180.0)))
-        )
-
-        styleManager.invalidateStyleCustomRasterSourceRegionStub.defaultReturnValue = Expected(error: "Cannot invalidate customer raster source region")
-        XCTAssertThrowsError(try style.invalidateCustomRasterSourceRegion(
-            forSourceId: "dummy-source-id",
-            bounds: CoordinateBounds(
-                southwest: CLLocationCoordinate2D(latitude: -90.0, longitude: -180.0),
-                northeast: CLLocationCoordinate2D(latitude: 90.0, longitude: 180.0)))
+            tiles: [])
         )
     }
 
@@ -657,7 +623,7 @@ final class StyleManagerTests: XCTestCase {
         // given
         let sourceId = String.randomASCII(withLength: 10)
         let dataId = String.randomASCII(withLength: 11)
-        let point = Point(.random())
+        let point = Point(.testConstantValue())
         let featureIdentifier = Double.random(in: 0...1000)
         var feature = Feature.init(geometry: point.geometry)
         feature.identifier = .number(featureIdentifier)
@@ -677,7 +643,7 @@ final class StyleManagerTests: XCTestCase {
         // given
         let sourceId = String.randomASCII(withLength: 10)
         let dataId = String.randomASCII(withLength: 11)
-        let point = Point(.random())
+        let point = Point(.testConstantValue())
         let featureIdentifier = Double.random(in: 0...1000)
         var feature = Feature.init(geometry: point.geometry)
         feature.identifier = .number(featureIdentifier)
@@ -719,7 +685,7 @@ final class StyleManagerTests: XCTestCase {
     func testRemoveStyleImport() {
         let importId = UUID().uuidString
 
-        try? style.removeStyleImport(for: importId)
+        try? style.removeStyleImport(withId: importId)
         XCTAssertEqual(styleManager.removeStyleImportStub.invocations.count, 1)
         XCTAssertEqual(styleManager.removeStyleImportStub.invocations.first?.parameters.importId, importId)
     }

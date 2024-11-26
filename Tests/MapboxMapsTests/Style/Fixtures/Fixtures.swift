@@ -18,6 +18,18 @@ internal extension StyleColor {
     }
 }
 
+internal extension StyleTransition {
+    static func testConstantValue() -> StyleTransition {
+        return StyleTransition(duration: 2.0, delay: 2.0)
+    }
+}
+
+internal extension TransitionOptions {
+    static func testConstantValue() -> TransitionOptions {
+        return TransitionOptions(duration: 2.0, delay: 1.0, enablePlacementTransitions: false)
+    }
+}
+
 internal extension String {
     static func testSourceValue() -> String {
         return "test-string"
@@ -28,9 +40,9 @@ internal extension String {
     }
 }
 
-internal extension Expression {
-    static func testConstantValue() -> Expression {
-        return Expression(.all)
+internal extension Exp {
+    static func testConstantValue() -> Exp {
+        return Exp(.all)
     }
 }
 
@@ -54,8 +66,8 @@ internal extension Array where Element == Double {
     }
 }
 
-internal extension Dictionary where Key == String, Value == Expression {
-    static func testSourceValue() -> [String: Expression] {
+internal extension Dictionary where Key == String, Value == Exp {
+    static func testSourceValue() -> [String: Exp] {
         let exp = Exp(.sum) {
             10
             12
@@ -93,7 +105,7 @@ internal extension Bool {
 
 internal extension UIEdgeInsets {
     static func testConstantValue() -> UIEdgeInsets {
-        return UIEdgeInsets()
+        return UIEdgeInsets(top: 12, left: 34, bottom: 56, right: 78)
     }
 }
 
@@ -118,5 +130,21 @@ internal extension PromoteId {
 internal extension Array where Element == RasterArraySource.RasterDataLayer {
     static func testSourceValue() -> [RasterArraySource.RasterDataLayer] {
         return [.init(layerId: "test-layer-id", bands: ["band_0", "band_1"])]
+    }
+}
+
+internal extension String {
+    static func testStyleJSON() -> String {
+        let styleJSONObject: [String: Any] = [
+            "version": 8,
+            "center": [
+                -87.6298,
+                 41.8781
+            ],
+            "zoom": 12,
+            "sources": [Any](),
+            "layers": [Any]()
+        ]
+        return ValueConverter.toJson(forValue: styleJSONObject)
     }
 }

@@ -1,4 +1,4 @@
-#  Sources
+# Sources
 
 ## Topics
 
@@ -21,5 +21,11 @@
 - ``CustomGeometrySourceOptions``
 - ``CustomRasterSource``
 - ``CustomRasterSourceOptions``
+- ``CustomRasterSourceTileStatusChangedCallback``
+- ``CustomRasterSourceTileData``
+- ``CustomRasterSourceTileStatus``
+- ``CustomRasterSourceClient``
+- ``CustomRasterSourceTileRenderer``
+- ``CustomRasterSourceClientType``
 - ``TileFunctionCallback``
 - ``TileCacheBudgetSize``

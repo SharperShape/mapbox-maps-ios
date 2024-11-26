@@ -1,5 +1,5 @@
 import SwiftUI
-@_spi(Experimental) import MapboxMaps
+import MapboxMaps
 
 @available(iOS 14.0, *)
 struct MapFloatingButtonStyle: ButtonStyle {
@@ -42,7 +42,7 @@ extension View {
 
 @available(iOS 14.0, *)
 extension View {
-    func floating<S>(padding: CGFloat = 5, _ shape: S) -> some View where S : Shape  {
+    func floating<S>(padding: CGFloat = 5, _ shape: S) -> some View where S: Shape {
         modifier(FloatingStyle(padding: padding, shape: shape))
     }
 
@@ -51,18 +51,17 @@ extension View {
     }
 }
 
-
 @available(iOS 14.0, *)
 struct MapStyleSelectorButton: View {
     @Binding var mapStyle: MapStyle
     var styles: [(String, MapStyle)] = [
         ("Standard (day)", .standard(lightPreset: .day)),
         ("Standard (dusk)", .standard(lightPreset: .dusk)),
+        ("Standard Satellite", .standardSatellite(lightPreset: .day)),
         ("Streets", .streets),
         ("Outdoors", .outdoors),
         ("Dark", .dark),
         ("Light", .light),
-        ("Satellite", .satellite),
         ("Satellite Streets", .satelliteStreets),
         ("Custom", MapStyle(uri: .customStyle)),
     ]

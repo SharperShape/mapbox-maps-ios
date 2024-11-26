@@ -113,7 +113,6 @@ struct DynamicStylingExample: View {
         }
     }
 
-
     @ViewBuilder
     private var settingsBody: some View {
         VStack(alignment: .leading) {
@@ -315,9 +314,9 @@ extension DynamicStylingExample.CityCollection {
     var connectionFeatures: FeaturesRef {
         switch self {
         case .northern:
-            FeaturesRef([Feature(geometry: .lineString(LineString(Ring(coordinates: [.london, .berlin, .helsinki, .london]))))])
+            FeaturesRef([Feature(geometry: .polygon(Polygon(outerRing: Ring(coordinates: [.london, .berlin, .helsinki]))))])
         case .southern:
-            FeaturesRef([Feature(geometry: .lineString(LineString(Ring(coordinates: [.kyiv, .tunis, .barcelona, .kyiv]))))])
+            FeaturesRef([Feature(geometry: .polygon(Polygon(outerRing: Ring(coordinates: [.kyiv, .tunis, .barcelona]))))])
         }
     }
 }

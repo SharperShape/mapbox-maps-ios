@@ -1,4 +1,5 @@
 @_implementationOnly import MapboxCoreMaps_Private
+@_implementationOnly import MapboxCommon_Private
 
 typealias CoreCameraOptions = MapboxCoreMaps_Private.CameraOptions
 typealias CoreCameraState = MapboxCoreMaps_Private.CameraState
@@ -19,6 +20,7 @@ typealias CoreScreenBox = MapboxCoreMaps_Private.ScreenBox
 typealias CoreEdgeInsets = MapboxCoreMaps_Private.EdgeInsets
 typealias CoreTileCoverOptions = MapboxCoreMaps_Private.TileCoverOptions
 typealias CoreMapsImage = MapboxCoreMaps_Private.Image
+typealias CoreCustomRasterSourceTileData = MapboxCoreMaps_Private.CustomRasterSourceTileData
 typealias CoreStyleManager = MapboxCoreMaps_Private.StyleManager
 typealias CoreGeoJSONSourceData = MapboxCoreMaps_Private.GeoJSONSourceData
 typealias CoreMapRecorderOptions = MapboxCoreMaps_Private.MapRecorderOptions
@@ -32,3 +34,14 @@ typealias CoreObservable = MapboxCoreMaps_Private.Observable
 typealias CoreViewAnnotationPositionsUpdateListener = MapboxCoreMaps_Private.ViewAnnotationPositionsUpdateListener
 typealias CoreMapSnapshotter = MapboxCoreMaps_Private.MapSnapshotter
 typealias CorePerformanceSamplerOptions = MapboxCoreMaps_Private.PerformanceSamplerOptions
+typealias TelemetryCounter = MapboxCommon_Private.FeatureTelemetryCounter
+typealias CorePlatformEventType = MapboxCoreMaps_Private.PlatformEventType
+typealias CoreInteractionType = MapboxCoreMaps_Private.InteractionType
+typealias CorePlatformEventInfo = MapboxCoreMaps_Private.PlatformEventInfo
+typealias CoreInteractionContext = MapboxCoreMaps_Private.InteractionContext
+typealias CoreInteraction = MapboxCoreMaps_Private.Interaction
+typealias CoreInteractionHandler = MapboxCoreMaps_Private.InteractionHandler
+typealias CoreRenderedQueryGeometry = MapboxCoreMaps_Private.RenderedQueryGeometry
+typealias CoreFeaturesetFeatureId = MapboxCoreMaps_Private.FeaturesetFeatureId
+typealias CoreFeaturesetQueryTarget = MapboxCoreMaps_Private.FeaturesetQueryTarget
+typealias CoreFeaturesetDescriptor = MapboxCoreMaps_Private.FeaturesetDescriptor

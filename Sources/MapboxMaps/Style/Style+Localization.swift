@@ -107,8 +107,8 @@ extension StyleManager {
         let expressionAbbr = try NSRegularExpression(pattern: "\\[\"get\",\\s*\"abbr\"\\]",
                                                      options: .caseInsensitive)
 
-        if case .expression(let textField) = symbolLayer.textField,
-           var stringExpression = String(data: try JSONEncoder().encode(textField), encoding: .utf8) {
+        if case .expression(let textField) = symbolLayer.textField {
+            var stringExpression = String(data: try JSONEncoder().encode(textField), encoding: .utf8)!
             stringExpression.updateOnceExpression(replacement: replacement, regex: expressionCoalesce)
             stringExpression.updateExpression(replacement: replacement, regex: expressionAbbr)
 

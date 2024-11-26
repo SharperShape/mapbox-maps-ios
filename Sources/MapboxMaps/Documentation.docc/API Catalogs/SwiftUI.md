@@ -2,13 +2,13 @@
 
 ## Topics
 
-### Articles
-- <doc:SwiftUI-User-Guide>
-- <doc:Map-Content-Gestures-User-Guide>
-
 ### SwiftUI
 - ``Map-swift.struct``
 - ``MapContent``
+- ``ConditionalMapContent``
+- ``EmptyMapContent``
+- ``OptionalMapContent``
+- ``TupleMapContent``
 - ``MapContentBuilder``
 - ``MapStyle``
 - ``Viewport``
@@ -23,10 +23,10 @@
 - ``Puck3D``
 - ``MapReader``
 - ``MapProxy``
+- ``FeatureState``
 - ``Viewport/FollowPuckOptions``
 - ``Viewport/OverviewOptions``
 - ``MapGestureHandlers``
 - ``MapURLOpener``
 - ``ForEvery``
 - ``ArrayBuilder``
-

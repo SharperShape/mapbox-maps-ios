@@ -19,6 +19,15 @@ final class OfflineManagerExample: UIViewController, NonMapViewExampleProtocol {
     @IBOutlet private var stylePackProgressView: UIProgressView!
     @IBOutlet private var tileRegionProgressView: UIProgressView!
     @IBOutlet private var progressContainer: UIView!
+    @IBOutlet private var styleSelection: UISegmentedControl!
+
+    private var style: StyleURI {
+        if styleSelection.selectedSegmentIndex == 0 {
+            return .standard
+        } else {
+            return .satelliteStreets
+        }
+    }
 
     private var mapView: MapView?
     private var tileStore: TileStore?
@@ -27,10 +36,10 @@ final class OfflineManagerExample: UIViewController, NonMapViewExampleProtocol {
 
     // Default MapInitOptions. If you use a custom path for a TileStore, you would
     // need to create a custom MapInitOptions to reference that TileStore.
-    private lazy var mapInitOptions: MapInitOptions = {
-        MapInitOptions(cameraOptions: CameraOptions(center: tokyoCoord, zoom: tokyoZoom),
-                       styleURI: .outdoors)
-    }()
+    private var mapInitOptions: MapInitOptions {
+        MapInitOptions(cameraOptions: CameraOptions(center: tokyoCoord, zoom: tokyoZoom, bearing: tokyoBearing, pitch: tokyoPitch),
+                       styleURI: style)
+    }
 
     private lazy var offlineManager: OfflineManager = {
         return OfflineManager()
@@ -39,8 +48,10 @@ final class OfflineManagerExample: UIViewController, NonMapViewExampleProtocol {
     // Regions and style pack downloads
     private var downloads: [Cancelable] = []
 
-    private let tokyoCoord = CLLocationCoordinate2D(latitude: 35.682027, longitude: 139.769305)
-    private let tokyoZoom: CGFloat = 12
+    private let tokyoCoord = CLLocationCoordinate2D(latitude: 35.692897, longitude: 139.750451)
+    private let tokyoPitch = 65.0
+    private let tokyoBearing = 127.2
+    private let tokyoZoom: CGFloat = 16
     private let tileRegionId = "myTileRegion"
 
     private enum State {
@@ -83,10 +94,10 @@ final class OfflineManagerExample: UIViewController, NonMapViewExampleProtocol {
 
         // 1. Create style package with loadStylePack() call.
         let stylePackLoadOptions = StylePackLoadOptions(glyphsRasterizationMode: .ideographsRasterizedLocally,
-                                                        metadata: ["tag": "my-outdoors-style-pack"])!
+                                                        metadata: ["tag": "my-style-pack"])!
 
         dispatchGroup.enter()
-        let stylePackDownload = offlineManager.loadStylePack(for: .outdoors, loadOptions: stylePackLoadOptions) { [weak self] progress in
+        let stylePackDownload = offlineManager.loadStylePack(for: style, loadOptions: stylePackLoadOptions) { [weak self] progress in
             // These closures do not get called from the main thread. In this case
             // we're updating the UI, so it's important to dispatch to the main
             // queue.
@@ -118,17 +129,19 @@ final class OfflineManagerExample: UIViewController, NonMapViewExampleProtocol {
 
         // - - - - - - - -
 
-        // 2. Create an offline region with tiles for the outdoors style
-        let outdoorsOptions = TilesetDescriptorOptions(styleURI: .outdoors,
-                                                       zoomRange: 0...16, tilesets: nil)
+        // 2. Create an offline region with tiles for the Standard or Satellite-Streets style.
+        // If you are using a raster tileset you may need to set a different pixelRatio. The default is UIScreen.main.scale.
+        let styleOptions = TilesetDescriptorOptions(styleURI: style,
+                                                       zoomRange: 0...16,
+                                                       tilesets: nil)
 
-        let outdoorsDescriptor = offlineManager.createTilesetDescriptor(for: outdoorsOptions)
+        let styleDescriptor = offlineManager.createTilesetDescriptor(for: styleOptions)
 
         // Load the tile region
         let tileRegionLoadOptions = TileRegionLoadOptions(
             geometry: .point(Point(tokyoCoord)),
-            descriptors: [outdoorsDescriptor],
-            metadata: ["tag": "my-outdoors-tile-region"],
+            descriptors: [styleDescriptor],
+            metadata: ["tag": "my-tile-region"],
             acceptExpired: true)!
 
         // Use the the default TileStore to load this region. You can create
@@ -230,7 +243,7 @@ final class OfflineManagerExample: UIViewController, NonMapViewExampleProtocol {
         // Note this will not remove the downloaded style pack, instead, it will
         // just mark the resources as not a part of the existing style pack. The
         // resources still exists in the disk cache.
-        offlineManager.removeStylePack(for: .outdoors)
+        offlineManager.removeStylePack(for: style)
     }
 
     // MARK: - State changes
@@ -265,11 +278,13 @@ final class OfflineManagerExample: UIViewController, NonMapViewExampleProtocol {
                 resetUI()
 
                 self.tileStore = TileStore.default
+                tileStore?.setOptionForKey(TileStoreOptions.diskQuota, value: NSNull())
 
                 logger?.log(message: "Enabling HTTP stack network connection", category: "Example", color: .orange)
                 OfflineSwitch.shared.isMapboxStackConnected = true
 
             case (.initial, .downloading):
+                styleSelection.isHidden = true
                 // Can cancel
                 button.setTitle("Cancel Downloads", for: .normal)
 
@@ -303,6 +318,8 @@ final class OfflineManagerExample: UIViewController, NonMapViewExampleProtocol {
         tileRegionProgressView.progress = 0.0
 
         button.setTitle("Start Downloads", for: .normal)
+
+        styleSelection.isHidden = false
 
         mapView?.removeFromSuperview()
         mapView = nil

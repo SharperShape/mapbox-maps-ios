@@ -15,7 +15,8 @@ public struct ImageSource: Source {
     /// Corners of image specified in longitude, latitude pairs. Note: When using globe projection, the image will be centered at the North or South Pole in the respective hemisphere if the average latitude value exceeds 85 degrees or falls below -85 degrees.
     public var coordinates: [[Double]]?
 
-    /// When loading a map, if PrefetchZoomDelta is set to any number greater than 0, the map will first request a tile at zoom level lower than zoom - delta, but so that the zoom level is multiple of delta, in an attempt to display a full map at lower resolution as quick as possible. It will get clamped at the tile source minimum zoom. The default delta is 4.
+    /// When loading a map, if PrefetchZoomDelta is set to any number greater than 0, the map will first request a tile at zoom level lower than zoom - delta, but so that the zoom level is multiple of delta, in an attempt to display a full map at lower resolution as quick as possible. It will get clamped at the tile source minimum zoom.
+    /// Default value: 4.
     public var prefetchZoomDelta: Double?
 
     public init(id: String) {
@@ -36,9 +37,9 @@ extension ImageSource {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
-        if encoder.userInfo[.volatilePropertiesOnly] as? Bool == true  {
+        if encoder.userInfo[.volatilePropertiesOnly] as? Bool == true {
             try encodeVolatile(to: encoder, into: &container)
-        } else if encoder.userInfo[.nonVolatilePropertiesOnly] as? Bool == true  {
+        } else if encoder.userInfo[.nonVolatilePropertiesOnly] as? Bool == true {
             try encodeNonVolatile(to: encoder, into: &container)
         } else {
             try encodeVolatile(to: encoder, into: &container)
@@ -58,24 +59,20 @@ extension ImageSource {
     }
 }
 
-@_documentation(visibility: public)
-@_spi(Experimental)
 extension ImageSource {
 
     /// URL that points to an image. If the URL is not specified, the image is expected to be loaded directly during runtime.
-    @_documentation(visibility: public)
     public func url(_ newValue: String) -> Self {
         with(self, setter(\.url, newValue))
     }
 
     /// Corners of image specified in longitude, latitude pairs. Note: When using globe projection, the image will be centered at the North or South Pole in the respective hemisphere if the average latitude value exceeds 85 degrees or falls below -85 degrees.
-    @_documentation(visibility: public)
     public func coordinates(_ newValue: [[Double]]) -> Self {
         with(self, setter(\.coordinates, newValue))
     }
 
-    /// When loading a map, if PrefetchZoomDelta is set to any number greater than 0, the map will first request a tile at zoom level lower than zoom - delta, but so that the zoom level is multiple of delta, in an attempt to display a full map at lower resolution as quick as possible. It will get clamped at the tile source minimum zoom. The default delta is 4.
-    @_documentation(visibility: public)
+    /// When loading a map, if PrefetchZoomDelta is set to any number greater than 0, the map will first request a tile at zoom level lower than zoom - delta, but so that the zoom level is multiple of delta, in an attempt to display a full map at lower resolution as quick as possible. It will get clamped at the tile source minimum zoom.
+    /// Default value: 4.
     public func prefetchZoomDelta(_ newValue: Double) -> Self {
         with(self, setter(\.prefetchZoomDelta, newValue))
     }

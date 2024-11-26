@@ -9,6 +9,7 @@ struct MapContentDependencies {
     let layerAnnotations: Ref<AnnotationOrchestrator?>
     let viewAnnotations: Ref<ViewAnnotationManager?>
     let location: Ref<LocationManager?>
+    let mapboxMap: Ref<MapboxMapProtocol?>
 
     let addAnnotationViewController: (UIViewController) -> Void
     let removeAnnotationViewController: (UIViewController) -> Void
@@ -24,6 +25,7 @@ final class MapContentNodeContext {
 
     var lastImportId: String?
     var initialStyleImports: [String] = []
+    var initialUniqueProperties: MapContentUniqueProperties?
 
     var uniqueProperties = MapContentUniqueProperties()
 

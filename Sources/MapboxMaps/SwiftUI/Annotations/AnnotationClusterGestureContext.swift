@@ -1,7 +1,7 @@
 import Foundation
 
 /// A structure that defines additional information about  map content gesture performed on annotations' cluster.
-public struct AnnotationClusterGestureContext: Equatable {
+public struct AnnotationClusterGestureContext: Equatable, Sendable {
     /// The location of gesture in Map view bounds.
     public var point: CGPoint
 
@@ -14,12 +14,12 @@ public struct AnnotationClusterGestureContext: Equatable {
 
 extension MapFeatureQueryable {
     func getAnnotationClusterContext(
-        layerId: String,
+        sourceId: String,
         feature: Feature,
-        context: MapContentGestureContext,
+        context: InteractionContext,
         completion: @escaping (Result<AnnotationClusterGestureContext, Error>) -> Void
     ) -> Cancelable {
-        getGeoJsonClusterExpansionZoom(forSourceId: layerId, feature: feature) { result in
+        getGeoJsonClusterExpansionZoom(forSourceId: sourceId, feature: feature) { result in
             switch result {
             case let .success(expansionZoom):
                 let context = AnnotationClusterGestureContext(

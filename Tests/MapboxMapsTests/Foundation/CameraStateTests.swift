@@ -11,8 +11,8 @@ final class CameraStateTests: XCTestCase {
 
     override func setUp() {
         super.tearDown()
-        center = .random()
-        padding = .random()
+        center = .testConstantValue()
+        padding = .testConstantValue()
         anchor = CGPoint(
             x: .random(in: 0...100),
             y: .random(in: 0...100))

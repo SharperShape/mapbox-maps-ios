@@ -5,7 +5,7 @@ import UIKit
 /// ClusterOptions exposes a minimal of configuration options, a more advanced setup can be created manually with
 /// using CircleLayer and SymbolLayers directly.
 
-public struct ClusterOptions: Equatable {
+public struct ClusterOptions: Equatable, Sendable {
     /// The circle radius of the cluster items, 18 by default. Units in pixels.
     var circleRadius: Value<Double>
 
@@ -31,13 +31,16 @@ public struct ClusterOptions: Equatable {
     /// levels so setting clusterMaxZoom to 14 means the clusters will be displayed until z15.
     var clusterMaxZoom: Double
 
+    /// Minimum number of points necessary to form a cluster if clustering is enabled. Defaults to `2`.
+    var clusterMinPoints: Double
+
     /// An object defining custom properties on the generated clusters if clustering is enabled, aggregating values from
     /// clustered points. Has the form `{"property_name": [operator, map_expression]}`.
     /// `operator` is any expression function that accepts at
     /// least 2 operands (e.g. `"+"` or `"max"`) — it accumulates the property value from clusters/points the
     /// cluster contains; `map_expression` produces the value of a single point. Example:
     ///
-    /// ``Expression`` syntax:
+    /// ``Exp`` syntax:
     /// ```
     /// let expression = Exp(.sum) {
     ///     Exp(.get) { "scalerank" }
@@ -50,7 +53,7 @@ public struct ClusterOptions: Equatable {
     ///
     /// For more advanced use cases, in place of `operator`, you can use a custom reduce expression that references a special `["accumulated"]` value. Example:
     ///
-    /// ``Expression`` syntax:
+    /// ``Exp`` syntax:
     /// ```
     /// let expression = Exp {
     ///     Exp(.sum) {
@@ -61,10 +64,10 @@ public struct ClusterOptions: Equatable {
     /// }
     /// clusterProperties: ["sum": expression]
     /// ```
-    /// 
+    ///
     /// JSON syntax:
     /// `{"sum": [["+", ["accumulated"], ["get", "sum"]], ["get", "scalerank"]]}`
-    var clusterProperties: [String: Expression]?
+    var clusterProperties: [String: Exp]?
 
     /// Define a set of cluster options to determine how to cluster annotations.
     /// Providing clusterOptions when initializing a ``PointAnnotationManager``
@@ -76,7 +79,8 @@ public struct ClusterOptions: Equatable {
                 textField: Value<String> = .expression(Exp(.get) { "point_count" }),
                 clusterRadius: Double = 50,
                 clusterMaxZoom: Double = 14,
-                clusterProperties: [String: Expression]? = nil) {
+                clusterMinPoints: Double = 2,
+                clusterProperties: [String: Exp]? = nil) {
         self.circleRadius = circleRadius
         self.circleColor = circleColor
         self.textColor = textColor
@@ -84,6 +88,7 @@ public struct ClusterOptions: Equatable {
         self.textField = textField
         self.clusterRadius = clusterRadius
         self.clusterMaxZoom = clusterMaxZoom
+        self.clusterMinPoints = clusterMinPoints
         self.clusterProperties = clusterProperties
     }
 }

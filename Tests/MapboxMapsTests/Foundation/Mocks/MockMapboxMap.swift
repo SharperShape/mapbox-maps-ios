@@ -1,4 +1,4 @@
-@testable @_spi(Experimental) import MapboxMaps
+@_spi(Experimental) @_spi(Internal) @testable import MapboxMaps
 import CoreLocation
 import UIKit
 
@@ -48,7 +48,7 @@ final class MockMapboxMap: MapboxMapProtocol {
         setCameraStub.call(with: cameraOptions)
     }
 
-    let coordinateForPointStub = Stub<CGPoint, CLLocationCoordinate2D>(defaultReturnValue: .random())
+    let coordinateForPointStub = Stub<CGPoint, CLLocationCoordinate2D>(defaultReturnValue: .testConstantValue())
     func coordinate(for point: CGPoint) -> CLLocationCoordinate2D {
         coordinateForPointStub.call(with: point)
     }
@@ -130,7 +130,7 @@ final class MockMapboxMap: MapboxMapProtocol {
         var maxZoom: Double?
         var offset: CGPoint?
     }
-    let cameraForCoordinateBoundsStub = Stub<CameraForCoordinateBoundsParams, MapboxMaps.CameraOptions>(defaultReturnValue: .random())
+    let cameraForCoordinateBoundsStub = Stub<CameraForCoordinateBoundsParams, MapboxMaps.CameraOptions>(defaultReturnValue: .testConstantValue())
     // swiftlint:disable:next function_parameter_count
     func camera(for coordinateBounds: CoordinateBounds, padding: UIEdgeInsets?, bearing: Double?, pitch: Double?, maxZoom: Double?, offset: CGPoint?) -> MapboxMaps.CameraOptions {
         cameraForCoordinateBoundsStub.call(with: .init(coordinateBounds: coordinateBounds, padding: padding, bearing: bearing, pitch: pitch, maxZoom: maxZoom, offset: offset))
@@ -143,7 +143,7 @@ final class MockMapboxMap: MapboxMapProtocol {
         var maxZoom: Double?
         var offset: CGPoint?
     }
-    let cameraForCoordinatesStub = Stub<CameraForCoordinatesParams, MapboxMaps.CameraOptions>(defaultReturnValue: .random())
+    let cameraForCoordinatesStub = Stub<CameraForCoordinatesParams, MapboxMaps.CameraOptions>(defaultReturnValue: .testConstantValue())
     func camera(for coordinates: [CLLocationCoordinate2D],
                 camera: MapboxMaps.CameraOptions,
                 coordinatesPadding: UIEdgeInsets?,
@@ -157,7 +157,7 @@ final class MockMapboxMap: MapboxMapProtocol {
         return cameraOptions
     }
 
-    let pointStub = Stub<CLLocationCoordinate2D, CGPoint>(defaultReturnValue: .random())
+    let pointStub = Stub<CLLocationCoordinate2D, CGPoint>(defaultReturnValue: .testConstantValue())
     func point(for coordinate: CLLocationCoordinate2D) -> CGPoint {
         pointStub.call(with: coordinate)
     }
@@ -199,5 +199,142 @@ final class MockMapboxMap: MapboxMapProtocol {
     let collectPerformanceStatisticsStub = Stub<PerformanceStatisticsParameters, AnyCancelable>(defaultReturnValue: MockCancelable().erased)
     func collectPerformanceStatistics(_ options: PerformanceStatisticsOptions, callback: @escaping (PerformanceStatistics) -> Void) -> AnyCancelable {
         collectPerformanceStatisticsStub.call(with: PerformanceStatisticsParameters(options: options, callback: callback))
+    }
+
+    struct FeatureStateParams {
+        var featureset: FeaturesetDescriptor<FeaturesetFeature>
+        var featureId: FeaturesetFeatureId
+        var state: JSONObject?
+        var key: String?
+    }
+    var setFeatureStateStub = Stub<FeatureStateParams, Cancelable>(defaultReturnValue: AnyCancelable.empty)
+    func setFeatureState<T: FeaturesetFeatureType>(
+        featureset: FeaturesetDescriptor<T>,
+        featureId: FeaturesetFeatureId,
+        state: T.State, callback: ((Error?) -> Void)?
+    ) -> any Cancelable {
+        setFeatureStateStub.call(
+            with: .init(featureset: featureset.converted(),
+                        featureId: featureId,
+                        state: encodeState(state).flatMap(JSONObject.init(turfRawValue:))))
+    }
+
+    var removeFeatureStateStub = Stub<FeatureStateParams, Cancelable>(defaultReturnValue: AnyCancelable.empty)
+    func removeFeatureState<T: FeaturesetFeatureType>(
+        featureset: FeaturesetDescriptor<T>,
+        featureId: FeaturesetFeatureId,
+        stateKey: T.StateKey?,
+        callback: ((Error?) -> Void)?
+    ) -> Cancelable {
+        removeFeatureStateStub.call(
+            with: .init(
+                featureset: featureset.converted(),
+                featureId: featureId,
+                key: stateKey?.description
+            ))
+    }
+
+    let dispatchStub = Stub<CorePlatformEventInfo, Void>()
+    func dispatch(event: CorePlatformEventInfo) {
+        dispatchStub.call(with: event)
+    }
+
+    private var interactions = [(Int, InteractionImpl)]()
+    private var id = 0
+    func addInteraction(_ interaction: some Interaction) -> any Cancelable {
+        addInteraction(interaction.impl)
+    }
+
+    func addInteraction(_ interaction: CoreInteraction) -> any Cancelable {
+        let type: InteractionImpl.InteractionType = switch interaction.type {
+        case .click: .tap
+        case .drag: .drag
+        case .longClick: .longPress
+        @unknown default:
+            fatalError()
+        }
+        guard let featureset = interaction.featureset else { return AnyCancelable.empty }
+        return addInteraction(InteractionImpl(featureset: .init(core: featureset), filter: nil, type: type, onBegin: { feature, context in
+            let queriedFeature = QueriedFeature(
+                __feature: MapboxCommon.Feature(feature.geoJsonFeature),
+                source: "",
+                sourceLayer: nil,
+                state: [String: Any](),
+                featuresetFeatureId: nil)
+
+            return interaction.handler.handleBegin(for: queriedFeature, context: CoreInteractionContext(coordinateInfo: CoordinateInfo(coordinate: context.coordinate, isOnSurface: context.isOnSurface), screenCoordinate: context.point.screenCoordinate))
+        }))
+    }
+
+    func addInteraction(_ interaction: InteractionImpl) -> any Cancelable {
+        self.id += 1
+        let id = self.id
+
+        interactions.append((id, interaction))
+        return BlockCancelable { [weak self] in
+            self?.interactions.removeAll { $0.0 == id }
+        }
+    }
+
+    enum DragStage {
+        case begin
+        case change
+        case end
+    }
+    enum InteractionType {
+        case tap
+        case longPress
+        case drag(DragStage)
+        func canHandle(_ interaction: InteractionImpl) -> Bool {
+            switch (self, interaction.type) {
+            case (.tap, .tap): true
+            case (.longPress, .longPress): true
+            case (.drag(_), .drag): true
+            default: false
+            }
+        }
+    }
+
+    func simulateInteraction(_ type: InteractionType, _ featureset: FeaturesetDescriptor<FeaturesetFeature>?, feature: Feature?, context: InteractionContext) {
+        let featuresetFeature: FeaturesetFeature? = if let featureset, let feature {
+            FeaturesetFeature(
+                id: feature.identifier?.string.map { FeaturesetFeatureId(id: $0) },
+                featureset: featureset,
+                geoJsonFeature: feature,
+                state: JSONObject())
+        } else {
+            nil
+        }
+
+        simulateInteraction(type: type, feature: featuresetFeature, context: context)
+    }
+
+    func simulateInteraction(type: InteractionType, feature: FeaturesetFeature?, context: InteractionContext) {
+        for (_, interaction) in interactions.reversed() {
+            guard type.canHandle(interaction),
+                  feature?.featureset == interaction.target?.0 else { continue }
+
+            var handled = false
+            switch type {
+            case .tap:
+                handled = interaction.onBegin(feature, context)
+            case .longPress:
+                handled = interaction.onBegin(feature, context)
+            case .drag(let dragStage):
+                switch dragStage {
+                case .begin:
+                    handled = interaction.onBegin(feature, context)
+                case .change:
+                    handled = true
+                    interaction.onChange?(context)
+                case .end:
+                    handled = true
+                    interaction.onEnd?(context)
+                }
+            }
+            if handled {
+                break
+            }
+        }
     }
 }

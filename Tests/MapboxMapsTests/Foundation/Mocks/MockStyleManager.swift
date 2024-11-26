@@ -3,6 +3,11 @@ import Foundation
 @_implementationOnly import MapboxCommon_Private
 
 class MockStyleManager: StyleManagerProtocol {
+    let getFeaturesetsStub = Stub<Void, [CoreFeaturesetDescriptor]>(defaultReturnValue: [])
+    func getStyleFeaturesets() -> [CoreFeaturesetDescriptor] {
+        getFeaturesetsStub.call()
+    }
+
     struct LoadStyleParams {
         var value: String
         var callbacks: RuntimeStylingCallbacks
@@ -62,7 +67,7 @@ class MockStyleManager: StyleManagerProtocol {
 
     // MARK: Style Layers
 
-    @Stubbed var stubStyleLayers: [MapboxCoreMaps.StyleObjectInfo] = .random(withLength: 3) {
+    @Stubbed var stubStyleLayers: [MapboxCoreMaps.StyleObjectInfo] = .testFixture(withLength: 3) {
         MapboxCoreMaps.StyleObjectInfo(
             id: .randomAlphanumeric(withLength: 12),
             type: MapboxMaps.LayerType.random().rawValue)
@@ -182,11 +187,6 @@ class MockStyleManager: StyleManagerProtocol {
     let isStyleLoadedStub = Stub<Void, Bool>(defaultReturnValue: false)
     func isStyleLoaded() -> Bool {
         isStyleLoadedStub.call()
-    }
-
-    let isStyleLoadingFinishedStub = Stub<Void, Bool>(defaultReturnValue: false)
-    func isStyleLoadingFinished() -> Bool {
-        isStyleLoadingFinishedStub.call()
     }
 
     // MARK: Style Imports
@@ -586,16 +586,15 @@ class MockStyleManager: StyleManagerProtocol {
 
     struct SetStyleCustomRasterSourceTileDataParameters {
         let sourceID: String
-        let tileId: CanonicalTileID
-        let image: CoreMapsImage?
+        let tiles: [MapboxMaps.CoreCustomRasterSourceTileData]
     }
     let setStyleCustomRasterSourceTileDataStub = Stub<SetStyleCustomRasterSourceTileDataParameters, Expected<NSNull, NSString>>(defaultReturnValue: .init(value: NSNull()))
+
     func setStyleCustomRasterSourceTileDataForSourceId(
         _ sourceId: String,
-        tileId: CanonicalTileID,
-        image: CoreMapsImage?
+        tiles: [MapboxMaps.CoreCustomRasterSourceTileData]
     ) -> Expected<NSNull, NSString> {
-        setStyleCustomRasterSourceTileDataStub.call(with: .init(sourceID: sourceId, tileId: tileId, image: image))
+        setStyleCustomRasterSourceTileDataStub.call(with: .init(sourceID: sourceId, tiles: tiles))
     }
 
     struct InvalidateStyleCustomRasterSourceTileParameters {
@@ -793,7 +792,7 @@ struct NonEncodableLayer: Layer {
     var id: String = "dummy-non-encodable-layer-id"
     var visibility: Value<Visibility> = .constant(.visible)
     var type: LayerType = .random()
-    var filter: Expression?
+    var filter: Exp?
     var source: String?
     var sourceLayer: String?
     var minZoom: Double?

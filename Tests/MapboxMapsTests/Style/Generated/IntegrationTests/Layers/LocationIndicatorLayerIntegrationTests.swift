@@ -15,7 +15,7 @@ final class LocationIndicatorLayerIntegrationTests: MapViewIntegrationTestCase {
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved LocationIndicatorLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        mapView.mapboxMap.styleURI = .streets
+        mapView.mapboxMap.styleJSON = .testStyleJSON()
 
         didFinishLoadingStyle = { mapView in
 
@@ -26,7 +26,6 @@ final class LocationIndicatorLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.bearingImage = Value<ResolvedImage>.testConstantValue()
             layer.shadowImage = Value<ResolvedImage>.testConstantValue()
             layer.topImage = Value<ResolvedImage>.testConstantValue()
-
             layer.accuracyRadius = Value<Double>.testConstantValue()
             layer.accuracyRadiusTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.accuracyRadiusBorderColor = Value<StyleColor>.testConstantValue()

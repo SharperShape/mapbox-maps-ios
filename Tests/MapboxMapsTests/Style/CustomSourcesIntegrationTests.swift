@@ -12,9 +12,12 @@ final class CustomSourcesIntegrationTests: MapViewIntegrationTestCase {
 
         mapView.mapboxMap.styleURI = .standard
 
+        let rasterOptions = CustomRasterSourceOptions(
+            clientCallback: CustomRasterSourceClient.fromCustomRasterSourceTileStatusChangedCallback { _, _ in }
+        )
+
         didFinishLoadingStyle = { mapView in
-            var source = CustomRasterSource(id: "test-source", options: CustomRasterSourceOptions(fetchTileFunction: { _ in }, cancelTileFunction: { _ in }))
-            source.tileCacheBudget = .testSourceValue(.megabytes(7))
+            let source = CustomRasterSource(id: "test-source", options: rasterOptions)
 
             // Add source
             do {
@@ -26,8 +29,7 @@ final class CustomSourcesIntegrationTests: MapViewIntegrationTestCase {
 
             // Retrieve the source
             do {
-                let retrievedSource = try mapView.mapboxMap.source(withId: "test-source", type: CustomRasterSource.self)
-                XCTAssertEqual(retrievedSource.tileCacheBudget, .testSourceValue(.megabytes(7)))
+                _ = try mapView.mapboxMap.source(withId: "test-source", type: CustomRasterSource.self)
 
                 successfullyRetrievedSourceExpectation.fulfill()
             } catch {

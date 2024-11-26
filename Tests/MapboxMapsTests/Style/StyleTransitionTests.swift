@@ -18,7 +18,7 @@ class StyleTransitionTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         let encodedTransition = try! encoder.encode(transition)
-        let dataString = String(data: encodedTransition, encoding: .utf8)
+        let dataString =  String(data: encodedTransition, encoding: .utf8)
 
         XCTAssertEqual(dataString, jsonString)
     }

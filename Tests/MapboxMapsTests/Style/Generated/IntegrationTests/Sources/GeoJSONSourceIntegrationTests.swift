@@ -1,6 +1,6 @@
 // This file is generated.
 import XCTest
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 final class GeoJSONSourceIntegrationTests: MapViewIntegrationTestCase {
 
@@ -11,7 +11,7 @@ final class GeoJSONSourceIntegrationTests: MapViewIntegrationTestCase {
         let successfullyRetrievedSourceExpectation = XCTestExpectation(description: "Successfully retrieved GeoJSONSource from Map")
         successfullyRetrievedSourceExpectation.expectedFulfillmentCount = 1
 
-        mapView.mapboxMap.styleURI = .streets
+        mapView.mapboxMap.styleJSON = .testStyleJSON()
 
         didFinishLoadingStyle = { mapView in
             var source = GeoJSONSource(id: "test-source")
@@ -23,6 +23,7 @@ final class GeoJSONSourceIntegrationTests: MapViewIntegrationTestCase {
             source.cluster = Bool.testSourceValue()
             source.clusterRadius = Double.testSourceValue()
             source.clusterMaxZoom = Double.testSourceValue()
+            source.clusterMinPoints = Double.testSourceValue()
             source.lineMetrics = Bool.testSourceValue()
             source.generateId = Bool.testSourceValue()
             source.promoteId = PromoteId.testSourceValue()

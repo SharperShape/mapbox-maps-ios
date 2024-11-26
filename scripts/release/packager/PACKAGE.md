@@ -23,29 +23,9 @@ zipped archive of XCFrameworks.
   XCFrameworks (currently `Turf`).
 - It also creates a just-in-time Xcode project in order to create a binary
   XCFramework for `MapboxMaps`.
-- It will also then add the LICENSE.md and appropriate README.md to the package. 
+- It will also then add the LICENSE.md and appropriate README.md to the package.
 - Finally, it will zip that folder so everything will be in one bundle
 - NOTE: This script **MUST** be called from this directory
-
-### `download-dependency.sh`
-- Usage:
-  ```
-  ./download-dependency.sh <SDK_REGISTRY_NAME> <SDK_REGISTRY_ARTIFACT> <VERSION>
-  ```
-- This script downloads `MapboxCoreMaps.xcframework` and `MapboxCommon.xcframework`
-  from SDK Registry
-- NOTE: You **MUST** have a valid `.netrc` token
-
-### `build-dependency.sh`
-
-- Usage:
-  ```
-  ./build-dependency.sh <NAME> <GIT_REPO_URL> <GIT_TAG> <SCHEME>
-  ```
-- This script clones a given repository, checks out a `git tag`, and builds the specified `<SCHEME>`.
-- Uses `xcodebuild`
-- The `<NAME>` provided must match the name of the `.xcodeproj` and the base name of the resulting .framework product built in the `<SCHEME>`
-- The `.xcodeproj` for the repository should be at the root of the repository.
 
 ### `create-xcframework.sh`
 

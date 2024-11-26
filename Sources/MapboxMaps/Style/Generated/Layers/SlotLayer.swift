@@ -53,12 +53,10 @@ public struct SlotLayer: Layer, Equatable {
     }
 }
 
-@_documentation(visibility: public)
-@_spi(Experimental) extension SlotLayer {
+extension SlotLayer {
 
     /// The slot this layer is assigned to.
     /// If specified, and a slot with that name exists, it will be placed at that position in the layer order.
-    @_documentation(visibility: public)
     public func slot(_ newValue: Slot?) -> Self {
         with(self, setter(\.slot, newValue))
     }
@@ -66,7 +64,6 @@ public struct SlotLayer: Layer, Equatable {
 }
 
 @available(iOS 13.0, *)
-@_spi(Experimental)
 extension SlotLayer: MapStyleContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         node.mount(MountedLayer(layer: self))

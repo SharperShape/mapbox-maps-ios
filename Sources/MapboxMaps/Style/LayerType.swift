@@ -2,7 +2,7 @@ import Foundation
 import MapboxCoreMaps
 
 /// Struct of supported Layer rendering types
-public struct LayerType: ExpressibleByStringLiteral, RawRepresentable, Codable, Hashable {
+public struct LayerType: ExpressibleByStringLiteral, RawRepresentable, Codable, Hashable, Sendable {
 
     /// The raw value of the layer type.
     public let rawValue: String
@@ -22,11 +22,17 @@ public struct LayerType: ExpressibleByStringLiteral, RawRepresentable, Codable, 
     /// A heatmap.
     public static let heatmap: LayerType = "heatmap"
 
+    /// A clip layer.
+    public static let clip: LayerType = "clip"
+
     /// An extruded (3D) polygon.
     public static let fillExtrusion: LayerType = "fill-extrusion"
 
     /// Raster map textures such as satellite imagery.
     public static let raster: LayerType = "raster"
+
+    /// Layer repsenting particles on the map.
+    public static let rasterParticle: LayerType = "raster-particle"
 
     /// Client-side hillshading visualization based on DEM data.
     /// Currently, the implementation only supports Mapbox Terrain RGB and Mapzen Terrarium tiles.

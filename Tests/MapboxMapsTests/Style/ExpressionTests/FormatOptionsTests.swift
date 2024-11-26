@@ -51,13 +51,13 @@ final class FormatOptionsTests: XCTestCase {
     }
 
     func testDecodeWithValue() throws {
-        let formatOptionsData = """
+        let formatOptionsData = Data("""
             {
                 "font-scale": 1,
                 "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
                 "text-color": "rgba(0,0,0,0)"
             }
-            """.data(using: .utf8)
+            """.utf8)
 
         let formatOptions = try JSONDecoder().decode(FormatOptions.self, from: try XCTUnwrap(formatOptionsData))
         XCTAssertEqual(formatOptions.fontScale?.asConstant, 1)

@@ -25,6 +25,8 @@ final class MapContentNode: Identifiable {
         self.context = context
     }
 
+    var childrenIsEmpty: Bool { children.isEmpty }
+
     func withChildrenNodes(_ closure: (() -> MapContentNode) -> Void) {
         var idx = 0
 
@@ -117,7 +119,9 @@ extension MapContentNode {
         let newIds: Set<AnyHashable> = newChildren.data.reduce(into: Set<AnyHashable>()) { result, next in
             _ = result.insert(next[keyPath: newChildren.id])
         }
-        let oldIdsMaps = Dictionary(uniqueKeysWithValues: children.map { ($0.id.anyId, $0) })
+        let oldIdsMaps = Dictionary(children.map { ($0.id.anyId, $0) }) { _, last in
+            last
+        }
         for (id, node) in oldIdsMaps where !newIds.contains(id) { node.remove() }
 
         children = []

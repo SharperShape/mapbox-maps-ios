@@ -15,7 +15,7 @@ final class FillExtrusionLayerIntegrationTests: MapViewIntegrationTestCase {
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved FillExtrusionLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        mapView.mapboxMap.styleURI = .streets
+        mapView.mapboxMap.styleJSON = .testStyleJSON()
 
         didFinishLoadingStyle = { mapView in
 
@@ -24,7 +24,6 @@ final class FillExtrusionLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.maxZoom = 20.0
             layer.visibility = .constant(.visible)
             layer.fillExtrusionEdgeRadius = Value<Double>.testConstantValue()
-
             layer.fillExtrusionAmbientOcclusionGroundAttenuation = Value<Double>.testConstantValue()
             layer.fillExtrusionAmbientOcclusionGroundAttenuationTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.fillExtrusionAmbientOcclusionGroundRadius = Value<Double>.testConstantValue()
@@ -54,6 +53,8 @@ final class FillExtrusionLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.fillExtrusionFloodLightWallRadiusTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.fillExtrusionHeight = Value<Double>.testConstantValue()
             layer.fillExtrusionHeightTransition = StyleTransition(duration: 10.0, delay: 10.0)
+            layer.fillExtrusionLineWidth = Value<Double>.testConstantValue()
+            layer.fillExtrusionLineWidthTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.fillExtrusionOpacity = Value<Double>.testConstantValue()
             layer.fillExtrusionOpacityTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.fillExtrusionPattern = Value<ResolvedImage>.testConstantValue()

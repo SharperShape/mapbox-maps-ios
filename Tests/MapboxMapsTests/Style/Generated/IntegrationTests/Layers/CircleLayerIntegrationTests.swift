@@ -15,7 +15,7 @@ final class CircleLayerIntegrationTests: MapViewIntegrationTestCase {
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved CircleLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        mapView.mapboxMap.styleURI = .streets
+        mapView.mapboxMap.styleJSON = .testStyleJSON()
 
         didFinishLoadingStyle = { mapView in
 
@@ -24,7 +24,6 @@ final class CircleLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.maxZoom = 20.0
             layer.visibility = .constant(.visible)
             layer.circleSortKey = Value<Double>.testConstantValue()
-
             layer.circleBlur = Value<Double>.testConstantValue()
             layer.circleBlurTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.circleColor = Value<StyleColor>.testConstantValue()

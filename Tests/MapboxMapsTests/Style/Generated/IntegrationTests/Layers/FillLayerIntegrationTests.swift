@@ -15,7 +15,7 @@ final class FillLayerIntegrationTests: MapViewIntegrationTestCase {
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved FillLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        mapView.mapboxMap.styleURI = .streets
+        mapView.mapboxMap.styleJSON = .testStyleJSON()
 
         didFinishLoadingStyle = { mapView in
 
@@ -24,7 +24,6 @@ final class FillLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.maxZoom = 20.0
             layer.visibility = .constant(.visible)
             layer.fillSortKey = Value<Double>.testConstantValue()
-
             layer.fillAntialias = Value<Bool>.testConstantValue()
             layer.fillColor = Value<StyleColor>.testConstantValue()
             layer.fillColorTransition = StyleTransition(duration: 10.0, delay: 10.0)

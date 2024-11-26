@@ -1,6 +1,5 @@
 import SwiftUI
-@_spi(Experimental) import MapboxMaps
-
+import MapboxMaps
 
 private enum Id {
     static let clusterCircle = "clustered-circle-layer"
@@ -10,7 +9,7 @@ private enum Id {
 }
 
 @available(iOS 14.0, *)
-struct ClusteringExample : View {
+struct ClusteringExample: View {
     struct Detail: Identifiable {
         var id = UUID()
         var title: String

@@ -1,6 +1,6 @@
 // This file is generated
 import XCTest
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 final class LineLayerIntegrationTests: MapViewIntegrationTestCase {
 
@@ -15,7 +15,7 @@ final class LineLayerIntegrationTests: MapViewIntegrationTestCase {
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved LineLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        mapView.mapboxMap.styleURI = .streets
+        mapView.mapboxMap.styleJSON = .testStyleJSON()
 
         didFinishLoadingStyle = { mapView in
 
@@ -28,7 +28,7 @@ final class LineLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.lineMiterLimit = Value<Double>.testConstantValue()
             layer.lineRoundLimit = Value<Double>.testConstantValue()
             layer.lineSortKey = Value<Double>.testConstantValue()
-
+            layer.lineZOffset = Value<Double>.testConstantValue()
             layer.lineBlur = Value<Double>.testConstantValue()
             layer.lineBlurTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineBorderColor = Value<StyleColor>.testConstantValue()
@@ -44,6 +44,8 @@ final class LineLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.lineGapWidth = Value<Double>.testConstantValue()
             layer.lineGapWidthTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineGradient = Value<StyleColor>.testConstantValue()
+            layer.lineOcclusionOpacity = Value<Double>.testConstantValue()
+            layer.lineOcclusionOpacityTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineOffset = Value<Double>.testConstantValue()
             layer.lineOffsetTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineOpacity = Value<Double>.testConstantValue()
@@ -51,6 +53,8 @@ final class LineLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.linePattern = Value<ResolvedImage>.testConstantValue()
             layer.lineTranslateTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineTranslateAnchor = Value<LineTranslateAnchor>.testConstantValue()
+            layer.lineTrimColor = Value<StyleColor>.testConstantValue()
+            layer.lineTrimColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineWidth = Value<Double>.testConstantValue()
             layer.lineWidthTransition = StyleTransition(duration: 10.0, delay: 10.0)
 

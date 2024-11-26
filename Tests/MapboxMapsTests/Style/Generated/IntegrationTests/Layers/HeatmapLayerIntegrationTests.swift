@@ -15,7 +15,7 @@ final class HeatmapLayerIntegrationTests: MapViewIntegrationTestCase {
         let successfullyRetrievedLayerExpectation = XCTestExpectation(description: "Successfully retrieved HeatmapLayer from Map")
         successfullyRetrievedLayerExpectation.expectedFulfillmentCount = 1
 
-        mapView.mapboxMap.styleURI = .streets
+        mapView.mapboxMap.styleJSON = .testStyleJSON()
 
         didFinishLoadingStyle = { mapView in
 
@@ -23,7 +23,6 @@ final class HeatmapLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.minZoom = 10.0
             layer.maxZoom = 20.0
             layer.visibility = .constant(.visible)
-
             layer.heatmapColor = Value<StyleColor>.testConstantValue()
             layer.heatmapIntensity = Value<Double>.testConstantValue()
             layer.heatmapIntensityTransition = StyleTransition(duration: 10.0, delay: 10.0)

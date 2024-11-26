@@ -20,6 +20,7 @@ targets:
         DEFINES_MODULE: YES
         LD_RUNPATH_SEARCH_PATHS: $(inherited) @executable_path/Frameworks @loader_path/Frameworks
         SWIFT_EMIT_PRIVATE_MODULE_INTERFACE: YES
+        SWIFT_INSTALL_OBJC_HEADER: NO
         SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
         CODE_SIGN_STYLE: Automatic
     sources:
@@ -37,3 +38,13 @@ targets:
           - ../.build
         buildPhase: none
         group: General
+    postCompileScripts:
+      - name: Compile unified documentation
+        showEnvVars: true
+        basedOnDependencyAnalysis: true
+        discoveredDependencyFile: $(DERIVED_FILES_DIR)/MapboxMapsCustomDocumentation.d
+        script: $SRCROOT/$MAPBOXMAPS_PATH/scripts/doc-generation/xcode-rebuild-docc.sh
+        inputFiles:
+          - $(SRCROOT)/$(MAPBOXMAPS_PATH)/Sources/MapboxMaps/Documentation.docc
+        outputFiles:
+          - $(TARGET_TEMP_DIR)/MapboxMaps-fixed-diagnostics.json

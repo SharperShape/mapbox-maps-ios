@@ -63,7 +63,7 @@ internal extension StyleProtocol {
 /// Use style manager to dynamically modify the map style. You can manage layers, sources, lights, terrain, and many more.
 /// Typically, you don’t create the style manager instances yourself. Instead you receive instance of this class from ``MapView`` as the ``MapView/mapboxMap`` property, or create an instance of ``Snapshotter``.
 ///
-/// To load the style use ``styleURI`` or ``styleJSON`` or new experimental ``mapStyle`` property. The latter
+/// To load the style use ``styleURI`` or ``styleJSON`` or ``mapStyle`` property. The latter
 /// allows not only load the style, but also modify the style configuration, for more information, see ``MapStyle``.
 ///
 /// - Important: `StyleManager` should only be used from the main thread.
@@ -169,8 +169,7 @@ public class StyleManager {
      This function is useful if you do not know the concrete type of the layer
      you are fetching, or don't need to know for your situation.
 
-     - Parameter layerID: The id of the layer to be fetched
-
+     - Parameter id: The id of the layer to be fetched
      - Returns: The fully formed `layer` object.
      - Throws: Type conversion errors
      */
@@ -238,7 +237,6 @@ public class StyleManager {
     /**
      Adds a `source` to the map
      - Parameter source: The source to add to the map.
-     - Parameter identifier: A unique source identifier.
      - Parameter dataId: An optional data ID to filter ``MapboxMap/onSourceDataLoaded`` to only the specified data source. Applies only to ``GeoJSONSource``s.
 
      - Throws: ``StyleError`` if there is a problem adding the `source`.
@@ -410,8 +408,6 @@ public class StyleManager {
     /// MapStyle represents style configuration to load the style.
     ///
     /// It comprises from a StyleURI or style JSON complemented by style import configuration.
-    @_documentation(visibility: public)
-    @_spi(Experimental)
     public var mapStyle: MapStyle? {
         get { styleReconciler.mapStyle }
         set { styleReconciler.mapStyle = newValue }
@@ -452,8 +448,6 @@ public class StyleManager {
     /// - Warning: Avoind having strong references to `MapboxMap` or `MapView` in your custom content as it will lead to strong reference cycles.
     ///
     /// See more information in the <doc:Declarative-Map-Styling>.
-    @_documentation(visibility: public)
-    @_spi(Experimental)
     @available(iOS 13.0, *)
     public func setMapStyleContent(@MapStyleContentBuilder content: () -> some MapStyleContent) {
         setMapContent({
@@ -511,20 +505,16 @@ public class StyleManager {
         set { styleReconciler.mapStyle = MapStyle(json: newValue) }
     }
 
-    /// Loads a style from a ``MapStyle`` specification.
+    /// Loads ``MapStyle``, calling a completion closure when the
+    /// style is fully loaded or there has been an error during load.
     ///
-    /// The completion function is called when the style has finished loading. When the style loads, there may be several scenarios:
-    ///  - If the style fails to load due to network issues, several reload attempts will be made, and the callback will be triggered only when the process reaches its terminal state - either successful or failed.
-    /// -  If a new style loading is requested (with a different style URI or JSON) while the previous one is still in progress, the previous one gets cancelled. The previous state receives a ``CancelError`` in the callback.
-    /// -  When the main style document is loaded, the style is considered to have loaded successfully, even if some parts of the style aren't fully loaded.
-    /// -  If the main document fails to load, the callback receives a ``StyleError``.
+    /// If style loading started while the other style is already loading, the latter's loading `completion`
+    /// will receive a ``CancelError``. If a style is failed to load, `completion` will receive a ``StyleError``.
     ///
     /// - Parameters:
     ///   - mapStyle: A style to load.
     ///   - transition: Options for the style transition.
     ///   - completion: Closure called when the style has been fully loaded.
-    @_documentation(visibility: public)
-    @_spi(Experimental)
     public func load(mapStyle: MapStyle,
                      transition: TransitionOptions? = nil,
                      completion: ((Error?) -> Void)? = nil) {
@@ -667,8 +657,8 @@ public class StyleManager {
     /// Moves a style layer with given `layerId` to the new position.
     ///
     /// - Parameters:
-    ///   - layerId: Style layer id
-    ///   - layerPosition: Position to move the layer in the stack of layers on the map. Defaults to the top layer.
+    ///   - id: Style layer id
+    ///   - position: Position to move the layer in the stack of layers on the map. Defaults to the top layer.
     ///
     /// - Throws:
     ///     `StyleError` on failure, or `NSError` with a _domain of "com.mapbox.bindgen"
@@ -769,7 +759,6 @@ public class StyleManager {
     }
 
     /// The ordered list of the current style slots identifiers
-    @_spi(Experimental)
     public var allSlotIdentifiers: [Slot] {
         styleManager.getStyleSlots().compactMap(Slot.init)
     }
@@ -1137,7 +1126,7 @@ public class StyleManager {
 
     /// Gets the value of a style light property.
     ///
-    /// - Parameter light: The unique identifier of the style light in lights list.
+    /// - Parameter lightId: The unique identifier of the style light in lights list.
     /// - Parameter property: The style light property name.
     public func lightProperty(for lightId: String, property: String) -> Any {
         styleManager.getStyleLightProperty(forId: lightId, property: property).value
@@ -1145,7 +1134,7 @@ public class StyleManager {
 
     /// Gets the value of a style light property.
     ///
-    /// - Parameter light: The unique identifier of the style light in lights list.
+    /// - Parameter lightId: The unique identifier of the style light in lights list.
     /// - Parameter property: The style light property name.
     public func lightPropertyValue(for lightId: String, property: String) -> StylePropertyValue {
         styleManager.getStyleLightProperty(forId: lightId, property: property)
@@ -1167,7 +1156,7 @@ public class StyleManager {
 
     /// Sets the value of a style light property in lights list.
     ///
-    /// - Parameter id: The unique identifier of the style light in lights list.
+    /// - Parameter lightId: The unique identifier of the style light in lights list.
     /// - Parameter property: The style light property name.
     /// - Parameter value: The style light property value.
     /// - throws: An error describing why the operation is unsuccessful.
@@ -1284,6 +1273,7 @@ public class StyleManager {
     /// - See Also [style-spec/fog](https://docs.mapbox.com/mapbox-gl-js/style-spec/fog/)
     ///
     /// - Parameter property: Style atmosphere property name.
+    /// - Parameter value: Style atmosphere property value.
     ///
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
@@ -1431,54 +1421,19 @@ public class StyleManager {
     }
 
     /// Note! This is an experimental feature. It can be changed or removed in future versions.
-    /// Set tile data for a raster tile. For custom raster source, we accept 32-bit RGBA data format.
-    /// This method can be used in conjunction with `fetchTileFunction` provided in `CustomRasterSourceOptions`,
-    /// i.e., fetch tile fetches the required data and then sets the data for the tile using this API.
-    /// Note: This API should be called from main thread.
+    /// Set tile data for raster tiles.
+    ///
+    /// The provided data is not cached, and the implementation will call the fetch callback each time the tile reappears.
     ///
     /// - Parameters:
     ///   - sourceId: A Style source identifier
-    ///   - tileId: A `canonicalTileId` of the tile.
-    ///   - square: `Image` content of the tile.
+    ///   - tiles: tiles Array with new tile data.
     ///
     /// - Throws:
     ///     An error describing why the operation was unsuccessful.
-    @_spi(Experimental) public func setCustomRasterSourceTileData(forSourceId sourceId: String, tileId: CanonicalTileID, image: UIImage) throws {
-        guard let mbmImage = CoreMapsImage(uiImage: image) else {
-            throw TypeConversionError.unexpectedType
-        }
+    @_spi(Experimental) public func setCustomRasterSourceTileData(forSourceId sourceId: String, tiles: [CustomRasterSourceTileData]) throws {
         try handleExpected {
-            return styleManager.setStyleCustomRasterSourceTileDataForSourceId(sourceId, tileId: tileId, image: mbmImage)
-        }
-    }
-
-    /// Note! This is an experimental feature. It can be changed or removed in future versions.
-    /// Invalidate tile for provided custom raster source. This will make the source re-fetch the tile.
-    ///
-    /// - Parameters:
-    ///   - sourceId: A Style source identifier
-    ///   - tileId : A `canonicalTileId` of the tile.
-    ///
-    /// - Throws:
-    ///     An error describing why the operation was unsuccessful.
-    @_spi(Experimental) public func invalidateCustomRasterSourceTile(forSourceId sourceId: String, tileId: CanonicalTileID) throws {
-        try handleExpected {
-            return styleManager.invalidateStyleCustomRasterSourceTile(forSourceId: sourceId, tileId: tileId)
-        }
-    }
-
-    /// Note! This is an experimental feature. It can be changed or removed in future versions.
-    /// Invalidates all the tiles in the given region for the provided custom raster source.
-    ///
-    /// - Parameters:
-    ///   - sourceId: A Style source identifier
-    ///   - bounds: A `coordinateBounds` object.
-    ///
-    /// - Throws:
-    ///     An error describing why the operation was unsuccessful.
-    @_spi(Experimental) public func invalidateCustomRasterSourceRegion(forSourceId sourceId: String, bounds: CoordinateBounds) throws {
-        try handleExpected {
-            return styleManager.invalidateStyleCustomRasterSourceRegion(forSourceId: sourceId, bounds: bounds)
+            return styleManager.setStyleCustomRasterSourceTileDataForSourceId(sourceId, tiles: tiles)
         }
     }
 
@@ -1668,6 +1623,18 @@ extension StyleManager {
     }
 }
 
+// MARK: - Featuresets
+
+extension StyleManager {
+    /// Returns the available featuresets in the currently loaded style.
+    ///
+    /// - Note: This function should only be called after the style is fully loaded; otherwise, the result may be unreliable.
+    @_spi(Experimental)
+    public var featuresets: [FeaturesetDescriptor<FeaturesetFeature>] {
+        styleManager.getStyleFeaturesets().map(FeaturesetDescriptor<FeaturesetFeature>.init(core:))
+    }
+}
+
 // MARK: - StyleTransition -
 
 /**
@@ -1675,7 +1642,7 @@ extension StyleManager {
  A transition property controls timing for the interpolation between a
  transitionable style property's previous value and new value.
  */
-public struct StyleTransition: Codable, Equatable {
+public struct StyleTransition: Codable, Equatable, Sendable {
 
     /// Disabled style transition
     public static let zero = StyleTransition(duration: 0, delay: 0)

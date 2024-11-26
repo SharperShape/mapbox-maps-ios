@@ -4,10 +4,11 @@ import XCTest
 final class CustomSourcesSourceTests: XCTestCase {
 
     func testRasterEncodingAndDecoding() {
-        let testCustomRasterSourceOptions = CustomRasterSourceOptions(fetchTileFunction: { _ in }, cancelTileFunction: { _ in })
+        let testCustomRasterSourceOptions = CustomRasterSourceOptions(
+            clientCallback: CustomRasterSourceClient.fromCustomRasterSourceTileStatusChangedCallback { _, _ in }
+        )
 
-        var source = CustomRasterSource(id: "test-source", options: testCustomRasterSourceOptions)
-        source.tileCacheBudget = TileCacheBudgetSize.testSourceValue(TileCacheBudgetSize.megabytes(7))
+        let source = CustomRasterSource(id: "test-source", options: testCustomRasterSourceOptions)
 
         var data: Data?
         do {
@@ -25,7 +26,6 @@ final class CustomSourcesSourceTests: XCTestCase {
             let decodedSource = try JSONDecoder().decode(CustomRasterSource.self, from: validData)
             XCTAssert(decodedSource.type == SourceType.customRaster)
             XCTAssert(decodedSource.id == "test-source")
-            XCTAssert(decodedSource.tileCacheBudget == TileCacheBudgetSize.testSourceValue(TileCacheBudgetSize.megabytes(7)))
             XCTAssertNil(decodedSource.options)
         } catch {
             XCTFail("Failed to decode CustomRasterSource.")

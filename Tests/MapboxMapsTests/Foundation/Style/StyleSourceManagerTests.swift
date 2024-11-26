@@ -28,7 +28,7 @@ final class StyleSourceManagerTests: XCTestCase {
     }
 
     func testGetAllSourceIdentifiers() {
-        let stubbedStyleSources: [StyleObjectInfo] = .random(withLength: 3) {
+        let stubbedStyleSources: [StyleObjectInfo] = .testFixture(withLength: 3) {
             StyleObjectInfo(id: .randomAlphanumeric(withLength: 12), type: LayerType.random().rawValue)
         }
         styleManager.getStyleSourcesStub.defaultReturnValue = stubbedStyleSources
@@ -452,7 +452,7 @@ final class StyleSourceManagerTests: XCTestCase {
         // given
         let sourceId = String.randomASCII(withLength: 10)
         let dataId = String.randomASCII(withLength: 11)
-        let point = Point(.random())
+        let point = Point(.testConstantValue())
         let featureIdentifier = Double.random(in: 0...1000)
         var feature = Feature.init(geometry: point.geometry)
         feature.identifier = .number(featureIdentifier)
@@ -476,7 +476,7 @@ final class StyleSourceManagerTests: XCTestCase {
         // given
         let sourceId = String.randomASCII(withLength: 10)
         let dataId = String.randomASCII(withLength: 11)
-        let point = Point(.random())
+        let point = Point(.testConstantValue())
         let featureIdentifier = Double.random(in: 0...1000)
         var feature = Feature.init(geometry: point.geometry)
         feature.identifier = .number(featureIdentifier)
@@ -499,7 +499,7 @@ final class StyleSourceManagerTests: XCTestCase {
     func testPartialUpdateAPIsDontCancelPreviousUpdates() throws {
         // given
         let sourceId = String.randomASCII(withLength: 10)
-        let point = Point(.random())
+        let point = Point(.testConstantValue())
         let featureIdentifier = Double.random(in: 0...1000)
         var feature = Feature.init(geometry: point.geometry)
         feature.identifier = .number(featureIdentifier)
@@ -520,7 +520,7 @@ final class StyleSourceManagerTests: XCTestCase {
     func testFullUpdateAPIsCancelsAllPreviousUpdates() throws {
         // given
         let sourceId = String.randomASCII(withLength: 10)
-        let point = Point(.random())
+        let point = Point(.testConstantValue())
         let featureIdentifier = Double.random(in: 0...1000)
         var feature = Feature.init(geometry: point.geometry)
         feature.identifier = .number(featureIdentifier)
@@ -557,6 +557,31 @@ final class StyleSourceManagerTests: XCTestCase {
         XCTAssertEqual(parameters.sourceId, sourceId)
         XCTAssertEqual(parameters.featureIds, featureIdentifiers)
         XCTAssertEqual(parameters.dataId, dataId)
+    }
+
+    func testPartialUpdateCancellableIsDeallocatedWhenUpdateIsComplete() {
+        let workItems = NSHashTable<DispatchWorkItem>.weakObjects()
+
+        autoreleasepool {
+            let dummyQueue = DispatchQueue(label: "Dummy queue", qos: .userInitiated)
+            let sourceId = "sourceId"
+
+            sourceManager.addGeoJSONSourceFeatures(forSourceId: sourceId, features: [], dataId: nil)
+            sourceManager.updateGeoJSONSourceFeatures(forSourceId: sourceId, features: [], dataId: nil)
+            sourceManager.removeGeoJSONSourceFeatures(forSourceId: sourceId, featureIds: [], dataId: nil)
+
+            backgroundQueue.asyncWorkItemStub.invocations.map(\.parameters).forEach(workItems.add)
+            backgroundQueue.asyncWorkItemStub.reset()
+
+            XCTAssertEqual(workItems.count, 3)
+
+            workItems.allObjects.forEach(dummyQueue.sync)
+        }
+        expectation(for: NSPredicate(block: { (_, _) in
+            workItems.anyObject == nil
+        }), evaluatedWith: nil)
+
+        waitForExpectations(timeout: 3)
     }
 }
 

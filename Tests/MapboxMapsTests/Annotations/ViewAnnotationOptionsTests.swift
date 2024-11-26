@@ -9,6 +9,7 @@ final class ViewAnnotationOptionsTests: XCTestCase {
     let height: CGFloat = 50.0
     let allowOverlap: Bool = true
     let allowOverlapWithPuck = true
+    let allowZElevate = true
     let ignoreCameraPadding = true
     let visible: Bool = true
     let anchor: ViewAnnotationAnchor = .right
@@ -58,6 +59,7 @@ final class ViewAnnotationOptionsTests: XCTestCase {
             height: height as NSNumber?,
             allowOverlap: allowOverlap as NSNumber?,
             allowOverlapWithPuck: allowOverlap as NSNumber?,
+            allowZElevate: allowZElevate as NSNumber?,
             visible: visible as NSNumber?,
             variableAnchors: variableAnchors,
             selected: selected as NSNumber?,
@@ -81,10 +83,10 @@ final class ViewAnnotationOptionsTests: XCTestCase {
             XCTAssertEqual(frame.origin.y, expectedOrigin.y)
         }
 
-        let width = CGFloat.random(in: 20...100)
-        let height = CGFloat.random(in: 20...100)
-        let offsetX = CGFloat.random(in: -100...100)
-        let offsetY = CGFloat.random(in: -100...100)
+        let width: CGFloat = 80
+        let height: CGFloat = 40
+        let offsetX: CGFloat = -30
+        let offsetY: CGFloat = 50
 
         var sut = ViewAnnotationOptions(
             annotatedFeature: .layerFeature(layerId: "foo"),

@@ -15,7 +15,7 @@ public struct FillLayer: Layer, Equatable {
 
     /// An expression specifying conditions on source features.
     /// Only features that match the filter are displayed.
-    public var filter: Expression?
+    public var filter: Exp?
 
     /// Name of a source description to be used for this layer.
     /// Required for all layer types except ``BackgroundLayer``, ``SkyLayer``, and ``LocationIndicatorLayer``.
@@ -43,21 +43,25 @@ public struct FillLayer: Layer, Equatable {
     public var fillSortKey: Value<Double>?
 
     /// Whether or not the fill should be antialiased.
+    /// Default value: true.
     public var fillAntialias: Value<Bool>?
 
     /// The color of the filled part of this layer. This color can be specified as `rgba` with an alpha component and the color's opacity will not affect the opacity of the 1px stroke, if it is used.
+    /// Default value: "#000000".
     public var fillColor: Value<StyleColor>?
 
     /// Transition options for `fillColor`.
     public var fillColorTransition: StyleTransition?
 
     /// Controls the intensity of light emitted on the source features.
+    /// Default value: 0. Minimum value: 0.
     public var fillEmissiveStrength: Value<Double>?
 
     /// Transition options for `fillEmissiveStrength`.
     public var fillEmissiveStrengthTransition: StyleTransition?
 
     /// The opacity of the entire fill layer. In contrast to the `fill-color`, this value will also affect the 1px stroke around the fill, if the stroke is used.
+    /// Default value: 1. Value range: [0, 1]
     public var fillOpacity: Value<Double>?
 
     /// Transition options for `fillOpacity`.
@@ -73,12 +77,14 @@ public struct FillLayer: Layer, Equatable {
     public var fillPattern: Value<ResolvedImage>?
 
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
+    /// Default value: [0,0].
     public var fillTranslate: Value<[Double]>?
 
     /// Transition options for `fillTranslate`.
     public var fillTranslateTransition: StyleTransition?
 
     /// Controls the frame of reference for `fill-translate`.
+    /// Default value: "map".
     public var fillTranslateAnchor: Value<FillTranslateAnchor>?
 
     public init(id: String, source: String) {
@@ -123,7 +129,7 @@ public struct FillLayer: Layer, Equatable {
         let container = try decoder.container(keyedBy: RootCodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         type = try container.decode(LayerType.self, forKey: .type)
-        filter = try container.decodeIfPresent(Expression.self, forKey: .filter)
+        filter = try container.decodeIfPresent(Exp.self, forKey: .filter)
         source = try container.decodeIfPresent(String.self, forKey: .source)
         sourceLayer = try container.decodeIfPresent(String.self, forKey: .sourceLayer)
         slot = try container.decodeIfPresent(Slot.self, forKey: .slot)
@@ -189,18 +195,15 @@ public struct FillLayer: Layer, Equatable {
     }
 }
 
-@_documentation(visibility: public)
-@_spi(Experimental) extension FillLayer {
+extension FillLayer {
     /// An expression specifying conditions on source features.
     /// Only features that match the filter are displayed.
-    @_documentation(visibility: public)
-    public func filter(_ newValue: Expression) -> Self {
+    public func filter(_ newValue: Exp) -> Self {
         with(self, setter(\.filter, newValue))
     }
 
     /// Name of a source description to be used for this layer.
     /// Required for all layer types except ``BackgroundLayer``, ``SkyLayer``, and ``LocationIndicatorLayer``.
-    @_documentation(visibility: public)
     public func source(_ newValue: String) -> Self {
         with(self, setter(\.source, newValue))
     }
@@ -209,191 +212,166 @@ public struct FillLayer: Layer, Equatable {
     ///
     /// Required for vector tile sources.
     /// Prohibited for all other source types, including GeoJSON sources.
-    @_documentation(visibility: public)
     public func sourceLayer(_ newValue: String) -> Self {
         with(self, setter(\.sourceLayer, newValue))
     }
 
     /// The slot this layer is assigned to.
     /// If specified, and a slot with that name exists, it will be placed at that position in the layer order.
-    @_documentation(visibility: public)
     public func slot(_ newValue: Slot?) -> Self {
         with(self, setter(\.slot, newValue))
     }
 
     /// The minimum zoom level for the layer. At zoom levels less than the minzoom, the layer will be hidden.
-    @_documentation(visibility: public)
     public func minZoom(_ newValue: Double) -> Self {
         with(self, setter(\.minZoom, newValue))
     }
 
     /// The maximum zoom level for the layer. At zoom levels equal to or greater than the maxzoom, the layer will be hidden.
-    @_documentation(visibility: public)
     public func maxZoom(_ newValue: Double) -> Self {
         with(self, setter(\.maxZoom, newValue))
     }
 
     /// Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key.
-    @_documentation(visibility: public)
     public func fillSortKey(_ constant: Double) -> Self {
         with(self, setter(\.fillSortKey, .constant(constant)))
     }
 
     /// Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key.
-    @_documentation(visibility: public)
-    public func fillSortKey(_ expression: Expression) -> Self {
+    public func fillSortKey(_ expression: Exp) -> Self {
         with(self, setter(\.fillSortKey, .expression(expression)))
     }
 
-
     /// Whether or not the fill should be antialiased.
-    @_documentation(visibility: public)
+    /// Default value: true.
     public func fillAntialias(_ constant: Bool) -> Self {
         with(self, setter(\.fillAntialias, .constant(constant)))
     }
 
     /// Whether or not the fill should be antialiased.
-    @_documentation(visibility: public)
-    public func fillAntialias(_ expression: Expression) -> Self {
+    /// Default value: true.
+    public func fillAntialias(_ expression: Exp) -> Self {
         with(self, setter(\.fillAntialias, .expression(expression)))
     }
 
-
     /// The color of the filled part of this layer. This color can be specified as `rgba` with an alpha component and the color's opacity will not affect the opacity of the 1px stroke, if it is used.
-    @_documentation(visibility: public)
+    /// Default value: "#000000".
     public func fillColor(_ constant: StyleColor) -> Self {
         with(self, setter(\.fillColor, .constant(constant)))
     }
 
     /// The color of the filled part of this layer. This color can be specified as `rgba` with an alpha component and the color's opacity will not affect the opacity of the 1px stroke, if it is used.
-    @_documentation(visibility: public)
+    /// Default value: "#000000".
     public func fillColor(_ color: UIColor) -> Self {
         with(self, setter(\.fillColor, .constant(StyleColor(color))))
     }
 
     /// Transition property for `fillColor`
-    @_documentation(visibility: public)
     public func fillColorTransition(_ transition: StyleTransition) -> Self {
         with(self, setter(\.fillColorTransition, transition))
     }
 
     /// The color of the filled part of this layer. This color can be specified as `rgba` with an alpha component and the color's opacity will not affect the opacity of the 1px stroke, if it is used.
-    @_documentation(visibility: public)
-    public func fillColor(_ expression: Expression) -> Self {
+    /// Default value: "#000000".
+    public func fillColor(_ expression: Exp) -> Self {
         with(self, setter(\.fillColor, .expression(expression)))
     }
 
-
     /// Controls the intensity of light emitted on the source features.
-    @_documentation(visibility: public)
+    /// Default value: 0. Minimum value: 0.
     public func fillEmissiveStrength(_ constant: Double) -> Self {
         with(self, setter(\.fillEmissiveStrength, .constant(constant)))
     }
 
     /// Transition property for `fillEmissiveStrength`
-    @_documentation(visibility: public)
     public func fillEmissiveStrengthTransition(_ transition: StyleTransition) -> Self {
         with(self, setter(\.fillEmissiveStrengthTransition, transition))
     }
 
     /// Controls the intensity of light emitted on the source features.
-    @_documentation(visibility: public)
-    public func fillEmissiveStrength(_ expression: Expression) -> Self {
+    /// Default value: 0. Minimum value: 0.
+    public func fillEmissiveStrength(_ expression: Exp) -> Self {
         with(self, setter(\.fillEmissiveStrength, .expression(expression)))
     }
 
-
     /// The opacity of the entire fill layer. In contrast to the `fill-color`, this value will also affect the 1px stroke around the fill, if the stroke is used.
-    @_documentation(visibility: public)
+    /// Default value: 1. Value range: [0, 1]
     public func fillOpacity(_ constant: Double) -> Self {
         with(self, setter(\.fillOpacity, .constant(constant)))
     }
 
     /// Transition property for `fillOpacity`
-    @_documentation(visibility: public)
     public func fillOpacityTransition(_ transition: StyleTransition) -> Self {
         with(self, setter(\.fillOpacityTransition, transition))
     }
 
     /// The opacity of the entire fill layer. In contrast to the `fill-color`, this value will also affect the 1px stroke around the fill, if the stroke is used.
-    @_documentation(visibility: public)
-    public func fillOpacity(_ expression: Expression) -> Self {
+    /// Default value: 1. Value range: [0, 1]
+    public func fillOpacity(_ expression: Exp) -> Self {
         with(self, setter(\.fillOpacity, .expression(expression)))
     }
 
-
     /// The outline color of the fill. Matches the value of `fill-color` if unspecified.
-    @_documentation(visibility: public)
     public func fillOutlineColor(_ constant: StyleColor) -> Self {
         with(self, setter(\.fillOutlineColor, .constant(constant)))
     }
 
     /// The outline color of the fill. Matches the value of `fill-color` if unspecified.
-    @_documentation(visibility: public)
     public func fillOutlineColor(_ color: UIColor) -> Self {
         with(self, setter(\.fillOutlineColor, .constant(StyleColor(color))))
     }
 
     /// Transition property for `fillOutlineColor`
-    @_documentation(visibility: public)
     public func fillOutlineColorTransition(_ transition: StyleTransition) -> Self {
         with(self, setter(\.fillOutlineColorTransition, transition))
     }
 
     /// The outline color of the fill. Matches the value of `fill-color` if unspecified.
-    @_documentation(visibility: public)
-    public func fillOutlineColor(_ expression: Expression) -> Self {
+    public func fillOutlineColor(_ expression: Exp) -> Self {
         with(self, setter(\.fillOutlineColor, .expression(expression)))
     }
 
-
     /// Name of image in sprite to use for drawing image fills. For seamless patterns, image width and height must be a factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will be evaluated only at integer zoom levels.
-    @_documentation(visibility: public)
     public func fillPattern(_ constant: String) -> Self {
         with(self, setter(\.fillPattern, .constant(.name(constant))))
     }
 
     /// Name of image in sprite to use for drawing image fills. For seamless patterns, image width and height must be a factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will be evaluated only at integer zoom levels.
-    @_documentation(visibility: public)
-    public func fillPattern(_ expression: Expression) -> Self {
+    public func fillPattern(_ expression: Exp) -> Self {
         with(self, setter(\.fillPattern, .expression(expression)))
     }
 
-
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
-    @_documentation(visibility: public)
+    /// Default value: [0,0].
     public func fillTranslate(x: Double, y: Double) -> Self {
         with(self, setter(\.fillTranslate, .constant([x, y])))
     }
 
     /// Transition property for `fillTranslate`
-    @_documentation(visibility: public)
     public func fillTranslateTransition(_ transition: StyleTransition) -> Self {
         with(self, setter(\.fillTranslateTransition, transition))
     }
 
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
-    @_documentation(visibility: public)
-    public func fillTranslate(_ expression: Expression) -> Self {
+    /// Default value: [0,0].
+    public func fillTranslate(_ expression: Exp) -> Self {
         with(self, setter(\.fillTranslate, .expression(expression)))
     }
 
-
     /// Controls the frame of reference for `fill-translate`.
-    @_documentation(visibility: public)
+    /// Default value: "map".
     public func fillTranslateAnchor(_ constant: FillTranslateAnchor) -> Self {
         with(self, setter(\.fillTranslateAnchor, .constant(constant)))
     }
 
     /// Controls the frame of reference for `fill-translate`.
-    @_documentation(visibility: public)
-    public func fillTranslateAnchor(_ expression: Expression) -> Self {
+    /// Default value: "map".
+    public func fillTranslateAnchor(_ expression: Exp) -> Self {
         with(self, setter(\.fillTranslateAnchor, .expression(expression)))
     }
 }
 
 @available(iOS 13.0, *)
-@_spi(Experimental)
 extension FillLayer: MapStyleContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         node.mount(MountedLayer(layer: self))

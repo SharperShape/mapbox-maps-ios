@@ -4,11 +4,9 @@ Use Mapbox Maps in SwiftUI applications.
 
 ## Overview
 
-Starting from version `11.0.0-beta.2` of MapboxMaps you can easily integrate Mapbox into your apps using the SwiftUI framework.
+The Mapbox Maps SDK has a complete support of SwiftUI. This guide demonstrates how to easily integrate Mapbox Maps into your SwiftUI application.
 
 You can find working [SwiftUI examples](https://github.com/mapbox/mapbox-maps-ios/tree/main/Apps/Examples/Examples/SwiftUI%20Examples) in the [Examples](https://github.com/mapbox/mapbox-maps-ios/tree/main/Apps/Examples) application.
-
-- Important: SwiftUI support is experimental, the API may change in future releases.
 
 ### Feature support
 
@@ -18,7 +16,7 @@ However, not every single API is exposed in SwiftUI, you can track the progress 
 
 Feature | Status | Note
 --- | --- | ---
-Viewport | ✅
+Viewport & Camera | ✅
 View Annotations | ✅
 Layer Annotations | ✅ | `isDraggable`, `isSelected` are not supported
 Annotations Clustering | ✅ |
@@ -27,16 +25,16 @@ Puck 2D/3D | ✅
 Map Events | ✅
 Gesture Configuration | ✅
 Ornaments Configuration | ✅
-Style API | 🚧 | Use ``MapReader`` to access Style API via ``MapProxy/map``. 
+Style API | ✅ | Check out the <doc:Declarative-Map-Styling> user guide.
 Custom Camera Animations | 🚧
 
 ### Getting started
 
-To start using Mapbox Map in SwiftUI you need to import `SwiftUI` and  `MapboxMaps` with `@_spi(Experimental)`. This way you can try the new APIs that have experimental support.
+To start using Mapbox Map in SwiftUI you need to import `SwiftUI` and  `MapboxMaps`.
 
 ```swift
 import SwiftUI
-@_spi(Experimental) import MapboxMaps
+import MapboxMaps
 ```
 
 Then you can use ``Map-swift.struct`` to display map content.
@@ -90,6 +88,35 @@ extension MapStyle {
 ```
 
 Please consult the ``MapStyle`` documentation to find more information about style loading.
+
+### Declarative Map Styling
+
+With the advent of Declarative Map Styling, it's now feasible to reuse ``MapStyleContent`` components within SwiftUI, offering a robust and exhaustive method to delineate map content comprehensively in one place.
+
+The following example illustrates the utilization of both ``MapStyleContent``, which can also be utilized outside of SwiftUI, and SwiftUI-specific ``MapContent`` within a singular declarative ``Map`` description:
+
+```swift
+Map(initialViewport: .camera(center: .init(latitude: 27.2, longitude: -26.9), zoom: 1.53, bearing: 0, pitch: 0)) {
+    MapViewAnnotation(coordinate: .apple) {
+        Circle()
+            .fill(.purple)
+            .frame(width: 40, height: 40)
+    }
+
+     PolygonAnnotation(polygon: Polygon(center: .apple, radius: 8 * 100, vertices: 60))
+        .fillColor(StyleColor(.yellow))
+
+
+    GeoJSONSource(id: "source")
+        .data(.geometry(.polygon(Polygon(center: .apple, radius: 4 * 100, vertices: 60))))
+
+    FillLayer(id: "fill-id", source: "source")
+        .fillColor(.green)
+        .fillOpacity(0.7)
+}
+```
+
+Within SwiftUI, all ``MapStyleContent`` elements will be retained during style reloads and appropriately re-added. This ensures that the sole source of truth for map content lies within the declaration itself. SwiftUI's ``MapContent`` serves as an extension of the Declarative Map Styling approach previously introduced for the UIKit API. Therefore, it's advisable to peruse the <doc:Declarative-Map-Styling> guide to become acquainted with the underlying concepts of this declarative styling paradigm.
 
 ### Using Viewport to manage camera
 
@@ -307,4 +334,4 @@ var body: some View {
 }
 ```
 
-We welcome your feedback on this experimental SwiftUI support. If you have any questions or comments please open an [issue in the Mapbox Maps SDK repo](https://github.com/mapbox/mapbox-maps-ios/issues) and add the `SwiftUI` label.
+We welcome your feedback on the SwiftUI support. If you have any questions or comments please open an [issue in the Mapbox Maps SDK repo](https://github.com/mapbox/mapbox-maps-ios/issues) and add the `SwiftUI` label.

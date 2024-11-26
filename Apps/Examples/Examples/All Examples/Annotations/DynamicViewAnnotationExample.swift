@@ -50,7 +50,6 @@ final class DynamicViewAnnotationExample: UIViewController, ExampleProtocol {
 
         mapView = MapView(frame: view.bounds)
         mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        mapView.presentsWithTransaction = true
         view.addSubview(mapView)
 
         updateModeButton()
@@ -226,7 +225,7 @@ private final class Route {
         guard !displayed, let mapView else { return }
         displayed = true
 
-        func colorExpression(normal: String, selected: String) -> Expression {
+        func colorExpression(normal: String, selected: String) -> Exp {
             Exp(.switchCase) {
                 Exp(.boolean) {
                     Exp(.featureState) { "selected" }
@@ -305,7 +304,6 @@ private final class Route {
         return .init(name: name, time: time, feature: feature)
     }
 }
-
 
 private final class ParkingAnnotationView: UIView {
     private let label = UILabel()

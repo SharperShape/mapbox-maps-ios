@@ -1,5 +1,5 @@
 import UIKit
-@_spi(Experimental) import MapboxMaps
+import MapboxMaps
 
 /// This example shows how to use a slot from the Standard style and use another custom slot added at runtime
 /// to split the former into two parts.
@@ -46,7 +46,7 @@ final class RuntimeSlotsExample: UIViewController, ExampleProtocol {
         ///    - "square" layer
         /// ... top layers layers ...
         /// ```
-        /// If any other layers or annotations added to the `annotation-placeholder` slot, they will appear above the triangle annotation, but below the square layer.
+        /// If any other layers or annotations are added to the `annotation-placeholder` slot, they will appear above the triangle annotation, but below the square layer.
         let manager = mapView.annotations.makePolygonAnnotationManager()
         manager.slot = "annotation-placeholder"
         manager.annotations = [

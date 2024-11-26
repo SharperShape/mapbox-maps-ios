@@ -1,5 +1,5 @@
 import CoreLocation
-@_spi(Experimental) import MapboxMaps
+import MapboxMaps
 
 extension CLLocationCoordinate2D {
     static let apple = CLLocationCoordinate2D(latitude: 37.3326, longitude: -122.0304)
@@ -18,7 +18,6 @@ extension CLLocationCoordinate2D {
     static let tunis = CLLocationCoordinate2D(latitude: 36.806, longitude: 10.1815)
     static let barcelona = CLLocationCoordinate2D(latitude: 41.3874, longitude: 2.168)
 }
-
 
 extension CameraBoundsOptions {
     static let world = CameraBoundsOptions(bounds: .world)

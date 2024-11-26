@@ -1,5 +1,5 @@
 import SwiftUI
-@_spi(Experimental) import MapboxMaps
+import MapboxMaps
 
 /// This example shows how to use `MapReader` in order to access underlying `MapboxMap` API in SwiftUI.
 @available(iOS 14.0, *)
@@ -39,14 +39,14 @@ private class Model: ObservableObject {
         var coordinate: CLLocationCoordinate2D
     }
     @Published
-    var queryResult: QueryResult? = nil
+    var queryResult: QueryResult?
 
     @Published
     var viewport: Viewport = .styleDefault
 
-    private var cancellable: Cancelable? = nil
+    private var cancellable: Cancelable?
 
-    func mapTapped(_ context: MapContentGestureContext, map: MapboxMap?, bottomInset: CGFloat) {
+    func mapTapped(_ context: InteractionContext, map: MapboxMap?, bottomInset: CGFloat) {
         cancellable?.cancel()
         guard let map = map else {
             return
@@ -135,7 +135,7 @@ struct FeaturesQueryExample_Preview: PreviewProvider {
 extension JSONObject {
     var prettyPrinted: String? {
         do {
-            let data = try JSONSerialization.data(withJSONObject: rawValue, options: .prettyPrinted)
+            let data = try JSONSerialization.data(withJSONObject: turfRawValue, options: .prettyPrinted)
             return String(data: data, encoding: .utf8)
         } catch {
             return nil
@@ -153,7 +153,7 @@ extension Feature {
                 // can be too long for example
                 jsonObject["geometry"] = ["..."]
             }
-            return JSONObject(rawValue: jsonObject)
+            return JSONObject(turfRawValue: jsonObject)
         } catch {
             return nil
         }

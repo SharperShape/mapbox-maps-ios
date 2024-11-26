@@ -9,15 +9,15 @@ public enum PuckType: Equatable {
     case puck3D(Puck3DConfiguration)
 }
 
-public struct Puck2DConfiguration: Equatable {
+public struct Puck2DConfiguration: Equatable, Sendable {
 
     /// The configuration parameters for sonar-like pulsing circle animation shown around the 2D puck.
-    public struct Pulsing: Equatable {
+    public struct Pulsing: Equatable, Sendable {
         public static let `default` = Pulsing()
 
         // swiftlint:disable nesting
         /// Circle radius configuration for the pulsing circle animation.
-        public enum Radius: Equatable {
+        public enum Radius: Equatable, Sendable {
             /// Pulsing circle should animate with the constant radius.
             case constant(Double)
             /// Pulsing circle animates with the `horizontalAccuracy` form the latest puck location.
@@ -87,6 +87,7 @@ public struct Puck2DConfiguration: Equatable {
     ///   - bearingImage: The image used as the middle of the location indicator.
     ///   - shadowImage: The image that acts as a background of the location indicator.
     ///   - scale: The size of the images, as a scale factor applied to the size of the specified image.
+    ///   - pulsing: The configuration parameters for sonar-like pulsing circle animation shown around the 2D puck.
     ///   - showsAccuracyRing: Indicates whether the location accurary ring should be shown.
     ///   - opacity: The opacity of the entire location indicator.
     public init(
@@ -119,6 +120,7 @@ public struct Puck2DConfiguration: Equatable {
     ///   - accuracyRingColor:The color of the accuracy ring.
     ///   - accuracyRingBorderColor: The color of the accuracy ring border.
     ///   - opacity: The opacity of the entire location indicator.
+    ///   - layerPosition: Specifies the position at which a layer will be added.
     public init(
         topImage: UIImage? = nil,
         bearingImage: UIImage? = nil,
@@ -150,7 +152,7 @@ public struct Puck2DConfiguration: Equatable {
     }
 }
 
-public struct Puck3DConfiguration: Equatable {
+public struct Puck3DConfiguration: Equatable, Sendable {
 
     /// The model to use as the locaiton puck
     public var model: Model
@@ -224,6 +226,7 @@ public struct Puck3DConfiguration: Equatable {
     ///   - modelOpacity: The opacity of the model used as the location puck
     ///   - modelCastShadows: Enable/disable shadow casting for the puck model
     ///   - modelReceiveShadows: Enable/disable shadow receiving for the puck model
+    ///   - modelScaleMode: Defines scaling mode. Only applies to location-indicator type layers.
     ///   - modelEmissiveStrength: Strength of the light emission.
     ///   - layerPosition: Defines relative position of the puck layer.
     @_documentation(visibility: public)
