@@ -21,7 +21,7 @@ let package = Package(
             targets: ["MapboxMaps"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/SharperShape/turf-swift.git", .branch("v3-new-new")),
+        .package(url: "https://github.com/SharperShape/turf-swift.git", .branch("v4-new")),
     ] + coreMaps.packageDependencies + common.packageDependencies,
     targets: [
         .target(
