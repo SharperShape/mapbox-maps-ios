@@ -15,6 +15,7 @@
 - ``StyleDecodable``
 - ``StyleEncodable``
 - ``StyleError``
+- ``StyleImage``
 - ``TypeConversionError``
 - ``LightInfo``
 - ``LightType``
@@ -25,6 +26,10 @@
 - ``StyleProjectionName``
 - ``CancelError``
 - ``TransitionOptions-struct``
+- ``Rain``
+- ``Snow``
+- ``ColorTheme``
+- ``ColorUseTheme``
 
 ### Declarative Map Styling
 

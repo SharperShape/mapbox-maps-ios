@@ -43,7 +43,6 @@ import SwiftUI
 /// ```
 ///
 /// Check out the <doc:SwiftUI-User-Guide> for more information about ``Map`` capabilities, and the <doc:Map-Content-Gestures-User-Guide> for more information about gesture handling.
-@available(iOS 13.0, *)
 public struct Map: UIViewControllerRepresentable {
     var mapDependencies = MapDependencies()
     private var viewport: ConstantOrBinding<Viewport>
@@ -148,7 +147,6 @@ public struct Map: UIViewControllerRepresentable {
     }
 }
 
-@available(iOS 13.0, *)
 extension Map {
 
     /// Creates a map with a viewport binding.
@@ -220,8 +218,15 @@ extension Map {
     }
 }
 
-@available(iOS 13.0, *)
 public extension Map {
+
+    /// Filters attribution menu items
+    /// Restricted API. Please contact Mapbox to discuss your use case if you intend to use this property.
+    @_spi(Restricted)
+    func attributionMenuFilter(_ filter: @escaping (AttributionMenuItem) -> Bool) -> Self {
+        copyAssigned(self, \.mapDependencies.attributionMenuFilter, filter)
+    }
+
     /// Sets camera bounds.
     func cameraBounds(_ cameraBounds: CameraBoundsOptions) -> Self {
         copyAssigned(self, \.mapDependencies.cameraBounds, cameraBounds)
@@ -366,7 +371,6 @@ public extension Map {
     }
 }
 
-@available(iOS 13.0, *)
 extension Map {
 
     /// Map Coordinator.
@@ -409,14 +413,12 @@ extension Map {
     }
 }
 
-@available(iOS 13.0, *)
 private extension Binding {
     var setter: (Value) -> Void {
         { self.wrappedValue = $0 }
     }
 }
 
-@available(iOS 13.0, *)
 private extension ConstantOrBinding {
     var setter: ((T) -> Void)? {
         switch self {

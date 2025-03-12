@@ -1,5 +1,4 @@
 import os.log
-@available(iOS 13.0, *)
 final class MapContentNode: Identifiable {
     struct ID: Hashable {
         let anyId: AnyHashable
@@ -99,7 +98,7 @@ final class MapContentNode: Identifiable {
                     return
                 }
             } catch {
-                Log.error(forMessage: "\(error)", category: "StyleDSL")
+                Log.error("\(error)", category: "StyleDSL")
             }
 
         }
@@ -111,7 +110,6 @@ final class MapContentNode: Identifiable {
     }
 }
 
-@available(iOS 13.0, *)
 extension MapContentNode {
     func updateChildren<Content: MapContent, Data: RandomAccessCollection, ID: Hashable>(with newChildren: ForEvery<Content, Data, ID>) {
         os_log(.debug, log: .contentDSL, "ForEvery update")
@@ -160,11 +158,10 @@ func wrapStyleDSLError(_ closure: () throws -> Void) {
     do {
         try closure()
     } catch {
-        Log.error(forMessage: "\(error)", category: "StyleDSL")
+        Log.error("\(error)", category: "StyleDSL")
     }
 }
 
-@available(iOS 13.0, *)
 private extension MapContentNode.Content {
     var asMounted: (any MapContentMountedComponent)? {
         if case let .mounted(mounted) = self {

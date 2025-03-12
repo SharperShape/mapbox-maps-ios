@@ -16,7 +16,7 @@
 ///            .fillColor("blue")
 ///    }
 /// }
-/// .slot("bottom")
+/// .slot(.bottom)
 /// ```
 ///
 /// When the number of annotations is static, you use static that groups one or more annotations:
@@ -28,12 +28,11 @@
 ///             .fillColor("blue")
 ///     }
 ///     .layerId("parking")
-///     .slot("bottom")
+///     .slot(.bottom)
 /// }
 /// ```
 import UIKit
 
-@available(iOS 13.0, *)
 public struct PolygonAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
     let annotations: [(ID, PolygonAnnotation)]
 
@@ -54,7 +53,6 @@ public struct PolygonAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>
     /// - Parameters:
     ///     - data: Collection of identifiable data.
     ///     - content: A closure that creates annotation for a given data item.
-    @available(iOS 13.0, *)
     public init(_ data: Data, content: @escaping (Data.Element) -> PolygonAnnotation) where Data.Element: Identifiable, Data.Element.ID == ID {
         self.init(data, id: \.id, content: content)
     }
@@ -73,6 +71,7 @@ public struct PolygonAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>
     }
 
     private func updateProperties(manager: PolygonAnnotationManager) {
+        assign(manager, \.fillElevationReference, value: fillElevationReference)
         assign(manager, \.fillSortKey, value: fillSortKey)
         assign(manager, \.fillAntialias, value: fillAntialias)
         assign(manager, \.fillColor, value: fillColor)
@@ -82,10 +81,22 @@ public struct PolygonAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>
         assign(manager, \.fillPattern, value: fillPattern)
         assign(manager, \.fillTranslate, value: fillTranslate)
         assign(manager, \.fillTranslateAnchor, value: fillTranslateAnchor)
+        assign(manager, \.fillZOffset, value: fillZOffset)
         assign(manager, \.slot, value: slot)
+        manager.tapRadius = tapRadius
+        manager.longPressRadius = longPressRadius
     }
 
     // MARK: - Common layer properties
+
+    private var fillElevationReference: FillElevationReference?
+    /// Selects the base of fill-elevation. Some modes might require precomputed elevation data in the tileset.
+    /// Default value: "none".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillElevationReference(_ newValue: FillElevationReference) -> Self {
+        with(self, setter(\.fillElevationReference, newValue))
+    }
 
     private var fillSortKey: Double?
     /// Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key.
@@ -109,7 +120,7 @@ public struct PolygonAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>
 
     private var fillEmissiveStrength: Double?
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillEmissiveStrength is in intensity.
     public func fillEmissiveStrength(_ newValue: Double) -> Self {
         with(self, setter(\.fillEmissiveStrength, newValue))
     }
@@ -135,9 +146,9 @@ public struct PolygonAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>
 
     private var fillTranslate: [Double]?
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
-    /// Default value: [0,0].
-    public func fillTranslate(_ newValue: [Double]) -> Self {
-        with(self, setter(\.fillTranslate, newValue))
+    /// Default value: [0,0]. The unit of fillTranslate is in pixels.
+    public func fillTranslate(x: Double, y: Double) -> Self {
+        with(self, setter(\.fillTranslate, [x, y]))
     }
 
     private var fillTranslateAnchor: FillTranslateAnchor?
@@ -147,13 +158,31 @@ public struct PolygonAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>
         with(self, setter(\.fillTranslateAnchor, newValue))
     }
 
+    private var fillZOffset: Double?
+    /// Specifies an uniform elevation in meters. Note: If the value is zero, the layer will be rendered on the ground. Non-zero values will elevate the layer from the sea level, which can cause it to be rendered below the terrain.
+    /// Default value: 0. Minimum value: 0.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillZOffset(_ newValue: Double) -> Self {
+        with(self, setter(\.fillZOffset, newValue))
+    }
+
     private var slot: String?
     /// Slot for the underlying layer.
     ///
     /// Use this property to position the annotations relative to other map features if you use Mapbox Standard Style.
     /// See <doc:Migrate-to-v11##21-The-Mapbox-Standard-Style> for more info.
+    @available(*, deprecated, message: "Use Slot type instead of string")
     public func slot(_ newValue: String) -> Self {
         with(self, setter(\.slot, newValue))
+    }
+
+    /// Slot for the underlying layer.
+    ///
+    /// Use this property to position the annotations relative to other map features if you use Mapbox Standard Style.
+    /// See <doc:Migrate-to-v11##21-The-Mapbox-Standard-Style> for more info.
+    public func slot(_ newValue: Slot?) -> Self {
+        with(self, setter(\.slot, newValue?.rawValue))
     }
 
     private var layerId: String?
@@ -165,9 +194,25 @@ public struct PolygonAnnotationGroup<Data: RandomAccessCollection, ID: Hashable>
     public func layerId(_ layerId: String) -> Self {
         with(self, setter(\.layerId, layerId))
     }
+
+    var tapRadius: CGFloat?
+    var longPressRadius: CGFloat?
+
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func tapRadius(_ radius: CGFloat? = nil) -> Self {
+        with(self, setter(\.tapRadius, radius))
+    }
+
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func longPressRadius(_ radius: CGFloat? = nil) -> Self {
+        with(self, setter(\.longPressRadius, radius))
+    }
 }
 
-@available(iOS 13.0, *)
 extension PolygonAnnotationGroup: MapContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         let group = MountedAnnotationGroup(

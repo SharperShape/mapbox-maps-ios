@@ -1,7 +1,6 @@
 import SwiftUI
 import MapboxCoreMaps
 
-@available(iOS 13.0, *)
 struct MapDependencies {
     var cameraBounds = CameraBoundsOptions()
     var mapStyle: MapStyle = .standard
@@ -21,6 +20,7 @@ struct MapDependencies {
     var additionalSafeArea = SwiftUI.EdgeInsets()
     var viewportOptions = ViewportOptions(transitionsToIdleUponUserInteraction: true, usesSafeAreaInsetsAsPadding: true)
     var performanceStatisticsParameters: Map.PerformanceStatisticsParameters?
+    var attributionMenuFilter: ((AttributionMenuItem) -> Bool)?
 
     var onMapTap: ((InteractionContext) -> Void)?
     var onMapLongPress: ((InteractionContext) -> Void)?
@@ -43,7 +43,6 @@ struct AnyEventSubscription {
     }
 }
 
-@available(iOS 13.0, *)
 extension Map {
     struct PerformanceStatisticsParameters {
         var options: PerformanceStatisticsOptions
@@ -51,7 +50,6 @@ extension Map {
     }
 }
 
-@available(iOS 13.0, *)
 extension Map {
     struct FrameRate: Equatable {
         var range: ClosedRange<Float>?

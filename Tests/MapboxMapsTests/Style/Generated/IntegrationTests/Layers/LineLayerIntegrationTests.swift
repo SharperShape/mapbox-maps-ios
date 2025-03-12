@@ -24,19 +24,24 @@ final class LineLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.maxZoom = 20.0
             layer.visibility = .constant(.visible)
             layer.lineCap = Value<LineCap>.testConstantValue()
+            layer.lineCrossSlope = Value<Double>.testConstantValue()
+            layer.lineElevationReference = Value<LineElevationReference>.testConstantValue()
             layer.lineJoin = Value<LineJoin>.testConstantValue()
             layer.lineMiterLimit = Value<Double>.testConstantValue()
             layer.lineRoundLimit = Value<Double>.testConstantValue()
             layer.lineSortKey = Value<Double>.testConstantValue()
+            layer.lineWidthUnit = Value<LineWidthUnit>.testConstantValue()
             layer.lineZOffset = Value<Double>.testConstantValue()
             layer.lineBlur = Value<Double>.testConstantValue()
             layer.lineBlurTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineBorderColor = Value<StyleColor>.testConstantValue()
             layer.lineBorderColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
+            layer.lineBorderColorUseTheme = .none
             layer.lineBorderWidth = Value<Double>.testConstantValue()
             layer.lineBorderWidthTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineColor = Value<StyleColor>.testConstantValue()
             layer.lineColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
+            layer.lineColorUseTheme = .none
             layer.lineDepthOcclusionFactor = Value<Double>.testConstantValue()
             layer.lineDepthOcclusionFactorTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineEmissiveStrength = Value<Double>.testConstantValue()
@@ -44,6 +49,7 @@ final class LineLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.lineGapWidth = Value<Double>.testConstantValue()
             layer.lineGapWidthTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineGradient = Value<StyleColor>.testConstantValue()
+            layer.lineGradientUseTheme = .none
             layer.lineOcclusionOpacity = Value<Double>.testConstantValue()
             layer.lineOcclusionOpacityTransition = StyleTransition(duration: 10.0, delay: 10.0)
             layer.lineOffset = Value<Double>.testConstantValue()
@@ -55,6 +61,7 @@ final class LineLayerIntegrationTests: MapViewIntegrationTestCase {
             layer.lineTranslateAnchor = Value<LineTranslateAnchor>.testConstantValue()
             layer.lineTrimColor = Value<StyleColor>.testConstantValue()
             layer.lineTrimColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
+            layer.lineTrimColorUseTheme = .none
             layer.lineWidth = Value<Double>.testConstantValue()
             layer.lineWidthTransition = StyleTransition(duration: 10.0, delay: 10.0)
 

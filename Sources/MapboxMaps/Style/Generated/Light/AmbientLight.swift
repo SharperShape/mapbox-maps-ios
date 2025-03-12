@@ -64,9 +64,9 @@ public struct AmbientLight: Codable, StyleEncodable, Equatable {
     enum PropertiesCodingKeys: String, CodingKey {
         case color = "color"
         case colorTransition = "color-transition"
-        case intensity = "intensity"
+         case intensity = "intensity"
         case intensityTransition = "intensity-transition"
-    }
+     }
 }
 
 extension AmbientLight {
@@ -111,7 +111,6 @@ extension AmbientLight {
     }
 }
 
-@available(iOS 13.0, *)
 extension AmbientLight: MapStyleContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         node.mount(MountedUniqueProperty(keyPath: \.lights.ambient, value: self))

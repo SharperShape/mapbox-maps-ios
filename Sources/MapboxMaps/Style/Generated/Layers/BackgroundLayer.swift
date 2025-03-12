@@ -31,9 +31,13 @@ public struct BackgroundLayer: Layer, Equatable {
 
     /// Transition options for `backgroundColor`.
     public var backgroundColorTransition: StyleTransition?
+    /// This property defines whether to use colorTheme defined color or not.
+    /// By default it will use color defined by the root theme in the style.
+    /// NOTE: - Expressions set to this property currently don't work.
+    @_spi(Experimental) public var backgroundColorUseTheme: Value<ColorUseTheme>?
 
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of backgroundEmissiveStrength is in intensity.
     public var backgroundEmissiveStrength: Value<Double>?
 
     /// Transition options for `backgroundEmissiveStrength`.
@@ -48,6 +52,11 @@ public struct BackgroundLayer: Layer, Equatable {
 
     /// Name of image in sprite to use for drawing an image background. For seamless patterns, image width and height must be a factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will be evaluated only at integer zoom levels.
     public var backgroundPattern: Value<ResolvedImage>?
+
+    /// Orientation of background layer.
+    /// Default value: "map".
+    @_documentation(visibility: public)
+    @_spi(Experimental) public var backgroundPitchAlignment: Value<BackgroundPitchAlignment>?
 
     public init(id: String) {
         self.id = id
@@ -66,11 +75,13 @@ public struct BackgroundLayer: Layer, Equatable {
         var paintContainer = container.nestedContainer(keyedBy: PaintCodingKeys.self, forKey: .paint)
         try paintContainer.encodeIfPresent(backgroundColor, forKey: .backgroundColor)
         try paintContainer.encodeIfPresent(backgroundColorTransition, forKey: .backgroundColorTransition)
+        try paintContainer.encodeIfPresent(backgroundColorUseTheme, forKey: .backgroundColorUseTheme)
         try paintContainer.encodeIfPresent(backgroundEmissiveStrength, forKey: .backgroundEmissiveStrength)
         try paintContainer.encodeIfPresent(backgroundEmissiveStrengthTransition, forKey: .backgroundEmissiveStrengthTransition)
         try paintContainer.encodeIfPresent(backgroundOpacity, forKey: .backgroundOpacity)
         try paintContainer.encodeIfPresent(backgroundOpacityTransition, forKey: .backgroundOpacityTransition)
         try paintContainer.encodeIfPresent(backgroundPattern, forKey: .backgroundPattern)
+        try paintContainer.encodeIfPresent(backgroundPitchAlignment, forKey: .backgroundPitchAlignment)
 
         var layoutContainer = container.nestedContainer(keyedBy: LayoutCodingKeys.self, forKey: .layout)
         try layoutContainer.encode(visibility, forKey: .visibility)
@@ -87,11 +98,13 @@ public struct BackgroundLayer: Layer, Equatable {
         if let paintContainer = try? container.nestedContainer(keyedBy: PaintCodingKeys.self, forKey: .paint) {
             backgroundColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .backgroundColor)
             backgroundColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .backgroundColorTransition)
+            backgroundColorUseTheme = try paintContainer.decodeIfPresent(Value<ColorUseTheme>.self, forKey: .backgroundColorUseTheme)
             backgroundEmissiveStrength = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .backgroundEmissiveStrength)
             backgroundEmissiveStrengthTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .backgroundEmissiveStrengthTransition)
             backgroundOpacity = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .backgroundOpacity)
             backgroundOpacityTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .backgroundOpacityTransition)
             backgroundPattern = try paintContainer.decodeIfPresent(Value<ResolvedImage>.self, forKey: .backgroundPattern)
+            backgroundPitchAlignment = try paintContainer.decodeIfPresent(Value<BackgroundPitchAlignment>.self, forKey: .backgroundPitchAlignment)
         }
 
         var visibilityEncoded: Value<Visibility>?
@@ -118,11 +131,13 @@ public struct BackgroundLayer: Layer, Equatable {
     enum PaintCodingKeys: String, CodingKey {
         case backgroundColor = "background-color"
         case backgroundColorTransition = "background-color-transition"
+        case backgroundColorUseTheme = "background-color-use-theme"
         case backgroundEmissiveStrength = "background-emissive-strength"
         case backgroundEmissiveStrengthTransition = "background-emissive-strength-transition"
         case backgroundOpacity = "background-opacity"
         case backgroundOpacityTransition = "background-opacity-transition"
         case backgroundPattern = "background-pattern"
+        case backgroundPitchAlignment = "background-pitch-alignment"
     }
 }
 
@@ -167,8 +182,24 @@ extension BackgroundLayer {
         with(self, setter(\.backgroundColor, .expression(expression)))
     }
 
+    /// This property defines whether the `backgroundColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func backgroundColorUseTheme(_ useTheme: ColorUseTheme) -> Self {
+        with(self, setter(\.backgroundColorUseTheme, .constant(useTheme)))
+    }
+
+    /// This property defines whether the `backgroundColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func backgroundColorUseTheme(_ expression: Exp) -> Self {
+        with(self, setter(\.backgroundColorUseTheme, .expression(expression)))
+    }
+
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of backgroundEmissiveStrength is in intensity.
     public func backgroundEmissiveStrength(_ constant: Double) -> Self {
         with(self, setter(\.backgroundEmissiveStrength, .constant(constant)))
     }
@@ -179,7 +210,7 @@ extension BackgroundLayer {
     }
 
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of backgroundEmissiveStrength is in intensity.
     public func backgroundEmissiveStrength(_ expression: Exp) -> Self {
         with(self, setter(\.backgroundEmissiveStrength, .expression(expression)))
     }
@@ -210,9 +241,24 @@ extension BackgroundLayer {
     public func backgroundPattern(_ expression: Exp) -> Self {
         with(self, setter(\.backgroundPattern, .expression(expression)))
     }
+
+    /// Orientation of background layer.
+    /// Default value: "map".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func backgroundPitchAlignment(_ constant: BackgroundPitchAlignment) -> Self {
+        with(self, setter(\.backgroundPitchAlignment, .constant(constant)))
+    }
+
+    /// Orientation of background layer.
+    /// Default value: "map".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func backgroundPitchAlignment(_ expression: Exp) -> Self {
+        with(self, setter(\.backgroundPitchAlignment, .expression(expression)))
+    }
 }
 
-@available(iOS 13.0, *)
 extension BackgroundLayer: MapStyleContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         node.mount(MountedLayer(layer: self))

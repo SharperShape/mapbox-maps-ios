@@ -8,13 +8,13 @@ final class DirectionalLightTests: XCTestCase {
         let lightID = UUID().uuidString
         var light = DirectionalLight(id: lightID)
         light.castShadows = Value<Bool>.testConstantValue()
-        light.color = Value<StyleColor>.testConstantValue()
+         light.color = Value<StyleColor>.testConstantValue()
         light.colorTransition = StyleTransition(duration: 10.0, delay: 10.0)
-        light.direction = Value<[Double]>.testConstantValue()
+         light.direction = Value<[Double]>.testConstantValue()
         light.directionTransition = StyleTransition(duration: 10.0, delay: 10.0)
-        light.intensity = Value<Double>.testConstantValue()
+         light.intensity = Value<Double>.testConstantValue()
         light.intensityTransition = StyleTransition(duration: 10.0, delay: 10.0)
-        light.shadowIntensity = Value<Double>.testConstantValue()
+         light.shadowIntensity = Value<Double>.testConstantValue()
         light.shadowIntensityTransition = StyleTransition(duration: 10.0, delay: 10.0)
 
         let data = try JSONEncoder().encode(light)

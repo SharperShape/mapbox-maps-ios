@@ -2,11 +2,113 @@
 
 Mapbox welcomes participation and contributions from everyone.
 
+## 11.10.1 - 25 February, 2025
+
+* Update CoreMaps to 11.10.2.
+
+## 11.10.0 - 13 February, 2025
+
+* Update CoreMaps to 11.10.0.
+
+## 11.10.0-rc.1 - 31 January, 2025
+
+* Expose experimental ColorTheme API to set style wide color theme. A color theme modifies the global colors of a style using a LUT (lookup table) for color grading.
+Pass the image either as a base64-encoded string or as UIImage:
+```swift
+let mapView = MapView()
+mapView.mapboxMap.setMapStyleContent {
+   ColorTheme(base64: "base64EncodedImage") // or use an uiimage shortcut ColorTheme(uiimage: lutImage)
+}
+```
+Note: Each style can have only one `ColorTheme`. Setting a new theme overwrites the previous one. Further details can be fouund in documentation for `ColorTheme`
+* Promote `ClipLayer.clipLayerTypes` and `ClipLayer.clipLayerScope` to stable.
+* Remove experimental `DirectionalLight.shadowQuality`.
+* Add experimental `ViewAnnotationManager.viewAnnotationAvoidLayers` for specifying layers that view annotations should avoid. The API currently only supports line layers.
+* Add support for the `maxOverscaleFactorForParentTiles` property in `CustomRasterSource` and `CustomGeometrySource`, allowing greater control over tile overscaling behavior when rendering custom raster tiles.
+* Add support for experimental *-use-theme propert that allow to override the color theme set on the Map. This is experimental and have several limitations - currently expressions are not supported. Color properties in Lights, Rain, Snow are not supported. *-use-theme for layer applied only after zoom level change.
+* Update CoreMaps to 11.10.0-rc.1 and Common to 24.10.0-rc.1.
+
 ## main
 
 ## 11.8.0 - 11 November, 2024
 
 * Add two separete Geofence examples in SwiftUI - `GeofencingPlayground` and `GeofencingUserLocation`
+* Added support for the `maxOverscaleFactorForParentTiles` property in `CustomRasterSource`, allowing greater control over tile overscaling behavior when rendering custom raster tiles.
+* Add support for the `maxOverscaleFactorForParentTiles` property in `CustomRasterSource` and `CustomGeometrySource`, allowing greater control over tile overscaling behavior when rendering custom raster tiles.
+* Add support for experimental *-use-theme propert that allow to override the color theme set on the Map. This is experimental and have several limitations - currently expressions are not supported. Color properties in Lights, Rain, Snow are not supported. *-use-theme for layer applied only after zoom level change.
+
+## 11.10.0-beta.1 - 20 January, 2025
+
+* Mark `SymbolElevationReference`, `FillExtrusionBaseAlignment`, `FillExtrusionHeightAlignment`,  `ModelScaleMode`, `ModelType`, `ClipLayerTypes`, `BackgroundPitchAlignment` types as Experimental. Initially they were exposed as stable by mistake. If you use them, please import `MapboxMaps` with `Experimental` SPI:
+```
+@_spi(Experimental) import MapboxMaps
+```
+
+* Localize geofencing attribution dialog.
+* Support dictionary expression literals.
+* Bump minimal deployment target from 12.0 to 14.0.
+* [SwiftUI] Expose new `slot()` method on annotation groups that takes `Slot` instead of `String`. Use the type with annotationGroups:
+
+swift
+```
+CircleAnnotationGroup {}
+  // old
+  .slot("middle")
+  // new
+  .slot(.middle)
+```
+
+* Introduce `ViewAnnotation.priority`, deprecate `ViewAnnotation.selected`.
+Use this property to define view annotation sort order.
+* Introduce `ViewAnnotation.minZoom` and `ViewAnnotation.maxZoom`. Use these properties to configure zoom-level specific view annotations.
+* Update CoreMaps to 11.10.0-beta.2 and Common to 24.10.0-beta.2.
+
+## 11.9.2 - 5 February, 2025
+
+* Update CoreMaps to 11.9.3.
+
+## 11.9.1 - 20 January, 2025
+
+* Update CoreMaps to 11.9.2.
+
+## 11.9.0 - 18 December, 2024
+
+* Remove experimental SPI from `StyleImage`.
+* Promote ClipLayer to stable.
+* Fix the encoding/decoding key for `Rain/centerThinning` and `Snow/centerThinning`.
+* Update CoreMaps to 11.9.0 and Common to 24.9.0.
+
+## 11.9.0-beta.1 - 9 December, 2024
+
+* Add a new API to disable custom resizing implementation of the MapView. To disable the custom resizing implementation, set `MapView.resizingAnimation` to `.none`.
+* Add `to-hsla` expression support.
+
+## 11.9.0-beta.1 - 28 November, 2024
+
+⚠️⚠️⚠️ Potentially breaking changes ⚠️⚠️⚠️
+* Mark `symbolElevationReference`, `symbolZOffset`, `lineTrimColor `,  `lineTrimFadeRange`, `lineZOffset` as Experimental in AnnotationManagers. This is potentially breaking change, however those properties are not marked as experimental only in AnnotationManagers by mistake.
+In order to continue use them use the following import `@_spi(Experimental) import MapboxMaps`.
+
+* Add two separete Geofence examples in SwiftUI - `GeofencingPlayground` and `GeofencingUserLocation`
+* Add support for Base and Height alignment in FillExtrusionLayer.
+* Add support for `pitchAlignment` in BackgroundLayer.
+* Add support for `zOffset` in FillLayer, PolygonAnnotation[Manager] and PolygonAnnotationGroup.
+* Add a property emphasisCircleGlowRange to LocationIndicatorLayer to control the glow effect of the emphasis circle – from the solid start to the fully transparent end.
+* Fix a crash on calling `LocationIndicatorLayer/location(coordinate:) function` due to missing 0 altitude value.
+* Add a new Expression initializer `init(_ operator: Operator, _ arguments: ExpressionArgumentConvertible...)` to simplify the creation of expressions with multiple arguments.
+That initializer doesn't require to wrap arguments in `Argument` cases. For example, `Exp(.eq, Exp(.get, "extrude"), "true")`.
+* Expose a `TileStore/clearAmbientCache()` method to clear ambient cache.
+* Add new experimental `radius` parameter to `TapInteraction`, `LongPressInteraction` and interaction managers to control the radius of a tappable area.
+* Add a way to specify image expression options.
+* Bump core maps version to 11.9.0-beta.1 and common sdk to 24.9.0-beta.1
+* Add new experimental APIs to control precipitation rendering. Snow and Rain are available now with an `@_spi(Experimental)` import prefix.
+* Add a way to filter attribution menu items.
+
+## 11.8.0 - 11 November, 2024
+
+* Add two separated Geofence examples in SwiftUI - `GeofencingPlayground` and `GeofencingUserLocation`
+* Expose `lineElevationReference`, `lineCrossSlope`, `iconSizeScaleRange`, `textSizeScaleRange` as experimental
+* Mark `ClipLayer` as stable
 
 ## 11.8.0-rc.1 - 23 October, 2024
 
@@ -15,7 +117,7 @@ Mapbox welcomes participation and contributions from everyone.
 ## 11.8.0-beta.1 - 14 October, 2024
 
 * [SwiftUI] Fixed crash when ForEvery was used with duplicated IDs.
-* Introduce experimental Geofencing API. Implementation example: [GeofencingExample.swift](Apps/Examples/Examples/All%20Examples/GeofencingExample.swift)
+* Introduce experimental Geofencing API. Implementation example: [GeofencingExample.swift](Sources/Examples/All%20Examples/GeofencingExample.swift)
 * Refactor of the experimental Interactions and Featuresets API:
   - `InteractiveFeature` is renamed to `FeaturesetFeature`.
   - Introduce new `StandardPoiFeature`, `StandardBuildingsFeature`, `StandardPlaceLabelsFeature`.

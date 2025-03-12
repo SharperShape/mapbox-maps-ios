@@ -1,20 +1,27 @@
 import Foundation
 
+private enum ExpDecodingError: Error {
+    case noKeysFound
+}
 extension Exp {
 
     public enum Option: Codable, Equatable, Sendable {
         case format(FormatOptions)
         case numberFormat(NumberFormatOptions)
         case collator(CollatorOptions)
+        case image(ImageOptions)
 
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
 
-            if let validFormatOptions = try? container.decode(FormatOptions.self) {
-                self = .format(validFormatOptions)
+            if let validImageOptions = try? container.decode(ImageOptions.self) {
+                self = .image(validImageOptions)
 
             } else if let validNumberFormatOptions = try? container.decode(NumberFormatOptions.self) {
                 self = .numberFormat(validNumberFormatOptions)
+
+            } else if let validFormatOptions = try? container.decode(FormatOptions.self) {
+                self = .format(validFormatOptions)
 
             } else if let validCollatorOptions = try? container.decode(CollatorOptions.self) {
                 self = .collator(validCollatorOptions)
@@ -35,6 +42,8 @@ extension Exp {
             case .format(let option):
                 try container.encode(option)
             case .numberFormat(let option):
+                try container.encode(option)
+            case .image(let option):
                 try container.encode(option)
             }
         }
@@ -71,6 +80,22 @@ public struct FormatOptions: Codable, Equatable, Sendable, ExpressionArgumentCon
     }
 
     public init() {}
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        lazy var isEmptyContainer = (try? decoder.container(keyedBy: AnyKey.self).allKeys.isEmpty) ?? container.allKeys.isEmpty
+
+        guard container.containsAnyKey() ||
+                isEmptyContainer // Preserve behavior of format options swallowing empty dictionaries
+        else {
+            throw ExpDecodingError.noKeysFound
+        }
+
+        fontScale = try container.decodeIfPresent(Value<Double>.self, forKey: .fontScale)
+        textFont = try container.decodeIfPresent(Value<[String]>.self, forKey: .textFont)
+        textColor = try container.decodeIfPresent(Value<StyleColor>.self, forKey: .textColor)
+    }
+
 }
 
 public struct NumberFormatOptions: Codable, Equatable, ExpressionArgumentConvertible, Sendable {
@@ -104,6 +129,19 @@ public struct NumberFormatOptions: Codable, Equatable, ExpressionArgumentConvert
         self.minFractionDigits = minFractionDigits
         self.maxFractionDigits = maxFractionDigits
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        guard container.containsAnyKey() else {
+            throw ExpDecodingError.noKeysFound
+        }
+
+        locale = try container.decodeIfPresent(String.self, forKey: .locale)
+        currency = try container.decodeIfPresent(String.self, forKey: .currency)
+        minFractionDigits = try container.decodeIfPresent(Int.self, forKey: .minFractionDigits)
+        maxFractionDigits = try container.decodeIfPresent(Int.self, forKey: .maxFractionDigits)
+    }
 }
 
 public struct CollatorOptions: Codable, Equatable, ExpressionArgumentConvertible, Sendable {
@@ -133,5 +171,51 @@ public struct CollatorOptions: Codable, Equatable, ExpressionArgumentConvertible
         self.diacriticSensitive = diacriticSensitive
         self.locale = locale
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        guard container.containsAnyKey() else {
+            throw ExpDecodingError.noKeysFound
+        }
+
+        caseSensitive = try container.decodeIfPresent(Bool.self, forKey: .caseSensitive)
+        diacriticSensitive = try container.decodeIfPresent(Bool.self, forKey: .diacriticSensitive)
+        locale = try container.decodeIfPresent(String.self, forKey: .locale)
+    }
+}
+
+/// Image options container.
+public struct ImageOptions: Codable, Equatable, ExpressionArgumentConvertible, Sendable {
+    public typealias ColorLike = Value<StyleColor>
+
+    /// Vector image parameters.
+    public var options: [String: ColorLike]
+
+    public var expressionArguments: [Exp.Argument] {
+        return [.option(.image(self))]
+    }
+
+    public init(_ options: [String: ColorLike]) {
+        self.options = options
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case options = "params"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        guard container.containsAnyKey() else {
+            throw ExpDecodingError.noKeysFound
+        }
+
+        options = try container.decode([String: ColorLike].self, forKey: .options)
+    }
+}
+
+extension KeyedDecodingContainer {
+    func containsAnyKey() -> Bool { allKeys.contains(where: contains) }
 
 }

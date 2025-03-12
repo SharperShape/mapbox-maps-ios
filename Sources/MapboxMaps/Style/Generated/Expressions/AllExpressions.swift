@@ -142,7 +142,13 @@ public extension Exp {
         /// Returns the feature's id, if it has one.
         public static let id = Operator(rawValue: "id")
 
-        /// Returns a [`ResolvedImage`](/mapbox-gl-js/style-spec/types/#resolvedimage) for use in [`icon-image`](/mapbox-gl-js/style-spec/layers/#layout-symbol-icon-image), `--pattern` entries, and as a section in the [`'format'`](#types-format) expression. A [`'coalesce'`](#coalesce) expression containing `image` expressions will evaluate to the first listed image that is currently in the style. This validation process is synchronous and requires the image to have been added to the style before requesting it in the `'image'` argument. To implement crossfading between two images within a symbol layer using the [`icon-image-cross-fade`](/mapbox-gl-js/style-spec/layers/#paint-symbol-icon-image-cross-fade) attribute, include a second image as the second argument in the `'image'` expression.
+        /// Returns a [`ResolvedImage`](/style-spec/reference/types/#resolvedimage) for use in [`icon-image`](/style-spec/reference/layers/#layout-symbol-icon-image), `--pattern` entries, and as a section in the [`'format'`](#types-format) expression.
+        ///
+        /// A [`'coalesce'`](#coalesce) expression containing `image` expressions will evaluate to the first listed image that is currently in the style. This validation process is synchronous and requires the image to have been added to the style before requesting it in the `'image'` argument.
+        ///
+        /// Every image name can be followed by an optional [`ImageOptions`](/style-spec/reference/types/#imageoptions) object, which will be used for vector images only.
+        ///
+        /// To implement crossfading between two images within a symbol layer using the [`icon-image-cross-fade`](/style-spec/reference/layers/#paint-symbol-icon-image-cross-fade) attribute, include a second image as the second argument in the `'image'` expression.
         public static let image = Operator(rawValue: "image")
 
         /// Determines whether an item exists in an array or a substring exists in a string. In the specific case when the second and third arguments are string literals, you must wrap at least one of them in a [`literal`](#types-literal) expression to hint correct interpretation to the [type system](#type-system).
@@ -168,7 +174,7 @@ public extension Exp {
         /// Binds expressions to named variables, which can then be referenced in the result expression using ["var", "variable_name"].
         public static let letExpression = Operator(rawValue: "let")
 
-        /// Returns the progress along a gradient line. Can only be used in the `line-gradient` property.
+        /// Returns the progress along a gradient line. Can only be used in the `line-gradient` and `line-z-offset` properties.
         public static let lineProgress = Operator(rawValue: "line-progress")
 
         /// Provides a literal array or object value.
@@ -268,6 +274,9 @@ public extension Exp {
 
         /// Converts the input value to a color. If multiple values are provided, each one is evaluated in order until the first successful conversion is obtained. If none of the inputs can be converted, the expression is an error.
         public static let toColor = Operator(rawValue: "to-color")
+
+        /// Returns a four-element array containing the input color's Hue, Saturation, Luminance and alpha components, in that order.
+        public static let toHsla = Operator(rawValue: "to-hsla")
 
         /// Converts the input value to a number, if possible. If the input is `null` or `false`, the result is 0. If the input is `true`, the result is 1. If the input is a string, it is converted to a number as specified by the ["ToNumber Applied to the String Type" algorithm](https://tc39.github.io/ecma262/#sec-tonumber-applied-to-the-string-type) of the ECMAScript Language Specification. If multiple values are provided, each one is evaluated in order until the first successful conversion is obtained. If none of the inputs can be converted, the expression is an error.
         public static let toNumber = Operator(rawValue: "to-number")

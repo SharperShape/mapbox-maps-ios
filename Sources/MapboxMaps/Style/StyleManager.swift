@@ -8,9 +8,7 @@ protocol StyleProtocol: AnyObject {
     var styleDefaultCamera: CameraOptions { get }
     var uri: StyleURI? { get set }
     var mapStyle: MapStyle? { get set }
-    @available(iOS 13.0, *)
     func setMapContent(_ content: () -> any MapContent)
-    @available(iOS 13.0, *)
     func setMapContentDependencies(_ dependencies: MapContentDependencies)
     func addPersistentLayer(_ layer: Layer, layerPosition: LayerPosition?) throws
     func addPersistentLayer(with properties: [String: Any], layerPosition: LayerPosition?) throws
@@ -77,15 +75,11 @@ public class StyleManager {
         self.sourceManager = sourceManager
         self.styleManager = styleManager
         self.styleReconciler = MapStyleReconciler(styleManager: styleManager)
-        self.contentReconciler = if #available(iOS 13.0, *) {
-            MapContentReconciler(
-                styleManager: styleManager,
-                sourceManager: sourceManager,
-                styleIsLoaded: styleReconciler.isStyleRootLoaded
-            )
-        } else {
-            nil
-        }
+        self.contentReconciler = MapContentReconciler(
+            styleManager: styleManager,
+            sourceManager: sourceManager,
+            styleIsLoaded: styleReconciler.isStyleRootLoaded
+        )
     }
 
     // MARK: - Layers
@@ -445,24 +439,21 @@ public class StyleManager {
     /// }
     /// ```
     ///
-    /// - Warning: Avoind having strong references to `MapboxMap` or `MapView` in your custom content as it will lead to strong reference cycles.
+    /// - Warning: Avoid having strong references to `MapboxMap` or `MapView` in your custom content as it will lead to strong reference cycles.
     ///
     /// See more information in the <doc:Declarative-Map-Styling>.
-    @available(iOS 13.0, *)
     public func setMapStyleContent(@MapStyleContentBuilder content: () -> some MapStyleContent) {
         setMapContent({
             MapStyleContentAdapter(content())
         })
     }
 
-    @available(iOS 13.0, *)
     func setMapContent(_ content: () -> any MapContent) {
         if let contentReconciler = contentReconciler as? MapContentReconciler {
             contentReconciler.content = content()
         }
     }
 
-    @available(iOS 13.0, *)
     func setMapContentDependencies(_ dependencies: MapContentDependencies) {
         if let contentReconciler = contentReconciler as? MapContentReconciler {
             contentReconciler.setMapContentDependencies(dependencies)
@@ -1623,6 +1614,89 @@ extension StyleManager {
     }
 }
 
+// MARK: - Precipitation
+
+extension StyleManager {
+    /// Set the snow parameters to animate snowfall.
+    /// ``Snow`` object can be used to set the snow parameters.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func setSnow(_ snow: Snow) throws {
+        let snowDictionary = try snow.allStyleProperties()
+        let expected = styleManager.setStyleSnowForProperties(snowDictionary)
+
+        if expected.isError() {
+            throw StyleError(message: expected.error as String)
+        }
+    }
+
+    /// Remove snow effect from the style.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func removeSnow() throws {
+        let expected = styleManager.setStyleSnowForProperties(NSNull())
+
+        if expected.isError() {
+            throw StyleError(message: expected.error as String)
+        }
+    }
+
+    /// Set the rain parameters to animate rain drops.
+    /// ``Rain`` object can be used to set the rain parameters.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func setRain(_ rain: Rain) throws {
+        let rainDictionary = try rain.allStyleProperties()
+        let expected = styleManager.setStyleRainForProperties(rainDictionary)
+
+        if expected.isError() {
+            throw StyleError(message: expected.error as String)
+        }
+    }
+
+    /// Remove rain effect from the style.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func removeRain() throws {
+        let expected = styleManager.setStyleRainForProperties(NSNull())
+
+        if expected.isError() {
+            throw StyleError(message: expected.error as String)
+        }
+    }
+
+    /// Set color theme for style.
+    /// ``ColorTheme`` is unique per style and setting a new one will effectively overwrite any previous theme.
+    /// - Parameters:
+    ///  - colorTheme: Color theme to apply on the style.
+    /// - Throws: ``StyleError`` if the color theme could not be applied.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func setColorTheme(_ colorTheme: ColorTheme) throws {
+        guard let coreTheme = colorTheme.core else {
+            throw StyleError(message: "Cannot construct UIImage object.")
+        }
+
+        let expected = styleManager.setStyleColorThemeFor(coreTheme)
+
+        if expected.isError() {
+            throw StyleError(message: expected.error as String)
+        }
+    }
+
+    /// Remove color theme from the style.
+    /// - Throws: ``StyleError`` if the color theme could not be removed.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func removeColorTheme() throws {
+        let expected = styleManager.setStyleColorThemeFor(nil)
+
+        if expected.isError() {
+            throw StyleError(message: expected.error as String)
+        }
+    }
+}
+
 // MARK: - Featuresets
 
 extension StyleManager {
@@ -1683,3 +1757,24 @@ public struct StyleTransition: Codable, Equatable, Sendable {
 }
 
 extension StyleManager: StyleProtocol {}
+
+/// Use theme property for colors, defines whether the color will be affected by map theme or will be used as is.
+@_spi(Experimental)
+@_documentation(visibility: public)
+public struct ColorUseTheme: Hashable, Codable, RawRepresentable, ExpressibleByStringLiteral, Sendable {
+    /// Color property will be affected by currently set map theme.
+    public static let `default` = ColorUseTheme(rawValue: "default")!
+
+    /// Color property will not be affected by the map theme and will always appear exactly as specified.
+    public static let none = ColorUseTheme(rawValue: "none")!
+
+    public let rawValue: String
+
+    public init?(rawValue: String) {
+        self.rawValue = rawValue
+    }
+
+    public init(stringLiteral value: String) {
+        self.rawValue = value
+    }
+}

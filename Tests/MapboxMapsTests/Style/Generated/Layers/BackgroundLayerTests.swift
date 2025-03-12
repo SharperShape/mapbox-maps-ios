@@ -76,11 +76,13 @@ final class BackgroundLayerTests: XCTestCase {
        var layer = BackgroundLayer(id: "test-id")
        layer.backgroundColor = Value<StyleColor>.testConstantValue()
        layer.backgroundColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
+       layer.backgroundColorUseTheme = .none
        layer.backgroundEmissiveStrength = Value<Double>.testConstantValue()
        layer.backgroundEmissiveStrengthTransition = StyleTransition(duration: 10.0, delay: 10.0)
        layer.backgroundOpacity = Value<Double>.testConstantValue()
        layer.backgroundOpacityTransition = StyleTransition(duration: 10.0, delay: 10.0)
        layer.backgroundPattern = Value<ResolvedImage>.testConstantValue()
+       layer.backgroundPitchAlignment = Value<BackgroundPitchAlignment>.testConstantValue()
 
        var data: Data?
        do {
@@ -101,6 +103,7 @@ final class BackgroundLayerTests: XCTestCase {
            XCTAssertEqual(layer.backgroundEmissiveStrength, Value<Double>.testConstantValue())
            XCTAssertEqual(layer.backgroundOpacity, Value<Double>.testConstantValue())
            XCTAssertEqual(layer.backgroundPattern, Value<ResolvedImage>.testConstantValue())
+           XCTAssertEqual(layer.backgroundPitchAlignment, Value<BackgroundPitchAlignment>.testConstantValue())
        } catch {
            XCTFail("Failed to decode BackgroundLayer")
        }
@@ -115,6 +118,7 @@ final class BackgroundLayerTests: XCTestCase {
             .backgroundEmissiveStrength(Double.testConstantValue())
             .backgroundOpacity(Double.testConstantValue())
             .backgroundPattern(String.testConstantValue())
+            .backgroundPitchAlignment(BackgroundPitchAlignment.testConstantValue())
 
         XCTAssertEqual(layer.slot, Slot.testConstantValue())
         XCTAssertEqual(layer.minZoom, Double.testConstantValue())
@@ -123,6 +127,7 @@ final class BackgroundLayerTests: XCTestCase {
         XCTAssertEqual(layer.backgroundEmissiveStrength, Value.constant(Double.testConstantValue()))
         XCTAssertEqual(layer.backgroundOpacity, Value.constant(Double.testConstantValue()))
         XCTAssertEqual(layer.backgroundPattern, Value<ResolvedImage>.constant(.name(String.testConstantValue())))
+        XCTAssertEqual(layer.backgroundPitchAlignment, Value.constant(BackgroundPitchAlignment.testConstantValue()))
     }
 }
 

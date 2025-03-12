@@ -15,7 +15,7 @@
 ///       .lineColor("blue")
 ///   }
 ///   .lineCap(.round)
-///   .slot("middle")
+///   .slot(.middle)
 /// }
 /// ```
 ///
@@ -31,12 +31,11 @@
 ///         }
 ///     }
 ///     .lineCap(.round)
-///     .slot("middle")
+///     .slot(.middle)
 /// }
 /// ```
 import UIKit
 
-@available(iOS 13.0, *)
 public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
     let annotations: [(ID, PolylineAnnotation)]
 
@@ -57,7 +56,6 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
     /// - Parameters:
     ///     - data: Collection of identifiable data.
     ///     - content: A closure that creates annotation for a given data item.
-    @available(iOS 13.0, *)
     public init(_ data: Data, content: @escaping (Data.Element) -> PolylineAnnotation) where Data.Element: Identifiable, Data.Element.ID == ID {
         self.init(data, id: \.id, content: content)
     }
@@ -77,10 +75,13 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
 
     private func updateProperties(manager: PolylineAnnotationManager) {
         assign(manager, \.lineCap, value: lineCap)
+        assign(manager, \.lineCrossSlope, value: lineCrossSlope)
+        assign(manager, \.lineElevationReference, value: lineElevationReference)
         assign(manager, \.lineJoin, value: lineJoin)
         assign(manager, \.lineMiterLimit, value: lineMiterLimit)
         assign(manager, \.lineRoundLimit, value: lineRoundLimit)
         assign(manager, \.lineSortKey, value: lineSortKey)
+        assign(manager, \.lineWidthUnit, value: lineWidthUnit)
         assign(manager, \.lineZOffset, value: lineZOffset)
         assign(manager, \.lineBlur, value: lineBlur)
         assign(manager, \.lineBorderColor, value: lineBorderColor)
@@ -101,6 +102,8 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
         assign(manager, \.lineTrimOffset, value: lineTrimOffset)
         assign(manager, \.lineWidth, value: lineWidth)
         assign(manager, \.slot, value: slot)
+        manager.tapRadius = tapRadius
+        manager.longPressRadius = longPressRadius
     }
 
     // MARK: - Common layer properties
@@ -110,6 +113,25 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
     /// Default value: "butt".
     public func lineCap(_ newValue: LineCap) -> Self {
         with(self, setter(\.lineCap, newValue))
+    }
+
+    private var lineCrossSlope: Double?
+    /// Defines the slope of an elevated line. A value of 0 creates a horizontal line. A value of 1 creates a vertical line. Other values are currently not supported. If undefined, the line follows the terrain slope. This is an experimental property with some known issues:
+    ///  - Vertical lines don't support line caps
+    ///  - `line-join: round` is not supported with this property
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func lineCrossSlope(_ newValue: Double) -> Self {
+        with(self, setter(\.lineCrossSlope, newValue))
+    }
+
+    private var lineElevationReference: LineElevationReference?
+    /// Selects the base of line-elevation. Some modes might require precomputed elevation data in the tileset.
+    /// Default value: "none".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func lineElevationReference(_ newValue: LineElevationReference) -> Self {
+        with(self, setter(\.lineElevationReference, newValue))
     }
 
     private var lineJoin: LineJoin?
@@ -139,8 +161,25 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
         with(self, setter(\.lineSortKey, newValue))
     }
 
+    private var lineWidthUnit: LineWidthUnit?
+    /// Selects the unit of line-width. The same unit is automatically used for line-blur and line-offset. Note: This is an experimental property and might be removed in a future release.
+    /// Default value: "pixels".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func lineWidthUnit(_ newValue: LineWidthUnit) -> Self {
+        with(self, setter(\.lineWidthUnit, newValue))
+    }
+
     private var lineZOffset: Double?
-    /// Vertical offset from ground, in meters. Defaults to 0. Not supported for globe projection at the moment.
+    /// Vertical offset from ground, in meters. Defaults to 0. This is an experimental property with some known issues:
+    ///  - Not supported for globe projection at the moment
+    ///  - Elevated line discontinuity is possible on tile borders with terrain enabled
+    ///  - Rendering artifacts can happen near line joins and line caps depending on the line styling
+    ///  - Rendering artifacts relating to `line-opacity` and `line-blur`
+    ///  - Elevated line visibility is determined by layer order
+    ///  - Z-fighting issues can happen with intersecting elevated lines
+    ///  - Elevated lines don't cast shadows
+    /// Default value: 0.
     @_documentation(visibility: public)
     @_spi(Experimental)
     public func lineZOffset(_ newValue: Double) -> Self {
@@ -149,7 +188,7 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
 
     private var lineBlur: Double?
     /// Blur applied to the line, in pixels.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of lineBlur is in pixels.
     public func lineBlur(_ newValue: Double) -> Self {
         with(self, setter(\.lineBlur, newValue))
     }
@@ -177,7 +216,7 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
 
     private var lineDasharray: [Double]?
     /// Specifies the lengths of the alternating dashes and gaps that form the dash pattern. The lengths are later scaled by the line width. To convert a dash length to pixels, multiply the length by the current line width. Note that GeoJSON sources with `lineMetrics: true` specified won't render dashed lines to the expected scale. Also note that zoom-dependent expressions will be evaluated only at integer zoom levels.
-    /// Minimum value: 0.
+    /// Minimum value: 0. The unit of lineDasharray is in line widths.
     public func lineDasharray(_ newValue: [Double]) -> Self {
         with(self, setter(\.lineDasharray, newValue))
     }
@@ -191,14 +230,14 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
 
     private var lineEmissiveStrength: Double?
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of lineEmissiveStrength is in intensity.
     public func lineEmissiveStrength(_ newValue: Double) -> Self {
         with(self, setter(\.lineEmissiveStrength, newValue))
     }
 
     private var lineGapWidth: Double?
     /// Draws a line casing outside of a line's actual path. Value indicates the width of the inner gap.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of lineGapWidth is in pixels.
     public func lineGapWidth(_ newValue: Double) -> Self {
         with(self, setter(\.lineGapWidth, newValue))
     }
@@ -212,7 +251,7 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
 
     private var lineOffset: Double?
     /// The line's offset. For linear features, a positive value offsets the line to the right, relative to the direction of the line, and a negative value to the left. For polygon features, a positive value results in an inset, and a negative value results in an outset.
-    /// Default value: 0.
+    /// Default value: 0. The unit of lineOffset is in pixels.
     public func lineOffset(_ newValue: Double) -> Self {
         with(self, setter(\.lineOffset, newValue))
     }
@@ -232,9 +271,9 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
 
     private var lineTranslate: [Double]?
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
-    /// Default value: [0,0].
-    public func lineTranslate(_ newValue: [Double]) -> Self {
-        with(self, setter(\.lineTranslate, newValue))
+    /// Default value: [0,0]. The unit of lineTranslate is in pixels.
+    public func lineTranslate(x: Double, y: Double) -> Self {
+        with(self, setter(\.lineTranslate, [x, y]))
     }
 
     private var lineTranslateAnchor: LineTranslateAnchor?
@@ -258,20 +297,20 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
     /// Default value: [0,0]. Minimum value: [0,0]. Maximum value: [1,1].
     @_documentation(visibility: public)
     @_spi(Experimental)
-    public func lineTrimFadeRange(_ newValue: [Double]) -> Self {
-        with(self, setter(\.lineTrimFadeRange, newValue))
+    public func lineTrimFadeRange(start: Double, end: Double) -> Self {
+        with(self, setter(\.lineTrimFadeRange, [start, end]))
     }
 
     private var lineTrimOffset: [Double]?
     /// The line part between [trim-start, trim-end] will be painted using `line-trim-color,` which is transparent by default to produce a route vanishing effect. The line trim-off offset is based on the whole line range [0.0, 1.0].
     /// Default value: [0,0]. Minimum value: [0,0]. Maximum value: [1,1].
-    public func lineTrimOffset(_ newValue: [Double]) -> Self {
-        with(self, setter(\.lineTrimOffset, newValue))
+    public func lineTrimOffset(start: Double, end: Double) -> Self {
+        with(self, setter(\.lineTrimOffset, [start, end]))
     }
 
     private var lineWidth: Double?
     /// Stroke thickness.
-    /// Default value: 1. Minimum value: 0.
+    /// Default value: 1. Minimum value: 0. The unit of lineWidth is in pixels.
     public func lineWidth(_ newValue: Double) -> Self {
         with(self, setter(\.lineWidth, newValue))
     }
@@ -281,8 +320,17 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
     ///
     /// Use this property to position the annotations relative to other map features if you use Mapbox Standard Style.
     /// See <doc:Migrate-to-v11##21-The-Mapbox-Standard-Style> for more info.
+    @available(*, deprecated, message: "Use Slot type instead of string")
     public func slot(_ newValue: String) -> Self {
         with(self, setter(\.slot, newValue))
+    }
+
+    /// Slot for the underlying layer.
+    ///
+    /// Use this property to position the annotations relative to other map features if you use Mapbox Standard Style.
+    /// See <doc:Migrate-to-v11##21-The-Mapbox-Standard-Style> for more info.
+    public func slot(_ newValue: Slot?) -> Self {
+        with(self, setter(\.slot, newValue?.rawValue))
     }
 
     private var layerId: String?
@@ -294,9 +342,25 @@ public struct PolylineAnnotationGroup<Data: RandomAccessCollection, ID: Hashable
     public func layerId(_ layerId: String) -> Self {
         with(self, setter(\.layerId, layerId))
     }
+
+    var tapRadius: CGFloat?
+    var longPressRadius: CGFloat?
+
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func tapRadius(_ radius: CGFloat? = nil) -> Self {
+        with(self, setter(\.tapRadius, radius))
+    }
+
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func longPressRadius(_ radius: CGFloat? = nil) -> Self {
+        with(self, setter(\.longPressRadius, radius))
+    }
 }
 
-@available(iOS 13.0, *)
 extension PolylineAnnotationGroup: MapContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         let group = MountedAnnotationGroup(

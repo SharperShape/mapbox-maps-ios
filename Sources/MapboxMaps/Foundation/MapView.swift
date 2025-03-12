@@ -7,6 +7,11 @@ import MetalKit
 // swiftlint:disable:next type_body_length
 open class MapView: UIView, SizeTrackingLayerDelegate {
 
+    /// Handles attribution menu customization
+    /// Restricted API. Please contact Mapbox to discuss your use case if you intend to use this property.
+    @_spi(Restricted)
+    public private(set) var attributionMenu: AttributionMenu!
+
     open override class var layerClass: AnyClass { SizeTrackingLayer.self }
 
     // `mapboxMap` depends on `MapInitOptions`, which is not available until
@@ -383,10 +388,15 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
             mapboxMap: mapboxMap,
             cameraAnimationsManager: internalCamera)
 
-        // Initialize the attribution manager
+        // Initialize the attribution manager and menu
+        attributionMenu = AttributionMenu(
+            urlOpener: attributionUrlOpener,
+            feedbackURLRef: Ref { [weak mapboxMap] in mapboxMap?.mapboxFeedbackURL() }
+        )
         attributionDialogManager = AttributionDialogManager(
             dataSource: mapboxMap,
-            delegate: self)
+            delegate: self,
+            attributionMenu: attributionMenu)
 
         // Initialize/Configure ornaments manager
         ornaments = OrnamentsManager(
@@ -438,26 +448,18 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
     }
 
     private func subscribeToLifecycleNotifications() {
-        if #available(iOS 13.0, *) {
-            notificationCenter.addObserver(self,
-                                           selector: #selector(sceneDidEnterBackground(_:)),
-                                           name: UIScene.didEnterBackgroundNotification,
-                                           object: window?.parentScene)
-            notificationCenter.addObserver(self,
-                                           selector: #selector(sceneWillDeactivate(_:)),
-                                           name: UIScene.willDeactivateNotification,
-                                           object: window?.parentScene)
-            notificationCenter.addObserver(self,
-                                           selector: #selector(sceneDidActivate(_:)),
-                                           name: UIScene.didActivateNotification,
-                                           object: window?.parentScene)
-        } else {
-            notificationCenter.addObserver(self,
-                                           selector: #selector(appDidBecomeActive),
-                                           name: UIApplication.didBecomeActiveNotification,
-                                           object: nil)
-        }
-
+        notificationCenter.addObserver(self,
+                                        selector: #selector(sceneDidEnterBackground(_:)),
+                                        name: UIScene.didEnterBackgroundNotification,
+                                        object: window?.parentScene)
+        notificationCenter.addObserver(self,
+                                        selector: #selector(sceneWillDeactivate(_:)),
+                                        name: UIScene.willDeactivateNotification,
+                                        object: window?.parentScene)
+        notificationCenter.addObserver(self,
+                                        selector: #selector(sceneDidActivate(_:)),
+                                        name: UIScene.didActivateNotification,
+                                        object: window?.parentScene)
         notificationCenter.addObserver(self,
                                        selector: #selector(appDidEnterBackground),
                                        name: UIApplication.didEnterBackgroundNotification,
@@ -473,29 +475,22 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
         reduceMemoryUse()
     }
 
-    @objc private func appDidBecomeActive() {
-        displayLink?.isPaused = false
-    }
-
     @objc private func appWillResignActive() {
         displayLink?.isPaused = true
     }
 
-    @available(iOS 13.0, *)
     @objc private func sceneDidActivate(_ notification: Notification) {
         guard let scene = notification.object as? UIScene, let window = window, scene.allWindows.contains(window) else { return }
 
         displayLink?.isPaused = false
     }
 
-    @available(iOS 13, *)
     @objc private func sceneWillDeactivate(_ notification: Notification) {
         guard let scene = notification.object as? UIScene, let window = window, scene.allWindows.contains(window) else { return }
 
         displayLink?.isPaused = true
     }
 
-    @available(iOS 13, *)
     @objc private func sceneDidEnterBackground(_ notification: Notification) {
         guard let scene = notification.object as? UIScene, let window = window, scene.allWindows.contains(window) else { return }
 
@@ -520,12 +515,12 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
 
         // Metal is unavailable on older simulators
         guard ProcessInfo().isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 13, minorVersion: 0, patchVersion: 0)) else {
-            Log.warning(forMessage: "Metal rendering is not supported on iOS versions < iOS 13. Please test on device or on iOS simulators version >= 13.", category: "MapView")
+            Log.warning("Metal rendering is not supported on iOS versions < iOS 13. Please test on device or on iOS simulators version >= 13.", category: "MapView")
             return
         }
 
         // Metal is unavailable for a different reason
-        Log.error(forMessage: "No suitable Metal simulator can be found.", category: "MapView")
+        Log.error("No suitable Metal simulator can be found.", category: "MapView")
         #endif
     }
 
@@ -555,7 +550,51 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
 
         metalView?.center = CGPoint(x: bounds.midX, y: bounds.midY)
         safeAreaSignalSubject.value = self.safeAreaInsets
+
+        if let metalView, metalView.autoResizeDrawable {
+            metalView.frame = bounds
+            mapboxMap.size = metalView.bounds.size
+        }
     }
+
+#if !os(visionOS)
+    /// Control the resizing animation behavior of the map view.
+    /// The default value is ``ResizingAnimation-swift.enum/automatic``.
+    public enum ResizingAnimation {
+        /// Change the default behaviour to have a nice looking resizing animation.
+        ///
+        /// The map plane would fulfil the MapView sized all the time.
+        /// Custom implementation.
+        case automatic
+
+        /// Default UIView behaviour. The map plane would be resized immediately leading to gaps renderer when assign higher size values.
+        case none
+
+        init?(autoResizeDrawable: Bool?) {
+            guard let autoResizeDrawable else { return nil }
+            self = autoResizeDrawable ? .none : .automatic
+        }
+
+        var autoResizeDrawable: Bool {
+            switch self {
+            case .automatic: return false
+            case .none: return true
+            }
+        }
+    }
+
+    /// Control resizing animation behavior of the map view.
+    public var resizingAnimation: ResizingAnimation = .automatic {
+        didSet {
+            syncResizingAnimation()
+        }
+    }
+
+    private func syncResizingAnimation() {
+        // VisionOS doesn't support autoResizeDrawable
+        metalView?.autoResizeDrawable = resizingAnimation.autoResizeDrawable
+    }
+#endif
 
     /// Synchronize size updates with GL-Native and UIKit
     ///
@@ -576,7 +615,7 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
         if metalView.contentScaleFactor != pixelRatio {
             // DrawableSize setter will recalculate `contentScaleFactor` if the new drawableSize doesn't fit into
             // the current bounds.size and scale.
-            Log.error(forMessage: "MetalView content scale factor \(metalView.contentScaleFactor) is not equal to pixel ratio \(pixelRatio)")
+            Log.error("MetalView content scale factor \(metalView.contentScaleFactor) is not equal to pixel ratio \(pixelRatio)")
         }
 
         // GL-Native will trigger update on `mapboxMap.size` update but it will come in the next frame.
@@ -684,7 +723,7 @@ open class MapView: UIView, SizeTrackingLayerDelegate {
             return true
         }
 
-        if #available(iOS 13, *), let scene = window.parentScene, scene.activationState != .foregroundActive {
+        if let scene = window.parentScene, scene.activationState != .foregroundActive {
             return true
         }
 
@@ -729,6 +768,10 @@ extension MapView: DelegatingMapClientDelegate {
         insertSubview(metalView, at: 0)
 
         self.metalView = metalView
+
+#if !os(visionOS)
+        syncResizingAnimation()
+#endif
 
         return metalView
     }

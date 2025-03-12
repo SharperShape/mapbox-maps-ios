@@ -18,6 +18,22 @@ public class CircleAnnotationManager: AnnotationManager, AnnotationManagerIntern
         set { impl.annotations = newValue }
     }
 
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public var tapRadius: CGFloat? {
+        get { impl.tapRadius }
+        set { impl.tapRadius = newValue }
+    }
+
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public var longPressRadius: CGFloat? {
+        get { impl.longPressRadius }
+        set { impl.longPressRadius = newValue }
+    }
+
     /// Set this delegate in order to be called back if a tap occurs on an annotation being managed by this manager.
     /// - NOTE: This annotation manager listens to tap events via the ``GestureManager/singleTapGestureRecognizer``.
     @available(*, deprecated, message: "Use tapHandler property of Annotation")
@@ -62,7 +78,7 @@ public class CircleAnnotationManager: AnnotationManager, AnnotationManagerIntern
     }
 
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of circleEmissiveStrength is in intensity.
     public var circleEmissiveStrength: Double? {
         get { impl.layerProperties["circle-emissive-strength"] as? Double }
         set { impl.layerProperties["circle-emissive-strength"] = newValue }
@@ -90,7 +106,7 @@ public class CircleAnnotationManager: AnnotationManager, AnnotationManagerIntern
     }
 
     /// Circle radius.
-    /// Default value: 5. Minimum value: 0.
+    /// Default value: 5. Minimum value: 0. The unit of circleRadius is in pixels.
     public var circleRadius: Double? {
         get { impl.layerProperties["circle-radius"] as? Double }
         set { impl.layerProperties["circle-radius"] = newValue }
@@ -111,14 +127,14 @@ public class CircleAnnotationManager: AnnotationManager, AnnotationManagerIntern
     }
 
     /// The width of the circle's stroke. Strokes are placed outside of the `circle-radius`.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of circleStrokeWidth is in pixels.
     public var circleStrokeWidth: Double? {
         get { impl.layerProperties["circle-stroke-width"] as? Double }
         set { impl.layerProperties["circle-stroke-width"] = newValue }
     }
 
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
-    /// Default value: [0,0].
+    /// Default value: [0,0]. The unit of circleTranslate is in pixels.
     public var circleTranslate: [Double]? {
         get { impl.layerProperties["circle-translate"] as? [Double] }
         set { impl.layerProperties["circle-translate"] = newValue }

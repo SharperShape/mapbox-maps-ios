@@ -35,7 +35,7 @@ public struct LocationIndicatorLayer: Layer, Equatable {
     public var topImage: Value<ResolvedImage>?
 
     /// The accuracy, in meters, of the position source used to retrieve the position of the location indicator.
-    /// Default value: 0.
+    /// Default value: 0. The unit of accuracyRadius is in meters.
     public var accuracyRadius: Value<Double>?
 
     /// Transition options for `accuracyRadius`.
@@ -47,6 +47,10 @@ public struct LocationIndicatorLayer: Layer, Equatable {
 
     /// Transition options for `accuracyRadiusBorderColor`.
     public var accuracyRadiusBorderColorTransition: StyleTransition?
+    /// This property defines whether to use colorTheme defined color or not.
+    /// By default it will use color defined by the root theme in the style.
+    /// NOTE: - Expressions set to this property currently don't work.
+    @_spi(Experimental) public var accuracyRadiusBorderColorUseTheme: Value<ColorUseTheme>?
 
     /// The color for drawing the accuracy radius, as a circle. To adjust transparency, set the alpha component of the color accordingly.
     /// Default value: "#ffffff".
@@ -54,16 +58,20 @@ public struct LocationIndicatorLayer: Layer, Equatable {
 
     /// Transition options for `accuracyRadiusColor`.
     public var accuracyRadiusColorTransition: StyleTransition?
+    /// This property defines whether to use colorTheme defined color or not.
+    /// By default it will use color defined by the root theme in the style.
+    /// NOTE: - Expressions set to this property currently don't work.
+    @_spi(Experimental) public var accuracyRadiusColorUseTheme: Value<ColorUseTheme>?
 
-    /// The bearing of the location indicator.
-    /// Default value: 0.
+    /// The bearing of the location indicator. Values under 0.01 degree variation are ignored.
+    /// Default value: 0. The unit of bearing is in degrees.
     public var bearing: Value<Double>?
 
     /// Transition options for `bearing`.
     public var bearingTransition: StyleTransition?
 
     /// The size of the bearing image, as a scale factor applied to the size of the specified image.
-    /// Default value: 1.
+    /// Default value: 1. The unit of bearingImageSize is in factor of the original icon size.
     public var bearingImageSize: Value<Double>?
 
     /// Transition options for `bearingImageSize`.
@@ -75,19 +83,30 @@ public struct LocationIndicatorLayer: Layer, Equatable {
 
     /// Transition options for `emphasisCircleColor`.
     public var emphasisCircleColorTransition: StyleTransition?
+    /// This property defines whether to use colorTheme defined color or not.
+    /// By default it will use color defined by the root theme in the style.
+    /// NOTE: - Expressions set to this property currently don't work.
+    @_spi(Experimental) public var emphasisCircleColorUseTheme: Value<ColorUseTheme>?
+
+    /// Specifies a glow effect range of the emphasis circle, in pixels. If [0,0] values are provided, it renders the circle as a solid color. The first value specifies the start of the glow effect where it is equal to the circle's color, the second is the end, where it's fully transparent. Between the two values the effect is linearly faded out.
+    /// Default value: [0,0].
+    public var emphasisCircleGlowRange: Value<[Double]>?
+
+    /// Transition options for `emphasisCircleGlowRange`.
+    public var emphasisCircleGlowRangeTransition: StyleTransition?
 
     /// The radius, in pixel, of the circle emphasizing the indicator, drawn between the accuracy radius and the indicator shadow.
-    /// Default value: 0.
+    /// Default value: 0. The unit of emphasisCircleRadius is in pixels.
     public var emphasisCircleRadius: Value<Double>?
 
     /// Transition options for `emphasisCircleRadius`.
     public var emphasisCircleRadiusTransition: StyleTransition?
 
     /// The displacement off the center of the top image and the shadow image when the pitch of the map is greater than 0. This helps producing a three-dimensional appearence.
-    /// Default value: "0".
+    /// Default value: "0". The unit of imagePitchDisplacement is in pixels.
     public var imagePitchDisplacement: Value<Double>?
 
-    /// An array of [latitude, longitude, altitude] position of the location indicator.
+    /// An array of [latitude, longitude, altitude] position of the location indicator. Values under 0.000001 variation are ignored.
     /// Default value: [0,0,0].
     public var location: Value<[Double]>?
 
@@ -106,14 +125,14 @@ public struct LocationIndicatorLayer: Layer, Equatable {
     public var perspectiveCompensation: Value<Double>?
 
     /// The size of the shadow image, as a scale factor applied to the size of the specified image.
-    /// Default value: 1.
+    /// Default value: 1. The unit of shadowImageSize is in factor of the original icon size.
     public var shadowImageSize: Value<Double>?
 
     /// Transition options for `shadowImageSize`.
     public var shadowImageSizeTransition: StyleTransition?
 
     /// The size of the top image, as a scale factor applied to the size of the specified image.
-    /// Default value: 1.
+    /// Default value: 1. The unit of topImageSize is in factor of the original icon size.
     public var topImageSize: Value<Double>?
 
     /// Transition options for `topImageSize`.
@@ -138,14 +157,19 @@ public struct LocationIndicatorLayer: Layer, Equatable {
         try paintContainer.encodeIfPresent(accuracyRadiusTransition, forKey: .accuracyRadiusTransition)
         try paintContainer.encodeIfPresent(accuracyRadiusBorderColor, forKey: .accuracyRadiusBorderColor)
         try paintContainer.encodeIfPresent(accuracyRadiusBorderColorTransition, forKey: .accuracyRadiusBorderColorTransition)
+        try paintContainer.encodeIfPresent(accuracyRadiusBorderColorUseTheme, forKey: .accuracyRadiusBorderColorUseTheme)
         try paintContainer.encodeIfPresent(accuracyRadiusColor, forKey: .accuracyRadiusColor)
         try paintContainer.encodeIfPresent(accuracyRadiusColorTransition, forKey: .accuracyRadiusColorTransition)
+        try paintContainer.encodeIfPresent(accuracyRadiusColorUseTheme, forKey: .accuracyRadiusColorUseTheme)
         try paintContainer.encodeIfPresent(bearing, forKey: .bearing)
         try paintContainer.encodeIfPresent(bearingTransition, forKey: .bearingTransition)
         try paintContainer.encodeIfPresent(bearingImageSize, forKey: .bearingImageSize)
         try paintContainer.encodeIfPresent(bearingImageSizeTransition, forKey: .bearingImageSizeTransition)
         try paintContainer.encodeIfPresent(emphasisCircleColor, forKey: .emphasisCircleColor)
         try paintContainer.encodeIfPresent(emphasisCircleColorTransition, forKey: .emphasisCircleColorTransition)
+        try paintContainer.encodeIfPresent(emphasisCircleColorUseTheme, forKey: .emphasisCircleColorUseTheme)
+        try paintContainer.encodeIfPresent(emphasisCircleGlowRange, forKey: .emphasisCircleGlowRange)
+        try paintContainer.encodeIfPresent(emphasisCircleGlowRangeTransition, forKey: .emphasisCircleGlowRangeTransition)
         try paintContainer.encodeIfPresent(emphasisCircleRadius, forKey: .emphasisCircleRadius)
         try paintContainer.encodeIfPresent(emphasisCircleRadiusTransition, forKey: .emphasisCircleRadiusTransition)
         try paintContainer.encodeIfPresent(imagePitchDisplacement, forKey: .imagePitchDisplacement)
@@ -179,14 +203,19 @@ public struct LocationIndicatorLayer: Layer, Equatable {
             accuracyRadiusTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .accuracyRadiusTransition)
             accuracyRadiusBorderColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .accuracyRadiusBorderColor)
             accuracyRadiusBorderColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .accuracyRadiusBorderColorTransition)
+            accuracyRadiusBorderColorUseTheme = try paintContainer.decodeIfPresent(Value<ColorUseTheme>.self, forKey: .accuracyRadiusBorderColorUseTheme)
             accuracyRadiusColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .accuracyRadiusColor)
             accuracyRadiusColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .accuracyRadiusColorTransition)
+            accuracyRadiusColorUseTheme = try paintContainer.decodeIfPresent(Value<ColorUseTheme>.self, forKey: .accuracyRadiusColorUseTheme)
             bearing = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .bearing)
             bearingTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .bearingTransition)
             bearingImageSize = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .bearingImageSize)
             bearingImageSizeTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .bearingImageSizeTransition)
             emphasisCircleColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .emphasisCircleColor)
             emphasisCircleColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .emphasisCircleColorTransition)
+            emphasisCircleColorUseTheme = try paintContainer.decodeIfPresent(Value<ColorUseTheme>.self, forKey: .emphasisCircleColorUseTheme)
+            emphasisCircleGlowRange = try paintContainer.decodeIfPresent(Value<[Double]>.self, forKey: .emphasisCircleGlowRange)
+            emphasisCircleGlowRangeTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .emphasisCircleGlowRangeTransition)
             emphasisCircleRadius = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .emphasisCircleRadius)
             emphasisCircleRadiusTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .emphasisCircleRadiusTransition)
             imagePitchDisplacement = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .imagePitchDisplacement)
@@ -233,14 +262,19 @@ public struct LocationIndicatorLayer: Layer, Equatable {
         case accuracyRadiusTransition = "accuracy-radius-transition"
         case accuracyRadiusBorderColor = "accuracy-radius-border-color"
         case accuracyRadiusBorderColorTransition = "accuracy-radius-border-color-transition"
+        case accuracyRadiusBorderColorUseTheme = "accuracy-radius-border-color-use-theme"
         case accuracyRadiusColor = "accuracy-radius-color"
         case accuracyRadiusColorTransition = "accuracy-radius-color-transition"
+        case accuracyRadiusColorUseTheme = "accuracy-radius-color-use-theme"
         case bearing = "bearing"
         case bearingTransition = "bearing-transition"
         case bearingImageSize = "bearing-image-size"
         case bearingImageSizeTransition = "bearing-image-size-transition"
         case emphasisCircleColor = "emphasis-circle-color"
         case emphasisCircleColorTransition = "emphasis-circle-color-transition"
+        case emphasisCircleColorUseTheme = "emphasis-circle-color-use-theme"
+        case emphasisCircleGlowRange = "emphasis-circle-glow-range"
+        case emphasisCircleGlowRangeTransition = "emphasis-circle-glow-range-transition"
         case emphasisCircleRadius = "emphasis-circle-radius"
         case emphasisCircleRadiusTransition = "emphasis-circle-radius-transition"
         case imagePitchDisplacement = "image-pitch-displacement"
@@ -305,7 +339,7 @@ extension LocationIndicatorLayer {
     }
 
     /// The accuracy, in meters, of the position source used to retrieve the position of the location indicator.
-    /// Default value: 0.
+    /// Default value: 0. The unit of accuracyRadius is in meters.
     public func accuracyRadius(_ constant: Double) -> Self {
         with(self, setter(\.accuracyRadius, .constant(constant)))
     }
@@ -316,7 +350,7 @@ extension LocationIndicatorLayer {
     }
 
     /// The accuracy, in meters, of the position source used to retrieve the position of the location indicator.
-    /// Default value: 0.
+    /// Default value: 0. The unit of accuracyRadius is in meters.
     public func accuracyRadius(_ expression: Exp) -> Self {
         with(self, setter(\.accuracyRadius, .expression(expression)))
     }
@@ -344,6 +378,22 @@ extension LocationIndicatorLayer {
         with(self, setter(\.accuracyRadiusBorderColor, .expression(expression)))
     }
 
+    /// This property defines whether the `accuracyRadiusBorderColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func accuracyRadiusBorderColorUseTheme(_ useTheme: ColorUseTheme) -> Self {
+        with(self, setter(\.accuracyRadiusBorderColorUseTheme, .constant(useTheme)))
+    }
+
+    /// This property defines whether the `accuracyRadiusBorderColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func accuracyRadiusBorderColorUseTheme(_ expression: Exp) -> Self {
+        with(self, setter(\.accuracyRadiusBorderColorUseTheme, .expression(expression)))
+    }
+
     /// The color for drawing the accuracy radius, as a circle. To adjust transparency, set the alpha component of the color accordingly.
     /// Default value: "#ffffff".
     public func accuracyRadiusColor(_ constant: StyleColor) -> Self {
@@ -367,8 +417,24 @@ extension LocationIndicatorLayer {
         with(self, setter(\.accuracyRadiusColor, .expression(expression)))
     }
 
-    /// The bearing of the location indicator.
-    /// Default value: 0.
+    /// This property defines whether the `accuracyRadiusColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func accuracyRadiusColorUseTheme(_ useTheme: ColorUseTheme) -> Self {
+        with(self, setter(\.accuracyRadiusColorUseTheme, .constant(useTheme)))
+    }
+
+    /// This property defines whether the `accuracyRadiusColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func accuracyRadiusColorUseTheme(_ expression: Exp) -> Self {
+        with(self, setter(\.accuracyRadiusColorUseTheme, .expression(expression)))
+    }
+
+    /// The bearing of the location indicator. Values under 0.01 degree variation are ignored.
+    /// Default value: 0. The unit of bearing is in degrees.
     public func bearing(_ constant: Double) -> Self {
         with(self, setter(\.bearing, .constant(constant)))
     }
@@ -378,14 +444,14 @@ extension LocationIndicatorLayer {
         with(self, setter(\.bearingTransition, transition))
     }
 
-    /// The bearing of the location indicator.
-    /// Default value: 0.
+    /// The bearing of the location indicator. Values under 0.01 degree variation are ignored.
+    /// Default value: 0. The unit of bearing is in degrees.
     public func bearing(_ expression: Exp) -> Self {
         with(self, setter(\.bearing, .expression(expression)))
     }
 
     /// The size of the bearing image, as a scale factor applied to the size of the specified image.
-    /// Default value: 1.
+    /// Default value: 1. The unit of bearingImageSize is in factor of the original icon size.
     public func bearingImageSize(_ constant: Double) -> Self {
         with(self, setter(\.bearingImageSize, .constant(constant)))
     }
@@ -396,7 +462,7 @@ extension LocationIndicatorLayer {
     }
 
     /// The size of the bearing image, as a scale factor applied to the size of the specified image.
-    /// Default value: 1.
+    /// Default value: 1. The unit of bearingImageSize is in factor of the original icon size.
     public func bearingImageSize(_ expression: Exp) -> Self {
         with(self, setter(\.bearingImageSize, .expression(expression)))
     }
@@ -424,8 +490,41 @@ extension LocationIndicatorLayer {
         with(self, setter(\.emphasisCircleColor, .expression(expression)))
     }
 
+    /// This property defines whether the `emphasisCircleColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func emphasisCircleColorUseTheme(_ useTheme: ColorUseTheme) -> Self {
+        with(self, setter(\.emphasisCircleColorUseTheme, .constant(useTheme)))
+    }
+
+    /// This property defines whether the `emphasisCircleColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func emphasisCircleColorUseTheme(_ expression: Exp) -> Self {
+        with(self, setter(\.emphasisCircleColorUseTheme, .expression(expression)))
+    }
+
+    /// Specifies a glow effect range of the emphasis circle, in pixels. If [0,0] values are provided, it renders the circle as a solid color. The first value specifies the start of the glow effect where it is equal to the circle's color, the second is the end, where it's fully transparent. Between the two values the effect is linearly faded out.
+    /// Default value: [0,0].
+    public func emphasisCircleGlowRange(solidStart: Double, transparentEnd: Double) -> Self {
+        with(self, setter(\.emphasisCircleGlowRange, .constant([solidStart, transparentEnd])))
+    }
+
+    /// Transition property for `emphasisCircleGlowRange`
+    public func emphasisCircleGlowRangeTransition(_ transition: StyleTransition) -> Self {
+        with(self, setter(\.emphasisCircleGlowRangeTransition, transition))
+    }
+
+    /// Specifies a glow effect range of the emphasis circle, in pixels. If [0,0] values are provided, it renders the circle as a solid color. The first value specifies the start of the glow effect where it is equal to the circle's color, the second is the end, where it's fully transparent. Between the two values the effect is linearly faded out.
+    /// Default value: [0,0].
+    public func emphasisCircleGlowRange(_ expression: Exp) -> Self {
+        with(self, setter(\.emphasisCircleGlowRange, .expression(expression)))
+    }
+
     /// The radius, in pixel, of the circle emphasizing the indicator, drawn between the accuracy radius and the indicator shadow.
-    /// Default value: 0.
+    /// Default value: 0. The unit of emphasisCircleRadius is in pixels.
     public func emphasisCircleRadius(_ constant: Double) -> Self {
         with(self, setter(\.emphasisCircleRadius, .constant(constant)))
     }
@@ -436,27 +535,27 @@ extension LocationIndicatorLayer {
     }
 
     /// The radius, in pixel, of the circle emphasizing the indicator, drawn between the accuracy radius and the indicator shadow.
-    /// Default value: 0.
+    /// Default value: 0. The unit of emphasisCircleRadius is in pixels.
     public func emphasisCircleRadius(_ expression: Exp) -> Self {
         with(self, setter(\.emphasisCircleRadius, .expression(expression)))
     }
 
     /// The displacement off the center of the top image and the shadow image when the pitch of the map is greater than 0. This helps producing a three-dimensional appearence.
-    /// Default value: "0".
+    /// Default value: "0". The unit of imagePitchDisplacement is in pixels.
     public func imagePitchDisplacement(_ constant: Double) -> Self {
         with(self, setter(\.imagePitchDisplacement, .constant(constant)))
     }
 
     /// The displacement off the center of the top image and the shadow image when the pitch of the map is greater than 0. This helps producing a three-dimensional appearence.
-    /// Default value: "0".
+    /// Default value: "0". The unit of imagePitchDisplacement is in pixels.
     public func imagePitchDisplacement(_ expression: Exp) -> Self {
         with(self, setter(\.imagePitchDisplacement, .expression(expression)))
     }
 
-    /// An array of [latitude, longitude, altitude] position of the location indicator.
+    /// An array of [latitude, longitude, altitude] position of the location indicator. Values under 0.000001 variation are ignored.
     /// Default value: [0,0,0].
     public func location(_ coordinate: CLLocationCoordinate2D) -> Self {
-        with(self, setter(\.location, .constant([coordinate.latitude, coordinate.longitude])))
+        with(self, setter(\.location, .constant([coordinate.latitude, coordinate.longitude, 0])))
     }
 
     /// Transition property for `location`
@@ -464,7 +563,7 @@ extension LocationIndicatorLayer {
         with(self, setter(\.locationTransition, transition))
     }
 
-    /// An array of [latitude, longitude, altitude] position of the location indicator.
+    /// An array of [latitude, longitude, altitude] position of the location indicator. Values under 0.000001 variation are ignored.
     /// Default value: [0,0,0].
     public func location(_ expression: Exp) -> Self {
         with(self, setter(\.location, .expression(expression)))
@@ -500,7 +599,7 @@ extension LocationIndicatorLayer {
     }
 
     /// The size of the shadow image, as a scale factor applied to the size of the specified image.
-    /// Default value: 1.
+    /// Default value: 1. The unit of shadowImageSize is in factor of the original icon size.
     public func shadowImageSize(_ constant: Double) -> Self {
         with(self, setter(\.shadowImageSize, .constant(constant)))
     }
@@ -511,13 +610,13 @@ extension LocationIndicatorLayer {
     }
 
     /// The size of the shadow image, as a scale factor applied to the size of the specified image.
-    /// Default value: 1.
+    /// Default value: 1. The unit of shadowImageSize is in factor of the original icon size.
     public func shadowImageSize(_ expression: Exp) -> Self {
         with(self, setter(\.shadowImageSize, .expression(expression)))
     }
 
     /// The size of the top image, as a scale factor applied to the size of the specified image.
-    /// Default value: 1.
+    /// Default value: 1. The unit of topImageSize is in factor of the original icon size.
     public func topImageSize(_ constant: Double) -> Self {
         with(self, setter(\.topImageSize, .constant(constant)))
     }
@@ -528,13 +627,12 @@ extension LocationIndicatorLayer {
     }
 
     /// The size of the top image, as a scale factor applied to the size of the specified image.
-    /// Default value: 1.
+    /// Default value: 1. The unit of topImageSize is in factor of the original icon size.
     public func topImageSize(_ expression: Exp) -> Self {
         with(self, setter(\.topImageSize, .expression(expression)))
     }
 }
 
-@available(iOS 13.0, *)
 extension LocationIndicatorLayer: MapStyleContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         node.mount(MountedLayer(layer: self))

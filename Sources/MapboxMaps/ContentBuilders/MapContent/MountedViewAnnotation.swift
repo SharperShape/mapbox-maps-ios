@@ -6,7 +6,6 @@ protocol ViewAnnotationsManaging: AnyObject {
     func add(_ annotation: ViewAnnotation)
 }
 
-@available(iOS 13.0, *)
 final class MountedViewAnnotation: MapContentMountedComponent {
     let mapViewAnnotation: MapViewAnnotation
     var update: ((MapViewAnnotation) -> Void)?
@@ -51,10 +50,13 @@ final class MountedViewAnnotation: MapContentMountedComponent {
             weakViewAnnotation?.ignoreCameraPadding = mapViewAnnotation.ignoreCameraPadding
             weakViewAnnotation?.visible = mapViewAnnotation.visible
             weakViewAnnotation?.selected = mapViewAnnotation.selected
+            weakViewAnnotation?.priority = mapViewAnnotation.priority
             weakViewAnnotation?.variableAnchors = mapViewAnnotation.variableAnchors
             weakViewAnnotation?.onAnchorChanged = mapViewAnnotation.actions.anchor
             weakViewAnnotation?.onVisibilityChanged = mapViewAnnotation.actions.visibility
             weakViewAnnotation?.onAnchorCoordinateChanged = mapViewAnnotation.actions.anchorCoordinate
+            weakViewAnnotation?.minZoom = mapViewAnnotation.minZoom
+            weakViewAnnotation?.maxZoom = mapViewAnnotation.maxZoom
             os_log(.debug, log: .contentDSL, "view annotation update %s", weakViewAnnotation?.id ?? "<nil>")
         }
 
@@ -70,7 +72,7 @@ final class MountedViewAnnotation: MapContentMountedComponent {
 
     func unmount(with context: MapContentNodeContext) throws {
         guard let remove else {
-            return Log.error(forMessage: "Could not remove the view annotation", category: "Annotations")
+            return Log.error("Could not remove the view annotation", category: "Annotations")
         }
         remove()
     }
@@ -90,7 +92,6 @@ final class MountedViewAnnotation: MapContentMountedComponent {
     func updateMetadata(with: MapContentNodeContext) {}
 }
 
-@available(iOS 13.0, *)
 private extension UIHostingController {
     func disableSafeArea() {
         if #available(iOS 16.4, *) {

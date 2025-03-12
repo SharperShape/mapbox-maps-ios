@@ -5,6 +5,7 @@ import MapboxCoreMaps
 import Turf
 
 protocol MapboxMapProtocol: AnyObject {
+    var viewAnnotationAvoidLayers: Set<String> { get set }
     var cameraBounds: CameraBounds { get }
     var cameraState: CameraState { get }
     var size: CGSize { get }
@@ -1046,7 +1047,7 @@ extension MapboxMap: MapFeatureQueryable {
     ///
     /// If the `geometry` parameter is CGPoint, only that point is queried. When it's a `CGRect` or an array of `CGPoint`, the shape is queried.
     ///
-    /// - Important: If you need to handle basic gestures on map content, please prefer to use Interactions API (see ``MapboxMap/addInteraction(_:)``). If you need to query a featureset from an imported style, use ``queryRenderedFeatures(with:targets:completion:)`` instead.
+    /// - Important: If you need to handle basic gestures on map content, please prefer to use Interactions API (see ``MapboxMap/addInteraction(_:)``). If you need to query a featureset from an imported style, use ``queryRenderedFeatures(with:featureset:filter:completion:)`` instead.
     ///
     /// - Parameters:
     ///   - geometry: A screen geometry to query. Can be a `CGPoint`, `CGRect`, or an array of `CGPoint`.
@@ -1666,6 +1667,11 @@ extension MapboxMap {
 // MARK: - View Annotations
 
 extension MapboxMap {
+    var viewAnnotationAvoidLayers: Set<String> {
+        get { __map.getViewAnnotationAvoidLayers() }
+        set { __map.setViewAnnotationAvoidLayersForLayerIds(newValue) }
+    }
+
     func setViewAnnotationPositionsUpdateCallback(_ callback: ViewAnnotationPositionsUpdateCallback?) {
         __map.setViewAnnotationPositionsUpdateListenerFor(callback.map {
             ViewAnnotationPositionsUpdateListenerImpl(callback: $0)
@@ -1774,6 +1780,28 @@ extension MapboxMap {
 extension MapboxMap {
     internal var __testingMap: CoreMap {
         return __map
+    }
+
+    /// For internal use only
+    /// Triggers a gesture of the provided type at the specified screen coordinates
+    @_spi(Experimental)
+    @_spi(Internal)
+    public func dispatch(gesture: String, screenCoordinateX: Double, screenCoordinateY: Double) {
+        var eventType = CorePlatformEventType.click
+        switch gesture {
+        case "click":
+            eventType = .click
+        case "longClick":
+            eventType = .longClick
+        case "drag":
+            eventType = .drag
+        case "dragBeing":
+            eventType = .dragBegin
+        case "dragEnd":
+            eventType = .dragEnd
+        default: break
+        }
+        dispatch(event: CorePlatformEventInfo(type: eventType, screenCoordinate: CoreScreenCoordinate(x: CGFloat(screenCoordinateX), y: CGFloat(screenCoordinateY))))
     }
 }
 

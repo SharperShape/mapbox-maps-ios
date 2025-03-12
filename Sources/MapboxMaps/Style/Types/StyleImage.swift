@@ -1,6 +1,5 @@
 import UIKit
 
-@_spi(Experimental)
 /// An image to be used in the Style
 public struct StyleImage: Equatable, Sendable {
 
@@ -27,7 +26,6 @@ public struct StyleImage: Equatable, Sendable {
     }
 }
 
-@available(iOS 13.0, *)
 extension StyleImage: MapStyleContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         node.mount(MountedImage(image: self))
@@ -36,7 +34,7 @@ extension StyleImage: MapStyleContent, PrimitiveMapContent {
 
 extension StyleImage {
     /// Initialize a StyleImage from an existing UIImage
-    init?(named name: String, sdf: Bool = false, contentInsets: UIEdgeInsets = .zero) {
+    public init?(named name: String, sdf: Bool = false, contentInsets: UIEdgeInsets = .zero) {
         guard let image = UIImage(named: name) else { return nil }
         self.init(id: name, image: image, sdf: sdf, contentInsets: contentInsets)
     }
