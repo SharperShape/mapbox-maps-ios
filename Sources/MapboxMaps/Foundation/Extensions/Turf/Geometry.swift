@@ -79,17 +79,17 @@ extension Geometry {
     var coordinates: [CLLocationCoordinate2D] {
         switch self {
         case let .point(point):
-            return [point.coordinates.coordinate2D]
+            return [point.coordinates]
         case let .lineString(lineString):
-            return lineString.coordinates.map { $0.coordinate2D }
+            return lineString.coordinates.map { $0 }
         case let .polygon(polygon):
-            return polygon.coordinates.flatMap { $0 }.map{$0.coordinate2D}
+            return polygon.coordinates.flatMap { $0 }.map{$0}
         case let .multiPoint(multipoint):
-            return multipoint.coordinates.map { $0.coordinate2D }
+            return multipoint.coordinates.map { $0 }
         case let .multiLineString(multiLineString):
-            return multiLineString.coordinates.flatMap { $0 }.map{$0.coordinate2D}
+            return multiLineString.coordinates.flatMap { $0 }.map{$0}
         case let .multiPolygon(multiPolygon):
-            return multiPolygon.coordinates.flatMap { $0.flatMap { $0 } }.map{$0.coordinate2D}
+            return multiPolygon.coordinates.flatMap { $0.flatMap { $0 } }.map{$0}
         case let .geometryCollection(geometryCollection):
             return geometryCollection.geometries.flatMap { $0.coordinates }
         #if USING_TURF_WITH_LIBRARY_EVOLUTION

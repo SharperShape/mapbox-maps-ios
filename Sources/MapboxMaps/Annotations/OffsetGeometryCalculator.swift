@@ -12,7 +12,7 @@ extension Point: OffsetGeometryCalculator {
     static func projection(of geometry: Point, for translation: CGPoint, in mapboxMap: MapboxMapProtocol) -> Point {
         let point = geometry.coordinates
 
-        let pointScreenCoordinate = mapboxMap.point(for: point.coordinate2D)
+        let pointScreenCoordinate = mapboxMap.point(for: point)
 
         let targetCoordinates = mapboxMap.coordinate(for: CGPoint(
             x: pointScreenCoordinate.x - translation.x,
@@ -54,7 +54,7 @@ extension LineString: OffsetGeometryCalculator {
 
         let centerPoint = Point(averageCoordinates)
 
-        let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates.coordinate2D)
+        let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates)
 
         let targetCoordinates =  mapboxMap.coordinate(for: CGPoint(
             x: centerScreenCoordinate.x - translation.x,
@@ -104,7 +104,7 @@ extension Polygon: OffsetGeometryCalculator {
 
         let centerPoint = Point(averageCoordinates)
 
-        let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates.coordinate2D)
+        let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates)
 
         let targetCoordinates =  mapboxMap.coordinate(for: CGPoint(
             x: centerScreenCoordinate.x - translation.x,
@@ -153,7 +153,7 @@ extension Polygon: OffsetGeometryCalculator {
 
                 let centerPoint = Point(averageCoordinates)
 
-                let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates.coordinate2D)
+                let centerScreenCoordinate = mapboxMap.point(for: centerPoint.coordinates)
 
                 let targetCoordinates =  mapboxMap.coordinate(for: CGPoint(
                     x: centerScreenCoordinate.x - translation.x,
