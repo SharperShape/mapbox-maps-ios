@@ -39,6 +39,11 @@ public struct FillLayer: Layer, Equatable {
     /// Whether this layer is displayed.
     public var visibility: Value<Visibility>
 
+    /// Selects the base of fill-elevation. Some modes might require precomputed elevation data in the tileset.
+    /// Default value: "none".
+    @_documentation(visibility: public)
+    @_spi(Experimental) public var fillElevationReference: Value<FillElevationReference>?
+
     /// Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key.
     public var fillSortKey: Value<Double>?
 
@@ -52,9 +57,13 @@ public struct FillLayer: Layer, Equatable {
 
     /// Transition options for `fillColor`.
     public var fillColorTransition: StyleTransition?
+    /// This property defines whether to use colorTheme defined color or not.
+    /// By default it will use color defined by the root theme in the style.
+    /// NOTE: - Expressions set to this property currently don't work.
+    @_spi(Experimental) public var fillColorUseTheme: Value<ColorUseTheme>?
 
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillEmissiveStrength is in intensity.
     public var fillEmissiveStrength: Value<Double>?
 
     /// Transition options for `fillEmissiveStrength`.
@@ -72,12 +81,16 @@ public struct FillLayer: Layer, Equatable {
 
     /// Transition options for `fillOutlineColor`.
     public var fillOutlineColorTransition: StyleTransition?
+    /// This property defines whether to use colorTheme defined color or not.
+    /// By default it will use color defined by the root theme in the style.
+    /// NOTE: - Expressions set to this property currently don't work.
+    @_spi(Experimental) public var fillOutlineColorUseTheme: Value<ColorUseTheme>?
 
     /// Name of image in sprite to use for drawing image fills. For seamless patterns, image width and height must be a factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will be evaluated only at integer zoom levels.
     public var fillPattern: Value<ResolvedImage>?
 
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
-    /// Default value: [0,0].
+    /// Default value: [0,0]. The unit of fillTranslate is in pixels.
     public var fillTranslate: Value<[Double]>?
 
     /// Transition options for `fillTranslate`.
@@ -86,6 +99,15 @@ public struct FillLayer: Layer, Equatable {
     /// Controls the frame of reference for `fill-translate`.
     /// Default value: "map".
     public var fillTranslateAnchor: Value<FillTranslateAnchor>?
+
+    /// Specifies an uniform elevation in meters. Note: If the value is zero, the layer will be rendered on the ground. Non-zero values will elevate the layer from the sea level, which can cause it to be rendered below the terrain.
+    /// Default value: 0. Minimum value: 0.
+    @_documentation(visibility: public)
+    @_spi(Experimental) public var fillZOffset: Value<Double>?
+
+    /// Transition options for `fillZOffset`.
+    @_documentation(visibility: public)
+    @_spi(Experimental) public var fillZOffsetTransition: StyleTransition?
 
     public init(id: String, source: String) {
         self.source = source
@@ -109,19 +131,24 @@ public struct FillLayer: Layer, Equatable {
         try paintContainer.encodeIfPresent(fillAntialias, forKey: .fillAntialias)
         try paintContainer.encodeIfPresent(fillColor, forKey: .fillColor)
         try paintContainer.encodeIfPresent(fillColorTransition, forKey: .fillColorTransition)
+        try paintContainer.encodeIfPresent(fillColorUseTheme, forKey: .fillColorUseTheme)
         try paintContainer.encodeIfPresent(fillEmissiveStrength, forKey: .fillEmissiveStrength)
         try paintContainer.encodeIfPresent(fillEmissiveStrengthTransition, forKey: .fillEmissiveStrengthTransition)
         try paintContainer.encodeIfPresent(fillOpacity, forKey: .fillOpacity)
         try paintContainer.encodeIfPresent(fillOpacityTransition, forKey: .fillOpacityTransition)
         try paintContainer.encodeIfPresent(fillOutlineColor, forKey: .fillOutlineColor)
         try paintContainer.encodeIfPresent(fillOutlineColorTransition, forKey: .fillOutlineColorTransition)
+        try paintContainer.encodeIfPresent(fillOutlineColorUseTheme, forKey: .fillOutlineColorUseTheme)
         try paintContainer.encodeIfPresent(fillPattern, forKey: .fillPattern)
         try paintContainer.encodeIfPresent(fillTranslate, forKey: .fillTranslate)
         try paintContainer.encodeIfPresent(fillTranslateTransition, forKey: .fillTranslateTransition)
         try paintContainer.encodeIfPresent(fillTranslateAnchor, forKey: .fillTranslateAnchor)
+        try paintContainer.encodeIfPresent(fillZOffset, forKey: .fillZOffset)
+        try paintContainer.encodeIfPresent(fillZOffsetTransition, forKey: .fillZOffsetTransition)
 
         var layoutContainer = container.nestedContainer(keyedBy: LayoutCodingKeys.self, forKey: .layout)
         try layoutContainer.encode(visibility, forKey: .visibility)
+        try layoutContainer.encodeIfPresent(fillElevationReference, forKey: .fillElevationReference)
         try layoutContainer.encodeIfPresent(fillSortKey, forKey: .fillSortKey)
     }
 
@@ -140,21 +167,26 @@ public struct FillLayer: Layer, Equatable {
             fillAntialias = try paintContainer.decodeIfPresent(Value<Bool>.self, forKey: .fillAntialias)
             fillColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .fillColor)
             fillColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillColorTransition)
+            fillColorUseTheme = try paintContainer.decodeIfPresent(Value<ColorUseTheme>.self, forKey: .fillColorUseTheme)
             fillEmissiveStrength = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillEmissiveStrength)
             fillEmissiveStrengthTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillEmissiveStrengthTransition)
             fillOpacity = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillOpacity)
             fillOpacityTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillOpacityTransition)
             fillOutlineColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .fillOutlineColor)
             fillOutlineColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillOutlineColorTransition)
+            fillOutlineColorUseTheme = try paintContainer.decodeIfPresent(Value<ColorUseTheme>.self, forKey: .fillOutlineColorUseTheme)
             fillPattern = try paintContainer.decodeIfPresent(Value<ResolvedImage>.self, forKey: .fillPattern)
             fillTranslate = try paintContainer.decodeIfPresent(Value<[Double]>.self, forKey: .fillTranslate)
             fillTranslateTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillTranslateTransition)
             fillTranslateAnchor = try paintContainer.decodeIfPresent(Value<FillTranslateAnchor>.self, forKey: .fillTranslateAnchor)
+            fillZOffset = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillZOffset)
+            fillZOffsetTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillZOffsetTransition)
         }
 
         var visibilityEncoded: Value<Visibility>?
         if let layoutContainer = try? container.nestedContainer(keyedBy: LayoutCodingKeys.self, forKey: .layout) {
             visibilityEncoded = try layoutContainer.decodeIfPresent(Value<Visibility>.self, forKey: .visibility)
+            fillElevationReference = try layoutContainer.decodeIfPresent(Value<FillElevationReference>.self, forKey: .fillElevationReference)
             fillSortKey = try layoutContainer.decodeIfPresent(Value<Double>.self, forKey: .fillSortKey)
         }
         visibility = visibilityEncoded ?? .constant(.visible)
@@ -174,6 +206,7 @@ public struct FillLayer: Layer, Equatable {
     }
 
     enum LayoutCodingKeys: String, CodingKey {
+        case fillElevationReference = "fill-elevation-reference"
         case fillSortKey = "fill-sort-key"
         case visibility = "visibility"
     }
@@ -182,16 +215,20 @@ public struct FillLayer: Layer, Equatable {
         case fillAntialias = "fill-antialias"
         case fillColor = "fill-color"
         case fillColorTransition = "fill-color-transition"
+        case fillColorUseTheme = "fill-color-use-theme"
         case fillEmissiveStrength = "fill-emissive-strength"
         case fillEmissiveStrengthTransition = "fill-emissive-strength-transition"
         case fillOpacity = "fill-opacity"
         case fillOpacityTransition = "fill-opacity-transition"
         case fillOutlineColor = "fill-outline-color"
         case fillOutlineColorTransition = "fill-outline-color-transition"
+        case fillOutlineColorUseTheme = "fill-outline-color-use-theme"
         case fillPattern = "fill-pattern"
         case fillTranslate = "fill-translate"
         case fillTranslateTransition = "fill-translate-transition"
         case fillTranslateAnchor = "fill-translate-anchor"
+        case fillZOffset = "fill-z-offset"
+        case fillZOffsetTransition = "fill-z-offset-transition"
     }
 }
 
@@ -230,6 +267,22 @@ extension FillLayer {
     /// The maximum zoom level for the layer. At zoom levels equal to or greater than the maxzoom, the layer will be hidden.
     public func maxZoom(_ newValue: Double) -> Self {
         with(self, setter(\.maxZoom, newValue))
+    }
+
+    /// Selects the base of fill-elevation. Some modes might require precomputed elevation data in the tileset.
+    /// Default value: "none".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillElevationReference(_ constant: FillElevationReference) -> Self {
+        with(self, setter(\.fillElevationReference, .constant(constant)))
+    }
+
+    /// Selects the base of fill-elevation. Some modes might require precomputed elevation data in the tileset.
+    /// Default value: "none".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillElevationReference(_ expression: Exp) -> Self {
+        with(self, setter(\.fillElevationReference, .expression(expression)))
     }
 
     /// Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key.
@@ -277,8 +330,24 @@ extension FillLayer {
         with(self, setter(\.fillColor, .expression(expression)))
     }
 
+    /// This property defines whether the `fillColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillColorUseTheme(_ useTheme: ColorUseTheme) -> Self {
+        with(self, setter(\.fillColorUseTheme, .constant(useTheme)))
+    }
+
+    /// This property defines whether the `fillColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillColorUseTheme(_ expression: Exp) -> Self {
+        with(self, setter(\.fillColorUseTheme, .expression(expression)))
+    }
+
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillEmissiveStrength is in intensity.
     public func fillEmissiveStrength(_ constant: Double) -> Self {
         with(self, setter(\.fillEmissiveStrength, .constant(constant)))
     }
@@ -289,7 +358,7 @@ extension FillLayer {
     }
 
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillEmissiveStrength is in intensity.
     public func fillEmissiveStrength(_ expression: Exp) -> Self {
         with(self, setter(\.fillEmissiveStrength, .expression(expression)))
     }
@@ -331,6 +400,22 @@ extension FillLayer {
         with(self, setter(\.fillOutlineColor, .expression(expression)))
     }
 
+    /// This property defines whether the `fillOutlineColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillOutlineColorUseTheme(_ useTheme: ColorUseTheme) -> Self {
+        with(self, setter(\.fillOutlineColorUseTheme, .constant(useTheme)))
+    }
+
+    /// This property defines whether the `fillOutlineColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillOutlineColorUseTheme(_ expression: Exp) -> Self {
+        with(self, setter(\.fillOutlineColorUseTheme, .expression(expression)))
+    }
+
     /// Name of image in sprite to use for drawing image fills. For seamless patterns, image width and height must be a factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will be evaluated only at integer zoom levels.
     public func fillPattern(_ constant: String) -> Self {
         with(self, setter(\.fillPattern, .constant(.name(constant))))
@@ -342,7 +427,7 @@ extension FillLayer {
     }
 
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
-    /// Default value: [0,0].
+    /// Default value: [0,0]. The unit of fillTranslate is in pixels.
     public func fillTranslate(x: Double, y: Double) -> Self {
         with(self, setter(\.fillTranslate, .constant([x, y])))
     }
@@ -353,7 +438,7 @@ extension FillLayer {
     }
 
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
-    /// Default value: [0,0].
+    /// Default value: [0,0]. The unit of fillTranslate is in pixels.
     public func fillTranslate(_ expression: Exp) -> Self {
         with(self, setter(\.fillTranslate, .expression(expression)))
     }
@@ -369,9 +454,31 @@ extension FillLayer {
     public func fillTranslateAnchor(_ expression: Exp) -> Self {
         with(self, setter(\.fillTranslateAnchor, .expression(expression)))
     }
+
+    /// Specifies an uniform elevation in meters. Note: If the value is zero, the layer will be rendered on the ground. Non-zero values will elevate the layer from the sea level, which can cause it to be rendered below the terrain.
+    /// Default value: 0. Minimum value: 0.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillZOffset(_ constant: Double) -> Self {
+        with(self, setter(\.fillZOffset, .constant(constant)))
+    }
+
+    /// Transition property for `fillZOffset`
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillZOffsetTransition(_ transition: StyleTransition) -> Self {
+        with(self, setter(\.fillZOffsetTransition, transition))
+    }
+
+    /// Specifies an uniform elevation in meters. Note: If the value is zero, the layer will be rendered on the ground. Non-zero values will elevate the layer from the sea level, which can cause it to be rendered below the terrain.
+    /// Default value: 0. Minimum value: 0.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillZOffset(_ expression: Exp) -> Self {
+        with(self, setter(\.fillZOffset, .expression(expression)))
+    }
 }
 
-@available(iOS 13.0, *)
 extension FillLayer: MapStyleContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         node.mount(MountedLayer(layer: self))

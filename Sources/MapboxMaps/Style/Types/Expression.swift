@@ -55,6 +55,11 @@ public struct Exp: Codable, CustomStringConvertible, Equatable, Sendable {
         self.init(operator: op, arguments: [])
     }
 
+    /// Initialize an expression with an operator and basic Swift types like Double, String, or even UIColor
+    public init(_ operator: Operator, _ arguments: ExpressionArgumentConvertible...) {
+        self.elements = [.operator(`operator`)] + arguments.flatMap { $0.expressionArguments }.map(Element.argument)
+    }
+
     /// Initialize an expression with an operator and arguments
     public init(operator op: Operator, arguments: [Argument]) {
         self.elements = [.operator(op)] + arguments.map { Element.argument($0) }
@@ -167,6 +172,7 @@ public struct Exp: Codable, CustomStringConvertible, Equatable, Sendable {
         case boolean(Bool)
         case numberArray([Double])
         case stringArray([String])
+        case dictionary([String: Argument])
         case option(Option)
         case geoJSONObject(GeoJSONObject)
         case null
@@ -192,6 +198,8 @@ public struct Exp: Codable, CustomStringConvertible, Equatable, Sendable {
                 return "\(array)"
             case .stringArray(let stringArray):
                 return "\(stringArray)"
+            case .dictionary(let dictionary):
+                return "\(dictionary)"
             }
         }
 
@@ -217,6 +225,8 @@ public struct Exp: Codable, CustomStringConvertible, Equatable, Sendable {
                 try container.encode(array)
             case .stringArray(let stringArray):
                 try container.encode(stringArray)
+            case .dictionary(let dictionary):
+                try container.encode(dictionary)
             }
         }
 
@@ -240,8 +250,8 @@ public struct Exp: Codable, CustomStringConvertible, Equatable, Sendable {
                 self = .numberArray(validArray)
             } else if let validStringArray = try? container.decode([String].self) {
                 self = .stringArray(validStringArray)
-            } else if let dict = try? container.decode([String: String].self), dict.isEmpty {
-                self = .null
+            } else if let dict = try? container.decode([String: Argument].self) {
+                self = dict.isEmpty ? .null : .dictionary(dict)
             } else {
                 let context = DecodingError.Context(codingPath: decoder.codingPath,
                                                     debugDescription: "Failed to decode ExpressionArgument")

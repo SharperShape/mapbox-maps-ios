@@ -96,7 +96,7 @@ final class AnnotationManagerImpl<AnnotationType: Annotation & AnnotationInterna
             do {
                 try style.moveLayer(withId: id, to: layerPosition ?? .default)
             } catch {
-                Log.error(forMessage: "Failed to mover layer to a new position. Error: \(error)", category: "Annotations")
+                Log.error("Failed to mover layer to a new position. Error: \(error)", category: "Annotations")
             }
         }
     }
@@ -135,7 +135,7 @@ final class AnnotationManagerImpl<AnnotationType: Annotation & AnnotationInterna
             try style.addPersistentLayer(layer, layerPosition: layerPosition)
         } catch {
             Log.error(
-                forMessage: "Failed to create source / layer in \(implementationName). Error: \(error)",
+                "Failed to create source / layer in \(implementationName). Error: \(error)",
                 category: "Annotations")
         }
 
@@ -160,7 +160,7 @@ final class AnnotationManagerImpl<AnnotationType: Annotation & AnnotationInterna
             )
         } catch {
             Log.error(
-                forMessage: "Failed to add cluster layer in \(implementationName). Error: \(error)",
+                "Failed to add cluster layer in \(implementationName). Error: \(error)",
                 category: "Annotations")
         }
     }
@@ -197,7 +197,7 @@ final class AnnotationManagerImpl<AnnotationType: Annotation & AnnotationInterna
             try style.removeLayer(withId: "mapbox-iOS-cluster-text-layer-manager-" + id)
         } catch {
             Log.error(
-                forMessage: "Failed to remove cluster layer in \(implementationName). Error: \(error)",
+                "Failed to remove cluster layer in \(implementationName). Error: \(error)",
                 category: "Annotations")
         }
     }
@@ -232,7 +232,7 @@ final class AnnotationManagerImpl<AnnotationType: Annotation & AnnotationInterna
                 try body()
             } catch {
                 Log.warning(
-                    forMessage: "Failed to remove \(what) for \(implementationName) with id \(id) due to error: \(error)",
+                    "Failed to remove \(what) for \(implementationName) with id \(id) due to error: \(error)",
                     category: "Annotations")
             }
         }
@@ -326,7 +326,7 @@ final class AnnotationManagerImpl<AnnotationType: Annotation & AnnotationInterna
             }
         } catch {
             Log.error(
-                forMessage: "Could not set layer properties in PointAnnotationManager due to error \(error)",
+                "Could not set layer properties in PointAnnotationManager due to error \(error)",
                 category: "Annotations")
         }
     }
@@ -339,48 +339,62 @@ final class AnnotationManagerImpl<AnnotationType: Annotation & AnnotationInterna
     var dragTokens: TokenPair?
     var clusterTokens: TokenPair?
 
+    var tapRadius: CGFloat? {
+        didSet { updateTapHandlers(force: tapRadius != oldValue) }
+    }
+
+    var longPressRadius: CGFloat? {
+        didSet { updateLongPressHandlers(force: longPressRadius != oldValue) }
+    }
+
     private var handlesTaps = false {
-        didSet {
-            if handlesTaps {
-                if tapTokens == nil {
-                    tapTokens = (
-                        mapboxMap.addInteraction(tapInteraction(layerId: id)).erased,
-                        mapboxMap.addInteraction(tapInteraction(layerId: dragId)).erased
-                    )
-                }
-            } else {
-                tapTokens = nil
-            }
-        }
+        didSet { updateTapHandlers() }
     }
 
     private var handlesLongPress = false {
-        didSet {
-            if handlesLongPress {
-                if longPressTokens == nil {
-                    longPressTokens = (
-                        mapboxMap.addInteraction(longPressInteraction(layerId: id)).erased,
-                        mapboxMap.addInteraction(longPressInteraction(layerId: dragId)).erased
-                    )
-                }
-            } else {
-                longPressTokens = nil
-            }
-        }
+        didSet { updateLongPressHandlers() }
     }
 
     private var handlesDrag = false {
-        didSet {
-            if handlesDrag {
-                if dragTokens == nil {
-                    dragTokens = (
-                        mapboxMap.addInteraction(dragInteraction(layerId: id)).erased,
-                        mapboxMap.addInteraction(dragInteraction(layerId: dragId)).erased
-                    )
-                }
-            } else {
-                dragTokens = nil
+        didSet { updateDragHandlers() }
+    }
+
+    private func updateTapHandlers(force: Bool = false) {
+        if handlesTaps {
+            if tapTokens == nil || force {
+                tapTokens = (
+                    mapboxMap.addInteraction(tapInteraction(layerId: id)).erased,
+                    mapboxMap.addInteraction(tapInteraction(layerId: dragId)).erased
+                )
             }
+        } else {
+            tapTokens = nil
+        }
+    }
+
+    private func updateLongPressHandlers(force: Bool = false) {
+        if handlesLongPress {
+            if longPressTokens == nil || force {
+                longPressTokens = (
+                    mapboxMap.addInteraction(longPressInteraction(layerId: id)).erased,
+                    mapboxMap.addInteraction(longPressInteraction(layerId: dragId)).erased
+                )
+            }
+        } else {
+            longPressTokens = nil
+        }
+    }
+
+    private func updateDragHandlers(force: Bool = false) {
+        if handlesDrag {
+            if dragTokens == nil || force {
+                dragTokens = (
+                    mapboxMap.addInteraction(dragInteraction(layerId: id)).erased,
+                    mapboxMap.addInteraction(dragInteraction(layerId: dragId)).erased
+                )
+            }
+        } else {
+            dragTokens = nil
         }
     }
 
@@ -406,7 +420,7 @@ final class AnnotationManagerImpl<AnnotationType: Annotation & AnnotationInterna
     }
 
     private func tapInteraction(layerId: String) -> TapInteraction {
-        return TapInteraction(.layer(layerId)) { [weak self] feature, context in
+        return TapInteraction(.layer(layerId), radius: tapRadius) { [weak self] feature, context in
             guard
                 let self,
                 let featureId = feature.id?.id else { return false }
@@ -430,7 +444,7 @@ final class AnnotationManagerImpl<AnnotationType: Annotation & AnnotationInterna
     }
 
     private func longPressInteraction(layerId: String) -> LongPressInteraction {
-        LongPressInteraction(.layer(layerId)) { [weak self] feature, context in
+        LongPressInteraction(.layer(layerId), radius: longPressRadius) { [weak self] feature, context in
             self?.annotations.first { $0.id == feature.id?.id }?.longPressHandler?(context) ?? false
         }
     }
@@ -500,7 +514,7 @@ final class AnnotationManagerImpl<AnnotationType: Annotation & AnnotationInterna
                 try style.addSource(GeoJSONSource(id: dragId))
                 try style.addPersistentLayer(AnnotationType.makeLayer(id: dragId), layerPosition: .above(id))
             } catch {
-                Log.error(forMessage: "Add drag source/layer \(error)", category: "Annotations")
+                Log.error("Add drag source/layer \(error)", category: "Annotations")
             }
         }
     }

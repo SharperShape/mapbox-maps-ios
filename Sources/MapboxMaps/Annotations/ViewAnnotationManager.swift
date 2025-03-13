@@ -82,6 +82,15 @@ public final class ViewAnnotationManager {
         Array(objectAnnotations.values)
     }
 
+    /// Specify layers that view annotations should avoid. This applies to ALL view annotations associated to any layer.
+    /// The API currently only supports line layers.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public var viewAnnotationAvoidLayers: Set<String> {
+        get { mapboxMap.viewAnnotationAvoidLayers }
+        set { mapboxMap.viewAnnotationAvoidLayers = newValue }
+    }
+
     /// The complete list of annotations associated with the receiver.
     @available(*, deprecated, renamed: "allAnnotations", message: "Please use allAnnotations instead, or directly access ViewAnnotation itself")
     public var annotations: [UIView: ViewAnnotationOptions] {
@@ -580,7 +589,7 @@ extension ViewAnnotationManager {
 func validateAnnotationSuperview(_ view: UIView, expected: UIView?) {
     // Re-add the view if the superview of the annotation view is different than the container
     if view.superview != expected {
-        Log.warning(forMessage: "Superview changed for annotation view. Use `ViewAnnotationManager.remove(_ view: UIView)` instead to remove it from the layout calculation.", category: "Annotations")
+        Log.warning("Superview changed for annotation view. Use `ViewAnnotationManager.remove(_ view: UIView)` instead to remove it from the layout calculation.", category: "Annotations")
         view.removeFromSuperview()
         expected?.addSubview(view)
     }
@@ -589,7 +598,7 @@ func validateAnnotationSuperview(_ view: UIView, expected: UIView?) {
 func validateAnnotationHidden(_ view: UIView, expected: Bool) {
     // View is still considered for layout calculation, users should not modify the visibility of view directly
     if view.isHidden != expected {
-        Log.warning(forMessage: "Visibility changed for annotation view. Use `ViewAnnotationManager.update(view: UIView, options: ViewAnnotationOptions)` instead to update visibility and remove the view from layout calculation.", category: "Annotations")
+        Log.warning("Visibility changed for annotation view. Use `ViewAnnotationManager.update(view: UIView, options: ViewAnnotationOptions)` instead to update visibility and remove the view from layout calculation.", category: "Annotations")
         view.isHidden = expected
     }
 }

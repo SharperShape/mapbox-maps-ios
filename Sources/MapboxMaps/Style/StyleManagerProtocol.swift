@@ -139,6 +139,14 @@ internal protocol StyleManagerProtocol {
         _ property: String,
         value: Any) -> Expected<NSNull, NSString>
 
+    // Snow
+    func setStyleSnowForProperties(_ properties: Any) -> Expected<NSNull, NSString>
+    func getStyleSnowProperty(forProperty: String) -> StylePropertyValue
+
+    // Rain
+    func setStyleRainForProperties(_ properties: Any) -> Expected<NSNull, NSString>
+    func getStyleRainProperty(forProperty: String) -> StylePropertyValue
+
     // Style Model API
     func addStyleModel(forModelId modelId: String, modelUri: String) -> Expected<NSNull, NSString>
     func removeStyleModel(forModelId modelId: String) -> Expected<NSNull, NSString>
@@ -203,6 +211,9 @@ internal protocol StyleManagerProtocol {
                                      featureIds: [String]) -> Expected<NSNull, NSString>
 
     func getStyleFeaturesets() -> [CoreFeaturesetDescriptor]
+
+    func setStyleColorThemeFor(_ colorTheme: CoreColorTheme?) -> Expected<NSNull, NSString>
+    func setInitialStyleColorTheme()
 }
 
 // MARK: Conformance

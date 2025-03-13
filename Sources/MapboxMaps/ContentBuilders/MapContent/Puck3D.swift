@@ -11,7 +11,6 @@
 ///     Puck3D(model: model, bearing: .course)
 /// }
 /// ```
-@available(iOS 13.0, *)
 public struct Puck3D: MapContent, PrimitiveMapContent {
     private var configuration: Puck3DConfiguration
     private var bearing: PuckBearing?
@@ -48,8 +47,18 @@ public struct Puck3D: MapContent, PrimitiveMapContent {
     }
 
     /// Defines scaling mode. Only applies to location-indicator type layers. Defaults to ``ModelScaleMode/viewport``.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
     public func modelScaleMode(_ modelScaleMode: ModelScaleMode) -> Puck3D {
         copyAssigned(self, \.configuration.modelScaleMode, .constant(modelScaleMode))
+    }
+
+    /// Selects the base of the model. Some modes might require precomputed elevation data in the tileset.
+    /// Default value: "ground".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func modelElevationReference(_ value: ModelElevationReference) -> Puck3D {
+        copyAssigned(self, \.configuration.modelElevationReference, .constant(value))
     }
 
     /// Strength of the emission.
@@ -107,7 +116,6 @@ public struct Puck3D: MapContent, PrimitiveMapContent {
         copyAssigned(self, \.configuration.slot, slot)
     }
 
-    @available(iOS 13.0, *)
     func visit(_ node: MapContentNode) {
         let locationOptions = LocationOptions(
             puckType: .puck3D(configuration),

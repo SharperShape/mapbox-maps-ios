@@ -16,7 +16,7 @@
 ///       .image(named: "star")
 ///   }
 ///   .clusterOptions(ClusterOptions(...))
-///   .slot("top")
+///   .slot(.top)
 /// }
 /// ```
 ///
@@ -30,12 +30,11 @@
 ///         PointAnnotation(coordinate: endCoordinate)
 ///             .image(named: "end-icon")
 ///     }
-///     .slot("top")
+///     .slot(.top)
 /// }
 /// ```
 import UIKit
 
-@available(iOS 13.0, *)
 public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
     let annotations: [(ID, PointAnnotation)]
 
@@ -56,7 +55,6 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
     /// - Parameters:
     ///     - data: Collection of identifiable data.
     ///     - content: A closure that creates annotation for a given data item.
-    @available(iOS 13.0, *)
     public init(_ data: Data, content: @escaping (Data.Element) -> PointAnnotation) where Data.Element: Identifiable, Data.Element.ID == ID {
         self.init(data, id: \.id, content: content)
     }
@@ -87,9 +85,11 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
         assign(manager, \.iconRotate, value: iconRotate)
         assign(manager, \.iconRotationAlignment, value: iconRotationAlignment)
         assign(manager, \.iconSize, value: iconSize)
+        assign(manager, \.iconSizeScaleRange, value: iconSizeScaleRange)
         assign(manager, \.iconTextFit, value: iconTextFit)
         assign(manager, \.iconTextFitPadding, value: iconTextFitPadding)
         assign(manager, \.symbolAvoidEdges, value: symbolAvoidEdges)
+        assign(manager, \.symbolElevationReference, value: symbolElevationReference)
         assign(manager, \.symbolPlacement, value: symbolPlacement)
         assign(manager, \.symbolSortKey, value: symbolSortKey)
         assign(manager, \.symbolSpacing, value: symbolSpacing)
@@ -114,6 +114,7 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
         assign(manager, \.textRotate, value: textRotate)
         assign(manager, \.textRotationAlignment, value: textRotationAlignment)
         assign(manager, \.textSize, value: textSize)
+        assign(manager, \.textSizeScaleRange, value: textSizeScaleRange)
         assign(manager, \.textTransform, value: textTransform)
         assign(manager, \.textVariableAnchor, value: textVariableAnchor)
         assign(manager, \.textWritingMode, value: textWritingMode)
@@ -128,7 +129,6 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
         assign(manager, \.iconOpacity, value: iconOpacity)
         assign(manager, \.iconTranslate, value: iconTranslate)
         assign(manager, \.iconTranslateAnchor, value: iconTranslateAnchor)
-        assign(manager, \.symbolElevationReference, value: symbolElevationReference)
         assign(manager, \.symbolZOffset, value: symbolZOffset)
         assign(manager, \.textColor, value: textColor)
         assign(manager, \.textEmissiveStrength, value: textEmissiveStrength)
@@ -141,10 +141,12 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
         assign(manager, \.textTranslateAnchor, value: textTranslateAnchor)
         assign(manager, \.slot, value: slot)
         assign(manager, \.iconOcclusionOpacity, value: iconOcclusionOpacity)
-        assign(manager, \.textOcclusionOpacity, value: textOcclusionOpacity)    
+        assign(manager, \.textOcclusionOpacity, value: textOcclusionOpacity)
 
         manager.onClusterTap = onClusterTap
         manager.onClusterLongPress = onClusterLongPress
+        manager.tapRadius = tapRadius
+        manager.longPressRadius = longPressRadius
     }
 
     // MARK: - Common layer properties
@@ -186,8 +188,8 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
     private var iconOffset: [Double]?
     /// Offset distance of icon from its anchor. Positive values indicate right and down, while negative values indicate left and up. Each component is multiplied by the value of `icon-size` to obtain the final offset in pixels. When combined with `icon-rotate` the offset will be as if the rotated direction was up.
     /// Default value: [0,0].
-    public func iconOffset(_ newValue: [Double]) -> Self {
-        with(self, setter(\.iconOffset, newValue))
+    public func iconOffset(x: Double, y: Double) -> Self {
+        with(self, setter(\.iconOffset, [x, y]))
     }
 
     private var iconOptional: Bool?
@@ -199,7 +201,7 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var iconPadding: Double?
     /// Size of the additional area around the icon bounding box used for detecting symbol collisions.
-    /// Default value: 2. Minimum value: 0.
+    /// Default value: 2. Minimum value: 0. The unit of iconPadding is in pixels.
     public func iconPadding(_ newValue: Double) -> Self {
         with(self, setter(\.iconPadding, newValue))
     }
@@ -213,7 +215,7 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var iconRotate: Double?
     /// Rotates the icon clockwise.
-    /// Default value: 0.
+    /// Default value: 0. The unit of iconRotate is in degrees.
     public func iconRotate(_ newValue: Double) -> Self {
         with(self, setter(\.iconRotate, newValue))
     }
@@ -227,9 +229,18 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var iconSize: Double?
     /// Scales the original size of the icon by the provided factor. The new pixel size of the image will be the original pixel size multiplied by `icon-size`. 1 is the original size; 3 triples the size of the image.
-    /// Default value: 1. Minimum value: 0.
+    /// Default value: 1. Minimum value: 0. The unit of iconSize is in factor of the original icon size.
     public func iconSize(_ newValue: Double) -> Self {
         with(self, setter(\.iconSize, newValue))
+    }
+
+    private var iconSizeScaleRange: [Double]?
+    /// Defines the minimum and maximum scaling factors for icon related properties like `icon-size`, `icon-halo-width`, `icon-halo-blur`
+    /// Default value: [0.8,2]. Value range: [0.1, 10]
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func iconSizeScaleRange(min: Double, max: Double) -> Self {
+        with(self, setter(\.iconSizeScaleRange, [min, max]))
     }
 
     private var iconTextFit: IconTextFit?
@@ -241,9 +252,9 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var iconTextFitPadding: [Double]?
     /// Size of the additional area added to dimensions determined by `icon-text-fit`, in clockwise order: top, right, bottom, left.
-    /// Default value: [0,0,0,0].
-    public func iconTextFitPadding(_ newValue: [Double]) -> Self {
-        with(self, setter(\.iconTextFitPadding, newValue))
+    /// Default value: [0,0,0,0]. The unit of iconTextFitPadding is in pixels.
+    public func iconTextFitPadding(_ padding: UIEdgeInsets) -> Self {
+        with(self, setter(\.iconTextFitPadding, [padding.top, padding.right, padding.bottom, padding.left]))
     }
 
     private var symbolAvoidEdges: Bool?
@@ -251,6 +262,15 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
     /// Default value: false.
     public func symbolAvoidEdges(_ newValue: Bool) -> Self {
         with(self, setter(\.symbolAvoidEdges, newValue))
+    }
+
+    private var symbolElevationReference: SymbolElevationReference?
+    /// Selects the base of symbol-elevation.
+    /// Default value: "ground".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func symbolElevationReference(_ newValue: SymbolElevationReference) -> Self {
+        with(self, setter(\.symbolElevationReference, newValue))
     }
 
     private var symbolPlacement: SymbolPlacement?
@@ -268,7 +288,7 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var symbolSpacing: Double?
     /// Distance between two symbol anchors.
-    /// Default value: 250. Minimum value: 1.
+    /// Default value: 250. Minimum value: 1. The unit of symbolSpacing is in pixels.
     public func symbolSpacing(_ newValue: Double) -> Self {
         with(self, setter(\.symbolSpacing, newValue))
     }
@@ -337,37 +357,37 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var textLetterSpacing: Double?
     /// Text tracking amount.
-    /// Default value: 0.
+    /// Default value: 0. The unit of textLetterSpacing is in ems.
     public func textLetterSpacing(_ newValue: Double) -> Self {
         with(self, setter(\.textLetterSpacing, newValue))
     }
 
     private var textLineHeight: Double?
     /// Text leading value for multi-line text.
-    /// Default value: 1.2.
+    /// Default value: 1.2. The unit of textLineHeight is in ems.
     public func textLineHeight(_ newValue: Double) -> Self {
         with(self, setter(\.textLineHeight, newValue))
     }
 
     private var textMaxAngle: Double?
     /// Maximum angle change between adjacent characters.
-    /// Default value: 45.
+    /// Default value: 45. The unit of textMaxAngle is in degrees.
     public func textMaxAngle(_ newValue: Double) -> Self {
         with(self, setter(\.textMaxAngle, newValue))
     }
 
     private var textMaxWidth: Double?
     /// The maximum line width for text wrapping.
-    /// Default value: 10. Minimum value: 0.
+    /// Default value: 10. Minimum value: 0. The unit of textMaxWidth is in ems.
     public func textMaxWidth(_ newValue: Double) -> Self {
         with(self, setter(\.textMaxWidth, newValue))
     }
 
     private var textOffset: [Double]?
     /// Offset distance of text from its anchor. Positive values indicate right and down, while negative values indicate left and up. If used with text-variable-anchor, input values will be taken as absolute values. Offsets along the x- and y-axis will be applied automatically based on the anchor position.
-    /// Default value: [0,0].
-    public func textOffset(_ newValue: [Double]) -> Self {
-        with(self, setter(\.textOffset, newValue))
+    /// Default value: [0,0]. The unit of textOffset is in ems.
+    public func textOffset(x: Double, y: Double) -> Self {
+        with(self, setter(\.textOffset, [x, y]))
     }
 
     private var textOptional: Bool?
@@ -379,7 +399,7 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var textPadding: Double?
     /// Size of the additional area around the text bounding box used for detecting symbol collisions.
-    /// Default value: 2. Minimum value: 0.
+    /// Default value: 2. Minimum value: 0. The unit of textPadding is in pixels.
     public func textPadding(_ newValue: Double) -> Self {
         with(self, setter(\.textPadding, newValue))
     }
@@ -393,14 +413,14 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var textRadialOffset: Double?
     /// Radial offset of text, in the direction of the symbol's anchor. Useful in combination with `text-variable-anchor`, which defaults to using the two-dimensional `text-offset` if present.
-    /// Default value: 0.
+    /// Default value: 0. The unit of textRadialOffset is in ems.
     public func textRadialOffset(_ newValue: Double) -> Self {
         with(self, setter(\.textRadialOffset, newValue))
     }
 
     private var textRotate: Double?
     /// Rotates the text clockwise.
-    /// Default value: 0.
+    /// Default value: 0. The unit of textRotate is in degrees.
     public func textRotate(_ newValue: Double) -> Self {
         with(self, setter(\.textRotate, newValue))
     }
@@ -414,9 +434,18 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var textSize: Double?
     /// Font size.
-    /// Default value: 16. Minimum value: 0.
+    /// Default value: 16. Minimum value: 0. The unit of textSize is in pixels.
     public func textSize(_ newValue: Double) -> Self {
         with(self, setter(\.textSize, newValue))
+    }
+
+    private var textSizeScaleRange: [Double]?
+    /// Defines the minimum and maximum scaling factors for text related properties like `text-size`, `text-max-width`, `text-halo-width`, `font-size`
+    /// Default value: [0.8,2]. Value range: [0.1, 10]
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func textSizeScaleRange(min: Double, max: Double) -> Self {
+        with(self, setter(\.textSizeScaleRange, [min, max]))
     }
 
     private var textTransform: TextTransform?
@@ -454,14 +483,14 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var iconEmissiveStrength: Double?
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 1. Minimum value: 0.
+    /// Default value: 1. Minimum value: 0. The unit of iconEmissiveStrength is in intensity.
     public func iconEmissiveStrength(_ newValue: Double) -> Self {
         with(self, setter(\.iconEmissiveStrength, newValue))
     }
 
     private var iconHaloBlur: Double?
     /// Fade out the halo towards the outside.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of iconHaloBlur is in pixels.
     public func iconHaloBlur(_ newValue: Double) -> Self {
         with(self, setter(\.iconHaloBlur, newValue))
     }
@@ -475,7 +504,7 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var iconHaloWidth: Double?
     /// Distance of halo to the icon outline.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of iconHaloWidth is in pixels.
     public func iconHaloWidth(_ newValue: Double) -> Self {
         with(self, setter(\.iconHaloWidth, newValue))
     }
@@ -503,9 +532,9 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var iconTranslate: [Double]?
     /// Distance that the icon's anchor is moved from its original placement. Positive values indicate right and down, while negative values indicate left and up.
-    /// Default value: [0,0].
-    public func iconTranslate(_ newValue: [Double]) -> Self {
-        with(self, setter(\.iconTranslate, newValue))
+    /// Default value: [0,0]. The unit of iconTranslate is in pixels.
+    public func iconTranslate(x: Double, y: Double) -> Self {
+        with(self, setter(\.iconTranslate, [x, y]))
     }
 
     private var iconTranslateAnchor: IconTranslateAnchor?
@@ -513,15 +542,6 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
     /// Default value: "map".
     public func iconTranslateAnchor(_ newValue: IconTranslateAnchor) -> Self {
         with(self, setter(\.iconTranslateAnchor, newValue))
-    }
-
-    private var symbolElevationReference: SymbolElevationReference?
-    /// Selects the base of symbol-elevation.
-    /// Default value: "ground".
-    @_documentation(visibility: public)
-    @_spi(Experimental)
-    public func symbolElevationReference(_ newValue: SymbolElevationReference) -> Self {
-        with(self, setter(\.symbolElevationReference, newValue))
     }
 
     private var symbolZOffset: Double?
@@ -542,14 +562,14 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var textEmissiveStrength: Double?
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 1. Minimum value: 0.
+    /// Default value: 1. Minimum value: 0. The unit of textEmissiveStrength is in intensity.
     public func textEmissiveStrength(_ newValue: Double) -> Self {
         with(self, setter(\.textEmissiveStrength, newValue))
     }
 
     private var textHaloBlur: Double?
     /// The halo's fadeout distance towards the outside.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of textHaloBlur is in pixels.
     public func textHaloBlur(_ newValue: Double) -> Self {
         with(self, setter(\.textHaloBlur, newValue))
     }
@@ -563,7 +583,7 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var textHaloWidth: Double?
     /// Distance of halo to the font outline. Max text halo width is 1/4 of the font-size.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of textHaloWidth is in pixels.
     public func textHaloWidth(_ newValue: Double) -> Self {
         with(self, setter(\.textHaloWidth, newValue))
     }
@@ -584,9 +604,9 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
 
     private var textTranslate: [Double]?
     /// Distance that the text's anchor is moved from its original placement. Positive values indicate right and down, while negative values indicate left and up.
-    /// Default value: [0,0].
-    public func textTranslate(_ newValue: [Double]) -> Self {
-        with(self, setter(\.textTranslate, newValue))
+    /// Default value: [0,0]. The unit of textTranslate is in pixels.
+    public func textTranslate(x: Double, y: Double) -> Self {
+        with(self, setter(\.textTranslate, [x, y]))
     }
 
     private var textTranslateAnchor: TextTranslateAnchor?
@@ -601,8 +621,17 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
     ///
     /// Use this property to position the annotations relative to other map features if you use Mapbox Standard Style.
     /// See <doc:Migrate-to-v11##21-The-Mapbox-Standard-Style> for more info.
+    @available(*, deprecated, message: "Use Slot type instead of string")
     public func slot(_ newValue: String) -> Self {
         with(self, setter(\.slot, newValue))
+    }
+
+    /// Slot for the underlying layer.
+    ///
+    /// Use this property to position the annotations relative to other map features if you use Mapbox Standard Style.
+    /// See <doc:Migrate-to-v11##21-The-Mapbox-Standard-Style> for more info.
+    public func slot(_ newValue: Slot?) -> Self {
+        with(self, setter(\.slot, newValue?.rawValue))
     }
 
     private var clusterOptions: ClusterOptions?
@@ -647,9 +676,25 @@ public struct PointAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
     public func layerId(_ layerId: String) -> Self {
         with(self, setter(\.layerId, layerId))
     }
+
+    var tapRadius: CGFloat?
+    var longPressRadius: CGFloat?
+
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func tapRadius(_ radius: CGFloat? = nil) -> Self {
+        with(self, setter(\.tapRadius, radius))
+    }
+
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func longPressRadius(_ radius: CGFloat? = nil) -> Self {
+        with(self, setter(\.longPressRadius, radius))
+    }
 }
 
-@available(iOS 13.0, *)
 extension PointAnnotationGroup: MapContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         let group = MountedAnnotationGroup(

@@ -13,8 +13,12 @@ struct MapContentUniqueProperties: Decodable {
     var terrain: Terrain?
     var atmosphere: Atmosphere?
     var projection: StyleProjection?
+    var snow: Snow?
+    var rain: Rain?
+    var colorTheme: ColorTheme?
     var transition: TransitionOptions?
     var location: LocationOptions?
+
     var lights = Lights()
 
     private func update<T: Equatable & Encodable>(_ label: String, old: T?, new: T?, initial: T?, setter: (Any) -> Expected<NSNull, NSString>) {
@@ -38,8 +42,10 @@ struct MapContentUniqueProperties: Decodable {
         update("atmosphere", old: old.atmosphere, new: atmosphere, initial: initial?.atmosphere, setter: style.setStyleAtmosphereForProperties(_:))
         update("projection", old: old.projection, new: projection, initial: initial?.projection, setter: style.setStyleProjectionForProperties(_:))
         update("terrain", old: old.terrain, new: terrain, initial: initial?.terrain, setter: style.setStyleTerrainForProperties(_:))
-
+        update("snow", old: old.snow, new: snow, initial: initial?.snow, setter: style.setStyleSnowForProperties(_:))
+        update("rain", old: old.rain, new: rain, initial: initial?.rain, setter: style.setStyleRainForProperties(_:))
         lights.update(from: old.lights, style: style, initialLights: initial?.lights)
+        update(from: old.colorTheme, to: colorTheme, style: style)
 
         if old.location != location {
             locationManager?.options = location ?? LocationOptions()
@@ -59,6 +65,8 @@ extension MapContentUniqueProperties {
         case terrain
         case atmosphere = "fog"
         case projection
+        case snow
+        case rain
         case lights = "lights"
     }
 
@@ -68,6 +76,8 @@ extension MapContentUniqueProperties {
         self.terrain = try container.decodeIfPresent(Terrain.self, forKey: .terrain)
         self.atmosphere = try container.decodeIfPresent(Atmosphere.self, forKey: .atmosphere)
         self.projection = try container.decodeIfPresent(StyleProjection.self, forKey: .projection)
+        self.snow = try container.decodeIfPresent(Snow.self, forKey: .snow)
+        self.rain = try container.decodeIfPresent(Rain.self, forKey: .rain)
         if var lightContainer = try? container.nestedUnkeyedContainer(forKey: .lights) {
             while !lightContainer.isAtEnd {
                 var lightInfoContainer = lightContainer
@@ -81,7 +91,21 @@ extension MapContentUniqueProperties {
                 case .flat:
                     lights.flat = try? lightContainer.decode(FlatLight.self)
                 default:
-                    Log.warning(forMessage: "Incorrect light configuration. Specify both directional and ambient lights OR flat light.", category: "StyleDSL")
+                    Log.warning("Incorrect light configuration. Specify both directional and ambient lights OR flat light.", category: "StyleDSL")
+                }
+            }
+        }
+    }
+}
+
+private extension MapContentUniqueProperties {
+    func update(from oldColorTheme: ColorTheme?, to newColorTheme: ColorTheme?, style: StyleManagerProtocol) {
+        wrapStyleDSLError {
+            if newColorTheme != oldColorTheme {
+                if let newColorTheme {
+                    try handleExpected { style.setStyleColorThemeFor(newColorTheme.core) }
+                } else {
+                    style.setInitialStyleColorTheme()
                 }
             }
         }
@@ -96,7 +120,7 @@ private extension MapContentUniqueProperties.Lights {
                     os_log(.debug, log: .contentDSL, "set 3d lights")
                     try style.setLights(ambient: ambient, directional: directional)
                 } else if directional != nil || ambient != nil {
-                    Log.warning(forMessage: "Incorrect 3D light configuration. Specify both directional and ambient lights.", category: "StyleDSL")
+                    Log.warning("Incorrect 3D light configuration. Specify both directional and ambient lights.", category: "StyleDSL")
                 } else if let flat = flat {
                     os_log(.debug, log: .contentDSL, "set flat light")
                     try style.setLights(flat)

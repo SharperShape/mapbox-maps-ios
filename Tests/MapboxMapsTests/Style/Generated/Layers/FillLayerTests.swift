@@ -52,6 +52,7 @@ final class FillLayerTests: XCTestCase {
     func testEncodingAndDecodingOfLayoutProperties() {
         var layer = FillLayer(id: "test-id", source: "source")
         layer.visibility = .constant(.visible)
+        layer.fillElevationReference = Value<FillElevationReference>.testConstantValue()
         layer.fillSortKey = Value<Double>.testConstantValue()
 
         var data: Data?
@@ -69,6 +70,7 @@ final class FillLayerTests: XCTestCase {
         do {
             let decodedLayer = try JSONDecoder().decode(FillLayer.self, from: validData)
             XCTAssert(decodedLayer.visibility == .constant(.visible))
+            XCTAssertEqual(layer.fillElevationReference, Value<FillElevationReference>.testConstantValue())
             XCTAssertEqual(layer.fillSortKey, Value<Double>.testConstantValue())
         } catch {
             XCTFail("Failed to decode FillLayer")
@@ -80,16 +82,20 @@ final class FillLayerTests: XCTestCase {
        layer.fillAntialias = Value<Bool>.testConstantValue()
        layer.fillColor = Value<StyleColor>.testConstantValue()
        layer.fillColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
+       layer.fillColorUseTheme = .none
        layer.fillEmissiveStrength = Value<Double>.testConstantValue()
        layer.fillEmissiveStrengthTransition = StyleTransition(duration: 10.0, delay: 10.0)
        layer.fillOpacity = Value<Double>.testConstantValue()
        layer.fillOpacityTransition = StyleTransition(duration: 10.0, delay: 10.0)
        layer.fillOutlineColor = Value<StyleColor>.testConstantValue()
        layer.fillOutlineColorTransition = StyleTransition(duration: 10.0, delay: 10.0)
+       layer.fillOutlineColorUseTheme = .none
        layer.fillPattern = Value<ResolvedImage>.testConstantValue()
        layer.fillTranslate = Value<[Double]>.testConstantValue()
        layer.fillTranslateTransition = StyleTransition(duration: 10.0, delay: 10.0)
        layer.fillTranslateAnchor = Value<FillTranslateAnchor>.testConstantValue()
+       layer.fillZOffset = Value<Double>.testConstantValue()
+       layer.fillZOffsetTransition = StyleTransition(duration: 10.0, delay: 10.0)
 
        var data: Data?
        do {
@@ -114,6 +120,7 @@ final class FillLayerTests: XCTestCase {
            XCTAssertEqual(layer.fillPattern, Value<ResolvedImage>.testConstantValue())
            XCTAssertEqual(layer.fillTranslate, Value<[Double]>.testConstantValue())
            XCTAssertEqual(layer.fillTranslateAnchor, Value<FillTranslateAnchor>.testConstantValue())
+           XCTAssertEqual(layer.fillZOffset, Value<Double>.testConstantValue())
        } catch {
            XCTFail("Failed to decode FillLayer")
        }
@@ -127,6 +134,7 @@ final class FillLayerTests: XCTestCase {
             .slot(Slot.testConstantValue())
             .minZoom(Double.testConstantValue())
             .maxZoom(Double.testConstantValue())
+            .fillElevationReference(FillElevationReference.testConstantValue())
             .fillSortKey(Double.testConstantValue())
             .fillAntialias(Bool.testConstantValue())
             .fillColor(StyleColor.testConstantValue())
@@ -136,6 +144,7 @@ final class FillLayerTests: XCTestCase {
             .fillPattern(String.testConstantValue())
             .fillTranslate(x: 0, y: 1)
             .fillTranslateAnchor(FillTranslateAnchor.testConstantValue())
+            .fillZOffset(Double.testConstantValue())
 
         XCTAssertEqual(layer.filter, Exp.testConstantValue())
         XCTAssertEqual(layer.source, String.testConstantValue())
@@ -143,6 +152,7 @@ final class FillLayerTests: XCTestCase {
         XCTAssertEqual(layer.slot, Slot.testConstantValue())
         XCTAssertEqual(layer.minZoom, Double.testConstantValue())
         XCTAssertEqual(layer.maxZoom, Double.testConstantValue())
+        XCTAssertEqual(layer.fillElevationReference, Value.constant(FillElevationReference.testConstantValue()))
         XCTAssertEqual(layer.fillSortKey, Value.constant(Double.testConstantValue()))
         XCTAssertEqual(layer.fillAntialias, Value.constant(Bool.testConstantValue()))
         XCTAssertEqual(layer.fillColor, Value.constant(StyleColor.testConstantValue()))
@@ -152,6 +162,7 @@ final class FillLayerTests: XCTestCase {
         XCTAssertEqual(layer.fillPattern, Value<ResolvedImage>.constant(.name(String.testConstantValue())))
         XCTAssertEqual(layer.fillTranslate, Value.constant([0, 1]))
         XCTAssertEqual(layer.fillTranslateAnchor, Value.constant(FillTranslateAnchor.testConstantValue()))
+        XCTAssertEqual(layer.fillZOffset, Value.constant(Double.testConstantValue()))
     }
 }
 

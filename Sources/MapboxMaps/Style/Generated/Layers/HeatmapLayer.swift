@@ -42,6 +42,10 @@ public struct HeatmapLayer: Layer, Equatable {
     /// Defines the color of each pixel based on its density value in a heatmap. Should be an expression that uses `["heatmap-density"]` as input.
     /// Default value: ["interpolate",["linear"],["heatmap-density"],0,"rgba(0, 0, 255, 0)",0.1,"royalblue",0.3,"cyan",0.5,"lime",0.7,"yellow",1,"red"].
     public var heatmapColor: Value<StyleColor>?
+    /// This property defines whether to use colorTheme defined color or not.
+    /// By default it will use color defined by the root theme in the style.
+    /// NOTE: - Expressions set to this property currently don't work.
+    @_spi(Experimental) public var heatmapColorUseTheme: Value<ColorUseTheme>?
 
     /// Similar to `heatmap-weight` but controls the intensity of the heatmap globally. Primarily used for adjusting the heatmap based on zoom level.
     /// Default value: 1. Minimum value: 0.
@@ -58,7 +62,7 @@ public struct HeatmapLayer: Layer, Equatable {
     public var heatmapOpacityTransition: StyleTransition?
 
     /// Radius of influence of one heatmap point in pixels. Increasing the value makes the heatmap smoother, but less detailed. `queryRenderedFeatures` on heatmap layers will return points within this radius.
-    /// Default value: 30. Minimum value: 1.
+    /// Default value: 30. Minimum value: 1. The unit of heatmapRadius is in pixels.
     public var heatmapRadius: Value<Double>?
 
     /// Transition options for `heatmapRadius`.
@@ -88,6 +92,7 @@ public struct HeatmapLayer: Layer, Equatable {
 
         var paintContainer = container.nestedContainer(keyedBy: PaintCodingKeys.self, forKey: .paint)
         try paintContainer.encodeIfPresent(heatmapColor, forKey: .heatmapColor)
+        try paintContainer.encodeIfPresent(heatmapColorUseTheme, forKey: .heatmapColorUseTheme)
         try paintContainer.encodeIfPresent(heatmapIntensity, forKey: .heatmapIntensity)
         try paintContainer.encodeIfPresent(heatmapIntensityTransition, forKey: .heatmapIntensityTransition)
         try paintContainer.encodeIfPresent(heatmapOpacity, forKey: .heatmapOpacity)
@@ -113,6 +118,7 @@ public struct HeatmapLayer: Layer, Equatable {
 
         if let paintContainer = try? container.nestedContainer(keyedBy: PaintCodingKeys.self, forKey: .paint) {
             heatmapColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .heatmapColor)
+            heatmapColorUseTheme = try paintContainer.decodeIfPresent(Value<ColorUseTheme>.self, forKey: .heatmapColorUseTheme)
             heatmapIntensity = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .heatmapIntensity)
             heatmapIntensityTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .heatmapIntensityTransition)
             heatmapOpacity = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .heatmapOpacity)
@@ -148,6 +154,7 @@ public struct HeatmapLayer: Layer, Equatable {
 
     enum PaintCodingKeys: String, CodingKey {
         case heatmapColor = "heatmap-color"
+        case heatmapColorUseTheme = "heatmap-color-use-theme"
         case heatmapIntensity = "heatmap-intensity"
         case heatmapIntensityTransition = "heatmap-intensity-transition"
         case heatmapOpacity = "heatmap-opacity"
@@ -213,6 +220,22 @@ extension HeatmapLayer {
         with(self, setter(\.heatmapColor, .expression(expression)))
     }
 
+    /// This property defines whether the `heatmapColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func heatmapColorUseTheme(_ useTheme: ColorUseTheme) -> Self {
+        with(self, setter(\.heatmapColorUseTheme, .constant(useTheme)))
+    }
+
+    /// This property defines whether the `heatmapColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func heatmapColorUseTheme(_ expression: Exp) -> Self {
+        with(self, setter(\.heatmapColorUseTheme, .expression(expression)))
+    }
+
     /// Similar to `heatmap-weight` but controls the intensity of the heatmap globally. Primarily used for adjusting the heatmap based on zoom level.
     /// Default value: 1. Minimum value: 0.
     public func heatmapIntensity(_ constant: Double) -> Self {
@@ -248,7 +271,7 @@ extension HeatmapLayer {
     }
 
     /// Radius of influence of one heatmap point in pixels. Increasing the value makes the heatmap smoother, but less detailed. `queryRenderedFeatures` on heatmap layers will return points within this radius.
-    /// Default value: 30. Minimum value: 1.
+    /// Default value: 30. Minimum value: 1. The unit of heatmapRadius is in pixels.
     public func heatmapRadius(_ constant: Double) -> Self {
         with(self, setter(\.heatmapRadius, .constant(constant)))
     }
@@ -259,7 +282,7 @@ extension HeatmapLayer {
     }
 
     /// Radius of influence of one heatmap point in pixels. Increasing the value makes the heatmap smoother, but less detailed. `queryRenderedFeatures` on heatmap layers will return points within this radius.
-    /// Default value: 30. Minimum value: 1.
+    /// Default value: 30. Minimum value: 1. The unit of heatmapRadius is in pixels.
     public func heatmapRadius(_ expression: Exp) -> Self {
         with(self, setter(\.heatmapRadius, .expression(expression)))
     }
@@ -277,7 +300,6 @@ extension HeatmapLayer {
     }
 }
 
-@available(iOS 13.0, *)
 extension HeatmapLayer: MapStyleContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         node.mount(MountedLayer(layer: self))

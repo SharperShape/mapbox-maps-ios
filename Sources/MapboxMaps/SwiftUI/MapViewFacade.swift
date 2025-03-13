@@ -2,7 +2,6 @@ import SwiftUI
 import UIKit
 
 /// Abstraction around MapView which makes unit testing possible.
-@available(iOS 13.0, *)
 struct MapViewFacade {
     var styleManager: StyleProtocol
     var mapboxMap: MapboxMapProtocol
@@ -17,12 +16,12 @@ struct MapViewFacade {
     var presentationTransactionMode: PresentationTransactionMode
     @MutableRef
     var frameRate: Map.FrameRate
+    var attributionMenu: AttributionMenu
 
     var makeViewportTransition: (ViewportAnimation) -> ViewportTransition
     var makeViewportState: (Viewport, LayoutDirection) -> ViewportState?
 }
 
-@available(iOS 13.0, *)
 extension MapViewFacade {
     init(from mapView: MapView) {
         styleManager = mapView.mapboxMap
@@ -34,7 +33,7 @@ extension MapViewFacade {
         _isOpaque = MutableRef(root: mapView, keyPath: \.isOpaque)
         _presentationTransactionMode = MutableRef(root: mapView, keyPath: \.presentationTransactionMode)
         _frameRate = MutableRef(get: mapView.getFrameRate, set: mapView.set(frameRate:))
-
+        attributionMenu = mapView.attributionMenu
         makeViewportTransition = { animation in
             animation.makeViewportTransition(mapView)
         }
@@ -45,14 +44,13 @@ extension MapViewFacade {
 }
 
 private extension MapView {
-    @available(iOS 13.0, *)
     func set(frameRate: Map.FrameRate) {
         if #available(iOS 15.0, *), let initialRange = frameRate.range {
             let clampedRange = initialRange.clamped(to: 1...initialRange.upperBound)
 
             if clampedRange != initialRange {
                 Log.warning(
-                    forMessage: """
+                    """
                     Provided frame rate range was clamped from \(initialRange) to \(clampedRange).
                     Negative or zero values are not allowed.
                     """,
@@ -70,7 +68,7 @@ private extension MapView {
 
             if clampedValue != preferred {
                 Log.warning(
-                    forMessage: """
+                    """
                     Preferred frame rate was clamped from \(preferred) to \(clampedValue).
                     Negative value, zero values and values larger then Int.max are not allowed.
                     """,
@@ -82,7 +80,6 @@ private extension MapView {
         }
     }
 
-    @available(iOS 13.0, *)
     func getFrameRate() -> Map.FrameRate {
         if #available(iOS 15.0, *) {
             return Map.FrameRate(

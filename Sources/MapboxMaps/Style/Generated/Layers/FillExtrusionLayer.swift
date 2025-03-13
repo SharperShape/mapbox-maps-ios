@@ -86,11 +86,16 @@ public struct FillExtrusionLayer: Layer, Equatable {
     @_spi(Experimental) public var fillExtrusionAmbientOcclusionWallRadiusTransition: StyleTransition?
 
     /// The height with which to extrude the base of this layer. Must be less than or equal to `fill-extrusion-height`.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionBase is in meters.
     public var fillExtrusionBase: Value<Double>?
 
     /// Transition options for `fillExtrusionBase`.
     public var fillExtrusionBaseTransition: StyleTransition?
+
+    /// Controls the behavior of fill extrusion base over terrain
+    /// Default value: "terrain".
+    @_documentation(visibility: public)
+    @_spi(Experimental) public var fillExtrusionBaseAlignment: Value<FillExtrusionBaseAlignment>?
 
     /// The base color of the extruded fill. The extrusion's surfaces will be shaded differently based on this color in combination with the root `light` settings. If this color is specified as `rgba` with an alpha component, the alpha component will be ignored; use `fill-extrusion-opacity` to set layer opacity.
     /// Default value: "#000000".
@@ -98,13 +103,17 @@ public struct FillExtrusionLayer: Layer, Equatable {
 
     /// Transition options for `fillExtrusionColor`.
     public var fillExtrusionColorTransition: StyleTransition?
+    /// This property defines whether to use colorTheme defined color or not.
+    /// By default it will use color defined by the root theme in the style.
+    /// NOTE: - Expressions set to this property currently don't work.
+    @_spi(Experimental) public var fillExtrusionColorUseTheme: Value<ColorUseTheme>?
 
     /// This parameter defines the range for the fade-out effect before an automatic content cutoff on pitched map views. Fade out is implemented by scaling down and removing buildings in the fade range in a staggered fashion. Opacity is not changed. The fade range is expressed in relation to the height of the map view. A value of 1.0 indicates that the content is faded to the same extent as the map's height in pixels, while a value close to zero represents a sharp cutoff. When the value is set to 0.0, the cutoff is completely disabled. Note: The property has no effect on the map if terrain is enabled.
     /// Default value: 0. Value range: [0, 1]
     public var fillExtrusionCutoffFadeRange: Value<Double>?
 
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionEmissiveStrength is in intensity.
     public var fillExtrusionEmissiveStrength: Value<Double>?
 
     /// Transition options for `fillExtrusionEmissiveStrength`.
@@ -118,6 +127,10 @@ public struct FillExtrusionLayer: Layer, Equatable {
     /// Transition options for `fillExtrusionFloodLightColor`.
     @_documentation(visibility: public)
     @_spi(Experimental) public var fillExtrusionFloodLightColorTransition: StyleTransition?
+    /// This property defines whether to use colorTheme defined color or not.
+    /// By default it will use color defined by the root theme in the style.
+    /// NOTE: - Expressions set to this property currently don't work.
+    @_spi(Experimental) public var fillExtrusionFloodLightColorUseTheme: Value<ColorUseTheme>?
 
     /// Provides a control to futher fine-tune the look of the flood light on the ground beneath the extruded buildings. Lower values give the effect a more solid look while higher values make it smoother.
     /// Default value: 0.69. Value range: [0, 1]
@@ -129,7 +142,7 @@ public struct FillExtrusionLayer: Layer, Equatable {
     @_spi(Experimental) public var fillExtrusionFloodLightGroundAttenuationTransition: StyleTransition?
 
     /// The extent of the flood light effect on the ground beneath the extruded buildings in meters. Note: this experimental property is evaluated once per tile, during tile initialization. Changing the property value could trigger tile reload. The `feature-state` styling is deprecated and will get removed soon.
-    /// Default value: 0.
+    /// Default value: 0. The unit of fillExtrusionFloodLightGroundRadius is in meters.
     @_documentation(visibility: public)
     @_spi(Experimental) public var fillExtrusionFloodLightGroundRadius: Value<Double>?
 
@@ -147,7 +160,7 @@ public struct FillExtrusionLayer: Layer, Equatable {
     @_spi(Experimental) public var fillExtrusionFloodLightIntensityTransition: StyleTransition?
 
     /// The extent of the flood light effect on the walls of the extruded buildings in meters.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionFloodLightWallRadius is in meters.
     @_documentation(visibility: public)
     @_spi(Experimental) public var fillExtrusionFloodLightWallRadius: Value<Double>?
 
@@ -156,14 +169,19 @@ public struct FillExtrusionLayer: Layer, Equatable {
     @_spi(Experimental) public var fillExtrusionFloodLightWallRadiusTransition: StyleTransition?
 
     /// The height with which to extrude this layer.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionHeight is in meters.
     public var fillExtrusionHeight: Value<Double>?
 
     /// Transition options for `fillExtrusionHeight`.
     public var fillExtrusionHeightTransition: StyleTransition?
 
+    /// Controls the behavior of fill extrusion height over terrain
+    /// Default value: "flat".
+    @_documentation(visibility: public)
+    @_spi(Experimental) public var fillExtrusionHeightAlignment: Value<FillExtrusionHeightAlignment>?
+
     /// If a non-zero value is provided, it sets the fill-extrusion layer into wall rendering mode. The value is used to render the feature with the given width over the outlines of the geometry. Note: This property is experimental and some other fill-extrusion properties might not be supported with non-zero line width.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionLineWidth is in meters.
     @_documentation(visibility: public)
     @_spi(Experimental) public var fillExtrusionLineWidth: Value<Double>?
 
@@ -187,7 +205,7 @@ public struct FillExtrusionLayer: Layer, Equatable {
     @_spi(Experimental) public var fillExtrusionRoundedRoof: Value<Bool>?
 
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up (on the flat plane), respectively.
-    /// Default value: [0,0].
+    /// Default value: [0,0]. The unit of fillExtrusionTranslate is in pixels.
     public var fillExtrusionTranslate: Value<[Double]>?
 
     /// Transition options for `fillExtrusionTranslate`.
@@ -241,13 +259,16 @@ public struct FillExtrusionLayer: Layer, Equatable {
         try paintContainer.encodeIfPresent(fillExtrusionAmbientOcclusionWallRadiusTransition, forKey: .fillExtrusionAmbientOcclusionWallRadiusTransition)
         try paintContainer.encodeIfPresent(fillExtrusionBase, forKey: .fillExtrusionBase)
         try paintContainer.encodeIfPresent(fillExtrusionBaseTransition, forKey: .fillExtrusionBaseTransition)
+        try paintContainer.encodeIfPresent(fillExtrusionBaseAlignment, forKey: .fillExtrusionBaseAlignment)
         try paintContainer.encodeIfPresent(fillExtrusionColor, forKey: .fillExtrusionColor)
         try paintContainer.encodeIfPresent(fillExtrusionColorTransition, forKey: .fillExtrusionColorTransition)
+        try paintContainer.encodeIfPresent(fillExtrusionColorUseTheme, forKey: .fillExtrusionColorUseTheme)
         try paintContainer.encodeIfPresent(fillExtrusionCutoffFadeRange, forKey: .fillExtrusionCutoffFadeRange)
         try paintContainer.encodeIfPresent(fillExtrusionEmissiveStrength, forKey: .fillExtrusionEmissiveStrength)
         try paintContainer.encodeIfPresent(fillExtrusionEmissiveStrengthTransition, forKey: .fillExtrusionEmissiveStrengthTransition)
         try paintContainer.encodeIfPresent(fillExtrusionFloodLightColor, forKey: .fillExtrusionFloodLightColor)
         try paintContainer.encodeIfPresent(fillExtrusionFloodLightColorTransition, forKey: .fillExtrusionFloodLightColorTransition)
+        try paintContainer.encodeIfPresent(fillExtrusionFloodLightColorUseTheme, forKey: .fillExtrusionFloodLightColorUseTheme)
         try paintContainer.encodeIfPresent(fillExtrusionFloodLightGroundAttenuation, forKey: .fillExtrusionFloodLightGroundAttenuation)
         try paintContainer.encodeIfPresent(fillExtrusionFloodLightGroundAttenuationTransition, forKey: .fillExtrusionFloodLightGroundAttenuationTransition)
         try paintContainer.encodeIfPresent(fillExtrusionFloodLightGroundRadius, forKey: .fillExtrusionFloodLightGroundRadius)
@@ -258,6 +279,7 @@ public struct FillExtrusionLayer: Layer, Equatable {
         try paintContainer.encodeIfPresent(fillExtrusionFloodLightWallRadiusTransition, forKey: .fillExtrusionFloodLightWallRadiusTransition)
         try paintContainer.encodeIfPresent(fillExtrusionHeight, forKey: .fillExtrusionHeight)
         try paintContainer.encodeIfPresent(fillExtrusionHeightTransition, forKey: .fillExtrusionHeightTransition)
+        try paintContainer.encodeIfPresent(fillExtrusionHeightAlignment, forKey: .fillExtrusionHeightAlignment)
         try paintContainer.encodeIfPresent(fillExtrusionLineWidth, forKey: .fillExtrusionLineWidth)
         try paintContainer.encodeIfPresent(fillExtrusionLineWidthTransition, forKey: .fillExtrusionLineWidthTransition)
         try paintContainer.encodeIfPresent(fillExtrusionOpacity, forKey: .fillExtrusionOpacity)
@@ -300,13 +322,16 @@ public struct FillExtrusionLayer: Layer, Equatable {
             fillExtrusionAmbientOcclusionWallRadiusTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillExtrusionAmbientOcclusionWallRadiusTransition)
             fillExtrusionBase = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillExtrusionBase)
             fillExtrusionBaseTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillExtrusionBaseTransition)
+            fillExtrusionBaseAlignment = try paintContainer.decodeIfPresent(Value<FillExtrusionBaseAlignment>.self, forKey: .fillExtrusionBaseAlignment)
             fillExtrusionColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .fillExtrusionColor)
             fillExtrusionColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillExtrusionColorTransition)
+            fillExtrusionColorUseTheme = try paintContainer.decodeIfPresent(Value<ColorUseTheme>.self, forKey: .fillExtrusionColorUseTheme)
             fillExtrusionCutoffFadeRange = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillExtrusionCutoffFadeRange)
             fillExtrusionEmissiveStrength = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillExtrusionEmissiveStrength)
             fillExtrusionEmissiveStrengthTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillExtrusionEmissiveStrengthTransition)
             fillExtrusionFloodLightColor = try paintContainer.decodeIfPresent(Value<StyleColor>.self, forKey: .fillExtrusionFloodLightColor)
             fillExtrusionFloodLightColorTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillExtrusionFloodLightColorTransition)
+            fillExtrusionFloodLightColorUseTheme = try paintContainer.decodeIfPresent(Value<ColorUseTheme>.self, forKey: .fillExtrusionFloodLightColorUseTheme)
             fillExtrusionFloodLightGroundAttenuation = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillExtrusionFloodLightGroundAttenuation)
             fillExtrusionFloodLightGroundAttenuationTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillExtrusionFloodLightGroundAttenuationTransition)
             fillExtrusionFloodLightGroundRadius = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillExtrusionFloodLightGroundRadius)
@@ -317,6 +342,7 @@ public struct FillExtrusionLayer: Layer, Equatable {
             fillExtrusionFloodLightWallRadiusTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillExtrusionFloodLightWallRadiusTransition)
             fillExtrusionHeight = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillExtrusionHeight)
             fillExtrusionHeightTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillExtrusionHeightTransition)
+            fillExtrusionHeightAlignment = try paintContainer.decodeIfPresent(Value<FillExtrusionHeightAlignment>.self, forKey: .fillExtrusionHeightAlignment)
             fillExtrusionLineWidth = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillExtrusionLineWidth)
             fillExtrusionLineWidthTransition = try paintContainer.decodeIfPresent(StyleTransition.self, forKey: .fillExtrusionLineWidthTransition)
             fillExtrusionOpacity = try paintContainer.decodeIfPresent(Value<Double>.self, forKey: .fillExtrusionOpacity)
@@ -370,13 +396,16 @@ public struct FillExtrusionLayer: Layer, Equatable {
         case fillExtrusionAmbientOcclusionWallRadiusTransition = "fill-extrusion-ambient-occlusion-wall-radius-transition"
         case fillExtrusionBase = "fill-extrusion-base"
         case fillExtrusionBaseTransition = "fill-extrusion-base-transition"
+        case fillExtrusionBaseAlignment = "fill-extrusion-base-alignment"
         case fillExtrusionColor = "fill-extrusion-color"
         case fillExtrusionColorTransition = "fill-extrusion-color-transition"
+        case fillExtrusionColorUseTheme = "fill-extrusion-color-use-theme"
         case fillExtrusionCutoffFadeRange = "fill-extrusion-cutoff-fade-range"
         case fillExtrusionEmissiveStrength = "fill-extrusion-emissive-strength"
         case fillExtrusionEmissiveStrengthTransition = "fill-extrusion-emissive-strength-transition"
         case fillExtrusionFloodLightColor = "fill-extrusion-flood-light-color"
         case fillExtrusionFloodLightColorTransition = "fill-extrusion-flood-light-color-transition"
+        case fillExtrusionFloodLightColorUseTheme = "fill-extrusion-flood-light-color-use-theme"
         case fillExtrusionFloodLightGroundAttenuation = "fill-extrusion-flood-light-ground-attenuation"
         case fillExtrusionFloodLightGroundAttenuationTransition = "fill-extrusion-flood-light-ground-attenuation-transition"
         case fillExtrusionFloodLightGroundRadius = "fill-extrusion-flood-light-ground-radius"
@@ -387,6 +416,7 @@ public struct FillExtrusionLayer: Layer, Equatable {
         case fillExtrusionFloodLightWallRadiusTransition = "fill-extrusion-flood-light-wall-radius-transition"
         case fillExtrusionHeight = "fill-extrusion-height"
         case fillExtrusionHeightTransition = "fill-extrusion-height-transition"
+        case fillExtrusionHeightAlignment = "fill-extrusion-height-alignment"
         case fillExtrusionLineWidth = "fill-extrusion-line-width"
         case fillExtrusionLineWidthTransition = "fill-extrusion-line-width-transition"
         case fillExtrusionOpacity = "fill-extrusion-opacity"
@@ -559,7 +589,7 @@ extension FillExtrusionLayer {
     }
 
     /// The height with which to extrude the base of this layer. Must be less than or equal to `fill-extrusion-height`.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionBase is in meters.
     public func fillExtrusionBase(_ constant: Double) -> Self {
         with(self, setter(\.fillExtrusionBase, .constant(constant)))
     }
@@ -570,9 +600,25 @@ extension FillExtrusionLayer {
     }
 
     /// The height with which to extrude the base of this layer. Must be less than or equal to `fill-extrusion-height`.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionBase is in meters.
     public func fillExtrusionBase(_ expression: Exp) -> Self {
         with(self, setter(\.fillExtrusionBase, .expression(expression)))
+    }
+
+    /// Controls the behavior of fill extrusion base over terrain
+    /// Default value: "terrain".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillExtrusionBaseAlignment(_ constant: FillExtrusionBaseAlignment) -> Self {
+        with(self, setter(\.fillExtrusionBaseAlignment, .constant(constant)))
+    }
+
+    /// Controls the behavior of fill extrusion base over terrain
+    /// Default value: "terrain".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillExtrusionBaseAlignment(_ expression: Exp) -> Self {
+        with(self, setter(\.fillExtrusionBaseAlignment, .expression(expression)))
     }
 
     /// The base color of the extruded fill. The extrusion's surfaces will be shaded differently based on this color in combination with the root `light` settings. If this color is specified as `rgba` with an alpha component, the alpha component will be ignored; use `fill-extrusion-opacity` to set layer opacity.
@@ -598,6 +644,22 @@ extension FillExtrusionLayer {
         with(self, setter(\.fillExtrusionColor, .expression(expression)))
     }
 
+    /// This property defines whether the `fillExtrusionColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillExtrusionColorUseTheme(_ useTheme: ColorUseTheme) -> Self {
+        with(self, setter(\.fillExtrusionColorUseTheme, .constant(useTheme)))
+    }
+
+    /// This property defines whether the `fillExtrusionColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillExtrusionColorUseTheme(_ expression: Exp) -> Self {
+        with(self, setter(\.fillExtrusionColorUseTheme, .expression(expression)))
+    }
+
     /// This parameter defines the range for the fade-out effect before an automatic content cutoff on pitched map views. Fade out is implemented by scaling down and removing buildings in the fade range in a staggered fashion. Opacity is not changed. The fade range is expressed in relation to the height of the map view. A value of 1.0 indicates that the content is faded to the same extent as the map's height in pixels, while a value close to zero represents a sharp cutoff. When the value is set to 0.0, the cutoff is completely disabled. Note: The property has no effect on the map if terrain is enabled.
     /// Default value: 0. Value range: [0, 1]
     public func fillExtrusionCutoffFadeRange(_ constant: Double) -> Self {
@@ -611,7 +673,7 @@ extension FillExtrusionLayer {
     }
 
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionEmissiveStrength is in intensity.
     public func fillExtrusionEmissiveStrength(_ constant: Double) -> Self {
         with(self, setter(\.fillExtrusionEmissiveStrength, .constant(constant)))
     }
@@ -622,7 +684,7 @@ extension FillExtrusionLayer {
     }
 
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionEmissiveStrength is in intensity.
     public func fillExtrusionEmissiveStrength(_ expression: Exp) -> Self {
         with(self, setter(\.fillExtrusionEmissiveStrength, .expression(expression)))
     }
@@ -658,6 +720,22 @@ extension FillExtrusionLayer {
         with(self, setter(\.fillExtrusionFloodLightColor, .expression(expression)))
     }
 
+    /// This property defines whether the `fillExtrusionFloodLightColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillExtrusionFloodLightColorUseTheme(_ useTheme: ColorUseTheme) -> Self {
+        with(self, setter(\.fillExtrusionFloodLightColorUseTheme, .constant(useTheme)))
+    }
+
+    /// This property defines whether the `fillExtrusionFloodLightColor` uses colorTheme from the style or not.
+    /// By default it will use color defined by the root theme in the style.
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillExtrusionFloodLightColorUseTheme(_ expression: Exp) -> Self {
+        with(self, setter(\.fillExtrusionFloodLightColorUseTheme, .expression(expression)))
+    }
+
     /// Provides a control to futher fine-tune the look of the flood light on the ground beneath the extruded buildings. Lower values give the effect a more solid look while higher values make it smoother.
     /// Default value: 0.69. Value range: [0, 1]
     @_documentation(visibility: public)
@@ -682,7 +760,7 @@ extension FillExtrusionLayer {
     }
 
     /// The extent of the flood light effect on the ground beneath the extruded buildings in meters. Note: this experimental property is evaluated once per tile, during tile initialization. Changing the property value could trigger tile reload. The `feature-state` styling is deprecated and will get removed soon.
-    /// Default value: 0.
+    /// Default value: 0. The unit of fillExtrusionFloodLightGroundRadius is in meters.
     @_documentation(visibility: public)
     @_spi(Experimental)
     public func fillExtrusionFloodLightGroundRadius(_ constant: Double) -> Self {
@@ -697,7 +775,7 @@ extension FillExtrusionLayer {
     }
 
     /// The extent of the flood light effect on the ground beneath the extruded buildings in meters. Note: this experimental property is evaluated once per tile, during tile initialization. Changing the property value could trigger tile reload. The `feature-state` styling is deprecated and will get removed soon.
-    /// Default value: 0.
+    /// Default value: 0. The unit of fillExtrusionFloodLightGroundRadius is in meters.
     @_documentation(visibility: public)
     @_spi(Experimental)
     public func fillExtrusionFloodLightGroundRadius(_ expression: Exp) -> Self {
@@ -728,7 +806,7 @@ extension FillExtrusionLayer {
     }
 
     /// The extent of the flood light effect on the walls of the extruded buildings in meters.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionFloodLightWallRadius is in meters.
     @_documentation(visibility: public)
     @_spi(Experimental)
     public func fillExtrusionFloodLightWallRadius(_ constant: Double) -> Self {
@@ -743,7 +821,7 @@ extension FillExtrusionLayer {
     }
 
     /// The extent of the flood light effect on the walls of the extruded buildings in meters.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionFloodLightWallRadius is in meters.
     @_documentation(visibility: public)
     @_spi(Experimental)
     public func fillExtrusionFloodLightWallRadius(_ expression: Exp) -> Self {
@@ -751,7 +829,7 @@ extension FillExtrusionLayer {
     }
 
     /// The height with which to extrude this layer.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionHeight is in meters.
     public func fillExtrusionHeight(_ constant: Double) -> Self {
         with(self, setter(\.fillExtrusionHeight, .constant(constant)))
     }
@@ -762,13 +840,29 @@ extension FillExtrusionLayer {
     }
 
     /// The height with which to extrude this layer.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionHeight is in meters.
     public func fillExtrusionHeight(_ expression: Exp) -> Self {
         with(self, setter(\.fillExtrusionHeight, .expression(expression)))
     }
 
+    /// Controls the behavior of fill extrusion height over terrain
+    /// Default value: "flat".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillExtrusionHeightAlignment(_ constant: FillExtrusionHeightAlignment) -> Self {
+        with(self, setter(\.fillExtrusionHeightAlignment, .constant(constant)))
+    }
+
+    /// Controls the behavior of fill extrusion height over terrain
+    /// Default value: "flat".
+    @_documentation(visibility: public)
+    @_spi(Experimental)
+    public func fillExtrusionHeightAlignment(_ expression: Exp) -> Self {
+        with(self, setter(\.fillExtrusionHeightAlignment, .expression(expression)))
+    }
+
     /// If a non-zero value is provided, it sets the fill-extrusion layer into wall rendering mode. The value is used to render the feature with the given width over the outlines of the geometry. Note: This property is experimental and some other fill-extrusion properties might not be supported with non-zero line width.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionLineWidth is in meters.
     @_documentation(visibility: public)
     @_spi(Experimental)
     public func fillExtrusionLineWidth(_ constant: Double) -> Self {
@@ -783,7 +877,7 @@ extension FillExtrusionLayer {
     }
 
     /// If a non-zero value is provided, it sets the fill-extrusion layer into wall rendering mode. The value is used to render the feature with the given width over the outlines of the geometry. Note: This property is experimental and some other fill-extrusion properties might not be supported with non-zero line width.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillExtrusionLineWidth is in meters.
     @_documentation(visibility: public)
     @_spi(Experimental)
     public func fillExtrusionLineWidth(_ expression: Exp) -> Self {
@@ -834,7 +928,7 @@ extension FillExtrusionLayer {
     }
 
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up (on the flat plane), respectively.
-    /// Default value: [0,0].
+    /// Default value: [0,0]. The unit of fillExtrusionTranslate is in pixels.
     public func fillExtrusionTranslate(x: Double, y: Double) -> Self {
         with(self, setter(\.fillExtrusionTranslate, .constant([x, y])))
     }
@@ -845,7 +939,7 @@ extension FillExtrusionLayer {
     }
 
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up (on the flat plane), respectively.
-    /// Default value: [0,0].
+    /// Default value: [0,0]. The unit of fillExtrusionTranslate is in pixels.
     public func fillExtrusionTranslate(_ expression: Exp) -> Self {
         with(self, setter(\.fillExtrusionTranslate, .expression(expression)))
     }
@@ -898,7 +992,6 @@ extension FillExtrusionLayer {
     }
 }
 
-@available(iOS 13.0, *)
 extension FillExtrusionLayer: MapStyleContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         node.mount(MountedLayer(layer: self))

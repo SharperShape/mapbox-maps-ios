@@ -2,7 +2,6 @@ import Foundation
 import UIKit
 import SwiftUI
 
-@available(iOS 13.0, *)
 enum ConstantOrBinding<T> {
     case constant(T)
     case binding(Binding<T>)
@@ -12,7 +11,7 @@ func wrapAssignError(_ body: () throws -> Void) {
     do {
         try body()
     } catch {
-        Log.error(forMessage: "Failed to assign property, error: \(error)", category: "SwiftUI")
+        Log.error("Failed to assign property, error: \(error)", category: "SwiftUI")
     }
 }
 

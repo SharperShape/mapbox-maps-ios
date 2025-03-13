@@ -15,10 +15,10 @@ extension MapStyle {
     ///   - show3dObjects: Shows or hides all 3d layers (3D buildings, landmarks, trees, etc.) including shadows, ambient occlusion, and flood lights. Default value: `true`.
     ///   - buildingHighlightColor: Building color used when setting highlight state. Default value: `hsl(214, 83%, 72%)`.
     ///   - buildingSelectColor: Building color used when setting select state. Default value: `hsl(214, 94%, 59%)`.
-    ///   - placeLabelSelectColor: Place label color used when setting select state. Default value: `hsl(4, 53%, 42%)`.
     ///   - placeLabelHighlightColor: Place label color used when setting highlight state. Default value: `hsl(4, 43%, 55%)`.
-    @_spi(Experimental)
+    ///   - placeLabelSelectColor: Place label color used when setting select state. Default value: `hsl(4, 53%, 42%)`.
     @_documentation(visibility: public)
+    @_spi(Experimental)
     public static func standardExperimental(
         theme: StandardTheme? = nil,
         lightPreset: StandardLightPreset? = nil,
@@ -30,8 +30,8 @@ extension MapStyle {
         show3dObjects: Bool? = nil,
         buildingHighlightColor: StyleColor? = nil,
         buildingSelectColor: StyleColor? = nil,
-        placeLabelSelectColor: StyleColor? = nil,
-        placeLabelHighlightColor: StyleColor? = nil
+        placeLabelHighlightColor: StyleColor? = nil,
+        placeLabelSelectColor: StyleColor? = nil
     ) -> MapStyle {
         var config = JSONObject()
         config.encode(key: "theme", value: theme)
@@ -44,14 +44,14 @@ extension MapStyle {
         config.encode(key: "show3dObjects", value: show3dObjects)
         config.encode(key: "buildingHighlightColor", value: buildingHighlightColor)
         config.encode(key: "buildingSelectColor", value: buildingSelectColor)
-        config.encode(key: "placeLabelSelectColor", value: placeLabelSelectColor)
         config.encode(key: "placeLabelHighlightColor", value: placeLabelHighlightColor)
+        config.encode(key: "placeLabelSelectColor", value: placeLabelSelectColor)
         return MapStyle(uri: StyleURI(rawValue: "mapbox://styles/mapbox-map-design/standard-experimental-ime")!, configuration: config)
     }
 
     /// NOT FOR PRODUCTION USE. An experimental version of the Mapbox Standard style.
     /// This style is used for testing new features and changes to the Mapbox Standard style. The style may change or be removed at any time.
-    @_spi(Experimental)
     @_documentation(visibility: public)
+    @_spi(Experimental)
     public static var standardExperimental: MapStyle { MapStyle(uri: StyleURI(rawValue: "mapbox://styles/mapbox-map-design/standard-experimental-ime")!) }
 }

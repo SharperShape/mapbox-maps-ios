@@ -17,7 +17,7 @@
 ///             .circleRadius(10)
 ///     }
 /// }
-/// .slot("top")
+/// .slot(.top)
 /// ```
 ///
 /// When the number of annotations is static, you use static that groups one or more annotations:
@@ -32,12 +32,11 @@
 ///             .circleColor("gray")
 ///             .circleRadius(10)
 ///     }
-///     .slot("top")
+///     .slot(.top)
 /// }
 /// ```
 import UIKit
 
-@available(iOS 13.0, *)
 public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> {
     let annotations: [(ID, CircleAnnotation)]
 
@@ -58,7 +57,6 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> 
     /// - Parameters:
     ///     - data: Collection of identifiable data.
     ///     - content: A closure that creates annotation for a given data item.
-    @available(iOS 13.0, *)
     public init(_ data: Data, content: @escaping (Data.Element) -> CircleAnnotation) where Data.Element: Identifiable, Data.Element.ID == ID {
         self.init(data, id: \.id, content: content)
     }
@@ -91,6 +89,8 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> 
         assign(manager, \.circleTranslate, value: circleTranslate)
         assign(manager, \.circleTranslateAnchor, value: circleTranslateAnchor)
         assign(manager, \.slot, value: slot)
+        manager.tapRadius = tapRadius
+        manager.longPressRadius = longPressRadius
     }
 
     // MARK: - Common layer properties
@@ -117,7 +117,7 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> 
 
     private var circleEmissiveStrength: Double?
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of circleEmissiveStrength is in intensity.
     public func circleEmissiveStrength(_ newValue: Double) -> Self {
         with(self, setter(\.circleEmissiveStrength, newValue))
     }
@@ -145,7 +145,7 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> 
 
     private var circleRadius: Double?
     /// Circle radius.
-    /// Default value: 5. Minimum value: 0.
+    /// Default value: 5. Minimum value: 0. The unit of circleRadius is in pixels.
     public func circleRadius(_ newValue: Double) -> Self {
         with(self, setter(\.circleRadius, newValue))
     }
@@ -166,16 +166,16 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> 
 
     private var circleStrokeWidth: Double?
     /// The width of the circle's stroke. Strokes are placed outside of the `circle-radius`.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of circleStrokeWidth is in pixels.
     public func circleStrokeWidth(_ newValue: Double) -> Self {
         with(self, setter(\.circleStrokeWidth, newValue))
     }
 
     private var circleTranslate: [Double]?
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
-    /// Default value: [0,0].
-    public func circleTranslate(_ newValue: [Double]) -> Self {
-        with(self, setter(\.circleTranslate, newValue))
+    /// Default value: [0,0]. The unit of circleTranslate is in pixels.
+    public func circleTranslate(x: Double, y: Double) -> Self {
+        with(self, setter(\.circleTranslate, [x, y]))
     }
 
     private var circleTranslateAnchor: CircleTranslateAnchor?
@@ -190,8 +190,17 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> 
     ///
     /// Use this property to position the annotations relative to other map features if you use Mapbox Standard Style.
     /// See <doc:Migrate-to-v11##21-The-Mapbox-Standard-Style> for more info.
+    @available(*, deprecated, message: "Use Slot type instead of string")
     public func slot(_ newValue: String) -> Self {
         with(self, setter(\.slot, newValue))
+    }
+
+    /// Slot for the underlying layer.
+    ///
+    /// Use this property to position the annotations relative to other map features if you use Mapbox Standard Style.
+    /// See <doc:Migrate-to-v11##21-The-Mapbox-Standard-Style> for more info.
+    public func slot(_ newValue: Slot?) -> Self {
+        with(self, setter(\.slot, newValue?.rawValue))
     }
 
     private var layerId: String?
@@ -203,9 +212,25 @@ public struct CircleAnnotationGroup<Data: RandomAccessCollection, ID: Hashable> 
     public func layerId(_ layerId: String) -> Self {
         with(self, setter(\.layerId, layerId))
     }
+
+    var tapRadius: CGFloat?
+    var longPressRadius: CGFloat?
+
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func tapRadius(_ radius: CGFloat? = nil) -> Self {
+        with(self, setter(\.tapRadius, radius))
+    }
+
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public func longPressRadius(_ radius: CGFloat? = nil) -> Self {
+        with(self, setter(\.longPressRadius, radius))
+    }
 }
 
-@available(iOS 13.0, *)
 extension CircleAnnotationGroup: MapContent, PrimitiveMapContent {
     func visit(_ node: MapContentNode) {
         let group = MountedAnnotationGroup(

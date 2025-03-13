@@ -1,5 +1,6 @@
 import Foundation
 import WebKit
+@_implementationOnly import MapboxCommon_Private
 
 struct Attribution: Hashable {
 
@@ -21,7 +22,7 @@ struct Attribution: Hashable {
         "https://www.mapbox.com/map-feedback/",
         "https://apps.mapbox.com/feedback/"
     ]
-    private static let privacyPolicyURL = URL(string: "https://www.mapbox.com/legal/privacy#product-privacy-policy")
+    internal static let privacyPolicyURL = URL(string: "https://www.mapbox.com/legal/privacy#product-privacy-policy")!
 
     var title: String
     var kind: Kind
@@ -98,10 +99,6 @@ struct Attribution: Hashable {
     /// - Parameter rawAttributions: Array of HTML strings
     /// - Parameter completion: A block that will be passed the result of parsing.
     internal static func parse(_ rawAttributions: [String], completion: @escaping ([Attribution]) -> Void) {
-        guard #available(iOS 13, *) else {
-            completion(parseSynchronously(rawAttributions))
-            return
-        }
 #if compiler(>=5.6.0) && canImport(_Concurrency)
         Task { @MainActor in
             let attributons = await parseAsync(rawAttributions)
@@ -116,7 +113,6 @@ struct Attribution: Hashable {
     /// Parse the raw attribution strings from sources asynchronously
     /// - Parameter rawAttributions: Array of HTML strings
     /// - Returns: Array of Attribution structs
-    @available(iOS 13.0, *)
     private static func parseAsync(_ rawAttributions: [String]) async -> [Attribution] {
         var result: [Attribution] = []
 

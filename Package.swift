@@ -4,8 +4,9 @@
 import PackageDescription
 import Foundation
 
-let coreMaps = MapsDependency.coreMaps(version: "11.8.0")
-let common = MapsDependency.common(version: "24.8.0")
+let coreMaps = MapsDependency.coreMaps(version: "11.10.2")
+
+let common = MapsDependency.common(version: "24.10.0")
 
 let mapboxMapsPath: String? = nil
 
@@ -13,14 +14,14 @@ let package = Package(
     name: "MapboxMaps",
     defaultLocalization: "en",
     // Maps SDK doesn't support macOS but declared the minimum macOS requirement with downstream deps to enable `swift run` cli tools
-    platforms: [.iOS(.v12), .macOS(.v10_15), .custom("visionos", versionString: "1.0")],
+    platforms: [.iOS(.v14), .macOS(.v10_15), .custom("visionos", versionString: "1.0")],
     products: [
         .library(
             name: "MapboxMaps",
             targets: ["MapboxMaps"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/SharperShape/turf-swift.git", .branch("v3-new-new")),
+        .package(url: "https://github.com/SharperShape/turf-swift.git", .branch("v4-new")),
     ] + coreMaps.packageDependencies + common.packageDependencies,
     targets: [
         .target(

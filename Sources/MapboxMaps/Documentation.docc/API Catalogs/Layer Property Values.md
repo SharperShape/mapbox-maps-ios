@@ -42,6 +42,13 @@
 - ``TransitionOptions-struct``
 - ``ModelScaleMode``
 - ``SymbolElevationReference``
+- ``BackgroundPitchAlignment``
+- ``FillExtrusionBaseAlignment``
+- ``FillExtrusionHeightAlignment``
+- ``FillElevationReference``
+- ``LineElevationReference``
+- ``LineWidthUnit``
+- ``ModelElevationReference``
 
 <!-- Next two are arguable regarding it's category -->
 - ``ImageContent``

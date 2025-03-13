@@ -18,6 +18,22 @@ public class PolygonAnnotationManager: AnnotationManager, AnnotationManagerInter
         set { impl.annotations = newValue }
     }
 
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public var tapRadius: CGFloat? {
+        get { impl.tapRadius }
+        set { impl.tapRadius = newValue }
+    }
+
+    /// A custom tappable area radius. Default value is 0.
+    @_spi(Experimental)
+    @_documentation(visibility: public)
+    public var longPressRadius: CGFloat? {
+        get { impl.longPressRadius }
+        set { impl.longPressRadius = newValue }
+    }
+
     /// Set this delegate in order to be called back if a tap occurs on an annotation being managed by this manager.
     /// - NOTE: This annotation manager listens to tap events via the ``GestureManager/singleTapGestureRecognizer``.
     @available(*, deprecated, message: "Use tapHandler property of Annotation")
@@ -41,6 +57,14 @@ public class PolygonAnnotationManager: AnnotationManager, AnnotationManagerInter
 
     // MARK: - Common layer properties
 
+    /// Selects the base of fill-elevation. Some modes might require precomputed elevation data in the tileset.
+    /// Default value: "none".
+    @_documentation(visibility: public)
+    @_spi(Experimental) public var fillElevationReference: FillElevationReference? {
+        get { impl.layerProperties["fill-elevation-reference"].flatMap { $0 as? String }.flatMap(FillElevationReference.init(rawValue:)) }
+        set { impl.layerProperties["fill-elevation-reference"] = newValue?.rawValue }
+    }
+
     /// Sorts features in ascending order based on this value. Features with a higher sort key will appear above features with a lower sort key.
     public var fillSortKey: Double? {
         get { impl.layerProperties["fill-sort-key"] as? Double }
@@ -62,7 +86,7 @@ public class PolygonAnnotationManager: AnnotationManager, AnnotationManagerInter
     }
 
     /// Controls the intensity of light emitted on the source features.
-    /// Default value: 0. Minimum value: 0.
+    /// Default value: 0. Minimum value: 0. The unit of fillEmissiveStrength is in intensity.
     public var fillEmissiveStrength: Double? {
         get { impl.layerProperties["fill-emissive-strength"] as? Double }
         set { impl.layerProperties["fill-emissive-strength"] = newValue }
@@ -88,7 +112,7 @@ public class PolygonAnnotationManager: AnnotationManager, AnnotationManagerInter
     }
 
     /// The geometry's offset. Values are [x, y] where negatives indicate left and up, respectively.
-    /// Default value: [0,0].
+    /// Default value: [0,0]. The unit of fillTranslate is in pixels.
     public var fillTranslate: [Double]? {
         get { impl.layerProperties["fill-translate"] as? [Double] }
         set { impl.layerProperties["fill-translate"] = newValue }
@@ -99,6 +123,14 @@ public class PolygonAnnotationManager: AnnotationManager, AnnotationManagerInter
     public var fillTranslateAnchor: FillTranslateAnchor? {
         get { impl.layerProperties["fill-translate-anchor"].flatMap { $0 as? String }.flatMap(FillTranslateAnchor.init(rawValue:)) }
         set { impl.layerProperties["fill-translate-anchor"] = newValue?.rawValue }
+    }
+
+    /// Specifies an uniform elevation in meters. Note: If the value is zero, the layer will be rendered on the ground. Non-zero values will elevate the layer from the sea level, which can cause it to be rendered below the terrain.
+    /// Default value: 0. Minimum value: 0.
+    @_documentation(visibility: public)
+    @_spi(Experimental) public var fillZOffset: Double? {
+        get { impl.layerProperties["fill-z-offset"] as? Double }
+        set { impl.layerProperties["fill-z-offset"] = newValue }
     }
 
     /// Slot for the underlying layer.

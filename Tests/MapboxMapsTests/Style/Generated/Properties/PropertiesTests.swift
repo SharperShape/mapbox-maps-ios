@@ -1,7 +1,7 @@
 // This file is generated.
 // swiftlint:disable file_length
 import Foundation
-@testable import MapboxMaps
+@_spi(Experimental) @testable import MapboxMaps
 
 extension Value where T == Visibility {
     static func testConstantValue() -> Value<Visibility> {
@@ -12,6 +12,25 @@ extension Value where T == Visibility {
 extension Visibility {
     static func testConstantValue() -> Visibility {
         return .visible
+    }
+}
+
+// MARK: FILL_ELEVATION_REFERENCE
+
+extension Value where T == FillElevationReference {
+    static func testConstantValue() -> Value<FillElevationReference> {
+        return .constant(FillElevationReference.testConstantValue())
+    }
+}
+
+extension FillElevationReference {
+    static func testConstantValue() -> FillElevationReference {
+        return .none
+    }
+
+    static func random() -> FillElevationReference {
+        let allCases: [FillElevationReference] = [.none, .hdRoadBase, .hdRoadMarkup]
+        return allCases.randomElement()!
     }
 }
 
@@ -34,6 +53,25 @@ extension LineCap {
     }
 }
 
+// MARK: LINE_ELEVATION_REFERENCE
+
+extension Value where T == LineElevationReference {
+    static func testConstantValue() -> Value<LineElevationReference> {
+        return .constant(LineElevationReference.testConstantValue())
+    }
+}
+
+extension LineElevationReference {
+    static func testConstantValue() -> LineElevationReference {
+        return .none
+    }
+
+    static func random() -> LineElevationReference {
+        let allCases: [LineElevationReference] = [.none, .sea, .ground, .hdRoadMarkup]
+        return allCases.randomElement()!
+    }
+}
+
 // MARK: LINE_JOIN
 
 extension Value where T == LineJoin {
@@ -49,6 +87,25 @@ extension LineJoin {
 
     static func random() -> LineJoin {
         let allCases: [LineJoin] = [.bevel, .round, .miter, .none]
+        return allCases.randomElement()!
+    }
+}
+
+// MARK: LINE_WIDTH_UNIT
+
+extension Value where T == LineWidthUnit {
+    static func testConstantValue() -> Value<LineWidthUnit> {
+        return .constant(LineWidthUnit.testConstantValue())
+    }
+}
+
+extension LineWidthUnit {
+    static func testConstantValue() -> LineWidthUnit {
+        return .pixels
+    }
+
+    static func random() -> LineWidthUnit {
+        let allCases: [LineWidthUnit] = [.pixels, .meters]
         return allCases.randomElement()!
     }
 }
@@ -125,6 +182,25 @@ extension IconTextFit {
 
     static func random() -> IconTextFit {
         let allCases: [IconTextFit] = [.none, .width, .height, .both]
+        return allCases.randomElement()!
+    }
+}
+
+// MARK: SYMBOL_ELEVATION_REFERENCE
+
+extension Value where T == SymbolElevationReference {
+    static func testConstantValue() -> Value<SymbolElevationReference> {
+        return .constant(SymbolElevationReference.testConstantValue())
+    }
+}
+
+extension SymbolElevationReference {
+    static func testConstantValue() -> SymbolElevationReference {
+        return .sea
+    }
+
+    static func random() -> SymbolElevationReference {
+        let allCases: [SymbolElevationReference] = [.sea, .ground, .hdRoadMarkup]
         return allCases.randomElement()!
     }
 }
@@ -319,25 +395,6 @@ extension IconTranslateAnchor {
     }
 }
 
-// MARK: SYMBOL_ELEVATION_REFERENCE
-
-extension Value where T == SymbolElevationReference {
-    static func testConstantValue() -> Value<SymbolElevationReference> {
-        return .constant(SymbolElevationReference.testConstantValue())
-    }
-}
-
-extension SymbolElevationReference {
-    static func testConstantValue() -> SymbolElevationReference {
-        return .sea
-    }
-
-    static func random() -> SymbolElevationReference {
-        let allCases: [SymbolElevationReference] = [.sea, .ground]
-        return allCases.randomElement()!
-    }
-}
-
 // MARK: TEXT_TRANSLATE_ANCHOR
 
 extension Value where T == TextTranslateAnchor {
@@ -414,6 +471,44 @@ extension CircleTranslateAnchor {
     }
 }
 
+// MARK: FILL_EXTRUSION_BASE_ALIGNMENT
+
+extension Value where T == FillExtrusionBaseAlignment {
+    static func testConstantValue() -> Value<FillExtrusionBaseAlignment> {
+        return .constant(FillExtrusionBaseAlignment.testConstantValue())
+    }
+}
+
+extension FillExtrusionBaseAlignment {
+    static func testConstantValue() -> FillExtrusionBaseAlignment {
+        return .terrain
+    }
+
+    static func random() -> FillExtrusionBaseAlignment {
+        let allCases: [FillExtrusionBaseAlignment] = [.terrain, .flat]
+        return allCases.randomElement()!
+    }
+}
+
+// MARK: FILL_EXTRUSION_HEIGHT_ALIGNMENT
+
+extension Value where T == FillExtrusionHeightAlignment {
+    static func testConstantValue() -> Value<FillExtrusionHeightAlignment> {
+        return .constant(FillExtrusionHeightAlignment.testConstantValue())
+    }
+}
+
+extension FillExtrusionHeightAlignment {
+    static func testConstantValue() -> FillExtrusionHeightAlignment {
+        return .terrain
+    }
+
+    static func random() -> FillExtrusionHeightAlignment {
+        let allCases: [FillExtrusionHeightAlignment] = [.terrain, .flat]
+        return allCases.randomElement()!
+    }
+}
+
 // MARK: FILL_EXTRUSION_TRANSLATE_ANCHOR
 
 extension Value where T == FillExtrusionTranslateAnchor {
@@ -471,6 +566,25 @@ extension HillshadeIlluminationAnchor {
     }
 }
 
+// MARK: MODEL_ELEVATION_REFERENCE
+
+extension Value where T == ModelElevationReference {
+    static func testConstantValue() -> Value<ModelElevationReference> {
+        return .constant(ModelElevationReference.testConstantValue())
+    }
+}
+
+extension ModelElevationReference {
+    static func testConstantValue() -> ModelElevationReference {
+        return .sea
+    }
+
+    static func random() -> ModelElevationReference {
+        let allCases: [ModelElevationReference] = [.sea, .ground]
+        return allCases.randomElement()!
+    }
+}
+
 // MARK: MODEL_SCALE_MODE
 
 extension Value where T == ModelScaleMode {
@@ -505,6 +619,25 @@ extension ModelType {
 
     static func random() -> ModelType {
         let allCases: [ModelType] = [.common3d, .locationIndicator]
+        return allCases.randomElement()!
+    }
+}
+
+// MARK: BACKGROUND_PITCH_ALIGNMENT
+
+extension Value where T == BackgroundPitchAlignment {
+    static func testConstantValue() -> Value<BackgroundPitchAlignment> {
+        return .constant(BackgroundPitchAlignment.testConstantValue())
+    }
+}
+
+extension BackgroundPitchAlignment {
+    static func testConstantValue() -> BackgroundPitchAlignment {
+        return .map
+    }
+
+    static func random() -> BackgroundPitchAlignment {
+        let allCases: [BackgroundPitchAlignment] = [.map, .viewport]
         return allCases.randomElement()!
     }
 }

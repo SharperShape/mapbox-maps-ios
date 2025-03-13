@@ -291,4 +291,116 @@ final class ExpressionTests: XCTestCase {
         XCTAssertNoThrow(sumExpression.operator)
         XCTAssertEqual(expectedExpressionOperator, sumExpressionOperator)
     }
+
+    func testExpressionConstructorWithTrivialConvertibleArgument() throws {
+        let shortFormExpression = Exp(.get, "name")
+        let builderBasedExpression = Exp(.get) { "name" }
+
+        XCTAssertEqual(shortFormExpression, builderBasedExpression)
+    }
+
+    func testExpressionConstructorWithComplexConvertibleArgument() throws {
+        let shortFormExpression = Exp(.interpolate, Exp(.linear), Exp(.zoom), 15, 0, 15.05, 1)
+        let longFormExpression = Exp(.interpolate) {
+            Exp(.linear)
+            Exp(.zoom)
+            15
+            0
+            15.05
+            1
+        }
+
+        XCTAssertEqual(shortFormExpression, longFormExpression)
+    }
+
+    func testExpressionConstructorWithComplexNotEqualConvertibleArgument() throws {
+        let shortFormExpression = Exp(.interpolate, Exp(.linear, Exp(.zoom), 15, 0, 15.05, 1))
+        let longFormExpression = Exp(.interpolate) {
+            Exp(.linear)
+            Exp(.zoom)
+            15
+            0
+            15.05
+            1
+        }
+
+        XCTAssertNotEqual(shortFormExpression, longFormExpression)
+    }
+
+    func testEncodeImageOptions() throws {
+        let color = StyleColor(UIColor.black)
+        let empty = ImageOptions([:])
+        let constantValues = ImageOptions([
+            "key": .constant(StyleColor("red")),
+            "key2": .constant(color)
+
+        ])
+        let expression = Expression(.toRgba, Exp(.get, "color"))
+        let expression2 = Exp(.switchCase) {
+            Exp(.gte) {
+                Exp(.toNumber) {
+                    Exp(.get) { "point_count" }
+                }
+                4
+            }
+            "#ffffff"
+            "#000000"
+        }
+        let expressionValues = ImageOptions([
+            "key": .expression(expression),
+            "key2": .expression(expression2)
+        ])
+
+        let emptyEncoded = try DictionaryEncoder().encode(empty)
+        let constantValuesEncoded = try DictionaryEncoder().encode(constantValues)
+        let expressionValuesParamsEncoded = try DictionaryEncoder().encode(expressionValues)["params"] as? [String: Any]
+
+        XCTAssertEqual(emptyEncoded["params"] as? [String: String], [:])
+        XCTAssertEqual(constantValuesEncoded["params"] as? [String: String], ["key": "red", "key2": color.rawValue])
+        XCTAssertEqual(
+            String(data: try JSONSerialization.data(withJSONObject: expressionValuesParamsEncoded?["key"] as Any), encoding: .utf8),
+            ##"["to-rgba",["get","color"]]"##
+        )
+        XCTAssertEqual(
+            String(data: try JSONSerialization.data(withJSONObject: expressionValuesParamsEncoded?["key2"] as Any), encoding: .utf8),
+            ##"["case",[">=",["to-number",["get","point_count"]],4],"#ffffff","#000000"]"##
+        )
+    }
+
+    func testDecodeImageOptions() throws {
+        let jsonString = #"{"params": {"expression": ["get", "color"], "constant": "red", "rgb": "rgba(0, 0, 0, 1)"}}"#
+
+        let imageOptions = try JSONDecoder().decode(ImageOptions.self, from: try XCTUnwrap(jsonString.data(using: .utf8)))
+
+        XCTAssertEqual(imageOptions.options["expression"], Value.expression(Exp(.get) { "color" }))
+        XCTAssertEqual(imageOptions.options["constant"], Value.constant(StyleColor(rawValue: "red")))
+        XCTAssertEqual(imageOptions.options["rgb"], Value.constant(StyleColor("rgba(0, 0, 0, 1)")))
+    }
+
+    func testEncodeLiteralDictionary() throws {
+        let expression = Exp(.literal) { ["opacity": 0.5] }
+
+        let encoded = try JSONEncoder().encode(expression)
+
+        XCTAssertEqual(
+            String(data: encoded, encoding: .utf8),
+            "[\"literal\",{\"opacity\":0.5}]"
+            )
+    }
+
+    func testDecodeLiteralDictionary() {
+        let expressionString =
+            """
+                ["literal",
+                    {
+                        "opacity":0.5,
+                        "bkey":"bval",
+                    }
+                ]
+            """
+
+        let expression = try! XCTUnwrap(JSONDecoder().decode(Expression.self, from: expressionString.data(using: .utf8)!))
+
+        XCTAssertEqual(expression, Exp(.literal) { ["opacity": 0.5, "bkey": "bval"] })
+    }
 }
