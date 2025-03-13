@@ -23,6 +23,6 @@ Pod::Spec.new do |m|
 
   m.dependency 'MapboxCoreMaps', '11.10.2'
   m.dependency 'MapboxCommon', '24.10.0'
-  m.dependency 'Turf', '4.0.0'
+  m.dependency 'Turf', '3.0.0'
 
 end
